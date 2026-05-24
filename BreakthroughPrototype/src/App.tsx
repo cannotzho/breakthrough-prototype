@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import OverworldStub from './components/OverworldStub';
+import Overworld from './components/Overworld';
 import CombatScreen from './components/CombatScreen';
 
 export default function App() {
@@ -28,5 +28,5 @@ export default function App() {
     );
   }
 
-  return <OverworldStub completedEncounters={completedEncounters} onStartCombat={startCombat} />;
+  return <Overworld completedEncounters={completedEncounters} onStartCombat={startCombat} />;
 }
