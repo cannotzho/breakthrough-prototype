@@ -1,0 +1,1193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Breakthrough - A Detective Card Game</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #1a1a2e;
+  color: #eee;
+  font-family: "Segoe UI", "Arial", sans-serif;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+#gameContainer {
+  position: relative;
+  width: 960px;
+  height: 640px;
+  background: #16213e;
+  border: 2px solid #0f3460;
+  border-radius: 8px;
+  overflow: hidden;
+}
+canvas { display: block; }
+#uiOverlay {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+}
+.dialogBox {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 85%;
+  min-height: 120px;
+  background: rgba(10, 15, 30, 0.95);
+  border: 2px solid #e94560;
+  border-radius: 8px;
+  padding: 16px 20px;
+  pointer-events: auto;
+  display: none;
+}
+.dialogBox .speaker {
+  color: #e94560;
+  font-weight: bold;
+  margin-bottom: 8px;
+  font-size: 15px;
+}
+.dialogBox .text {
+  color: #ddd;
+  line-height: 1.6;
+  font-size: 14px;
+}
+.dialogBox .hint {
+  color: #888;
+  font-size: 12px;
+  margin-top: 10px;
+  text-align: right;
+}
+#titleScreen {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  pointer-events: auto;
+  z-index: 10;
+}
+#titleScreen h1 {
+  font-size: 48px;
+  color: #e94560;
+  margin-bottom: 10px;
+  text-shadow: 0 0 20px rgba(233, 69, 96, 0.4);
+  letter-spacing: 4px;
+}
+#titleScreen h2 {
+  font-size: 18px;
+  color: #aaa;
+  margin-bottom: 40px;
+  font-weight: normal;
+}
+.btn {
+  padding: 12px 40px;
+  font-size: 16px;
+  background: #e94560;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+  font-family: inherit;
+}
+.btn:hover { background: #c73a50; }
+#combatUI {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  display: none;
+}
+.combatPanel {
+  position: absolute;
+  background: rgba(10, 15, 30, 0.92);
+  border: 1px solid #0f3460;
+  border-radius: 6px;
+  padding: 8px 12px;
+  pointer-events: auto;
+}
+#opponentInfo {
+  top: 10px; left: 10px;
+  min-width: 180px;
+}
+#playerInfo {
+  bottom: 160px; left: 10px;
+  min-width: 180px;
+}
+#phaseInfo {
+  top: 10px; right: 10px;
+  text-align: center;
+  min-width: 120px;
+}
+.infoLabel {
+  color: #888;
+  font-size: 12px;
+}
+.infoValue {
+  color: #eee;
+  font-size: 16px;
+  font-weight: bold;
+}
+.meter {
+  width: 100%;
+  height: 8px;
+  background: #333;
+  border-radius: 4px;
+  margin-top: 4px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+.meterFill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s;
+}
+.patienceFill { background: #e94560; }
+.priorityFill { background: #00d9ff; }
+#handArea {
+  position: absolute;
+  bottom: 0; left: 0;
+  width: 100%; height: 150px;
+  background: rgba(10, 15, 30, 0.9);
+  border-top: 2px solid #0f3460;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  pointer-events: auto;
+}
+.card {
+  width: 100px; height: 130px;
+  background: #1a1a2e;
+  border: 2px solid #0f3460;
+  border-radius: 6px;
+  padding: 6px;
+  cursor: pointer;
+  transition: transform 0.15s, border-color 0.15s;
+  display: flex;
+  flex-direction: column;
+  font-size: 11px;
+  position: relative;
+}
+.card:hover {
+  transform: translateY(-10px);
+  border-color: #e94560;
+}
+.card.selected {
+  border-color: #e94560;
+  box-shadow: 0 0 15px rgba(233, 69, 96, 0.4);
+}
+.card .cardName {
+  font-weight: bold;
+  color: #eee;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+.card .cardType {
+  color: #888;
+  font-size: 10px;
+  margin-bottom: 4px;
+}
+.card .cardCost {
+  position: absolute;
+  top: 4px; right: 6px;
+  color: #00d9ff;
+  font-weight: bold;
+  font-size: 14px;
+}
+.card .cardEffect {
+  color: #bbb;
+  font-size: 10px;
+  line-height: 1.3;
+  flex: 1;
+}
+.card .cardColor {
+  position: absolute;
+  bottom: 4px; left: 6px;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  border: 1px solid #666;
+}
+.shieldCard {
+  width: 80px; height: 100px;
+  background: #2a2a4e;
+  border: 2px dashed #555;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #888;
+  font-size: 11px;
+  cursor: pointer;
+}
+.shieldCard.broken {
+  border-color: #e94560;
+  background: #1a0a0a;
+}
+#battlefield {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 500px; height: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: none;
+}
+.shieldRow {
+  display: flex;
+  gap: 15px;
+}
+#endScreen {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.85);
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  pointer-events: auto;
+  z-index: 20;
+}
+#endScreen h2 { font-size: 36px; margin-bottom: 20px; }
+.win { color: #4ecca3; }
+.lose { color: #e94560; }
+#combatLog {
+  position: absolute;
+  top: 100px; right: 10px;
+  width: 200px; max-height: 300px;
+  overflow-y: auto;
+  background: rgba(10,15,30,0.9);
+  border: 1px solid #0f3460;
+  border-radius: 6px;
+  padding: 8px;
+  font-size: 11px;
+  color: #bbb;
+  pointer-events: auto;
+}
+.logEntry { margin-bottom: 4px; padding-bottom: 4px; border-bottom: 1px solid #222; }
+#instructions {
+  position: absolute;
+  bottom: 10px; right: 10px;
+  color: #888;
+  font-size: 12px;
+  pointer-events: none;
+}
+#tutorialBox {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 500px;
+  background: rgba(10,15,30,0.98);
+  border: 2px solid #e94560;
+  border-radius: 8px;
+  padding: 24px;
+  pointer-events: auto;
+  display: none;
+  z-index: 15;
+}
+#tutorialBox h3 { color: #e94560; margin-bottom: 12px; }
+#tutorialBox p { color: #bbb; line-height: 1.7; margin-bottom: 8px; font-size: 13px; }
+</style>
+</head>
+<body>
+<div id="gameContainer">
+  <canvas id="gameCanvas" width="960" height="640"></canvas>
+
+  <div id="uiOverlay">
+    <div id="titleScreen">
+      <h1>BREAKTHROUGH</h1>
+      <h2>A Detective Card Game</h2>
+      <button class="btn" id="startBtn">Start Game</button>
+      <button class="btn" id="tutorialBtn" style="margin-top:12px;background:#0f3460;">How to Play</button>
+    </div>
+
+    <div class="dialogBox" id="dialogBox">
+      <div class="speaker" id="speakerName"></div>
+      <div class="text" id="dialogText"></div>
+      <div class="hint" id="dialogHint">Press Space or click to continue</div>
+    </div>
+
+    <div id="combatUI">
+      <div class="combatPanel" id="opponentInfo">
+        <div class="infoLabel">Opponent</div>
+        <div class="infoValue" id="oppName">--</div>
+        <div class="infoLabel" style="margin-top:8px">Patience</div>
+        <div class="meter"><div class="meterFill patienceFill" id="oppPatience"></div></div>
+        <div class="infoLabel">Shields</div>
+        <div id="oppShields"></div>
+      </div>
+      <div class="combatPanel" id="playerInfo">
+        <div class="infoLabel">Detective</div>
+        <div class="infoValue">You</div>
+        <div class="infoLabel" style="margin-top:8px">Priority</div>
+        <div class="meter"><div class="meterFill priorityFill" id="playerPriority"></div></div>
+        <div class="infoLabel">Shields</div>
+        <div id="playerShields"></div>
+      </div>
+      <div class="combatPanel" id="phaseInfo">
+        <div class="infoLabel">Current Phase</div>
+        <div class="infoValue" id="phaseName">--</div>
+        <div class="infoLabel" style="margin-top:8px">Priority</div>
+        <div class="infoValue" id="priorityNum">0</div>
+      </div>
+      <div id="combatLog"></div>
+      <div id="battlefield">
+        <div class="shieldRow" id="oppShieldRow"></div>
+        <div class="shieldRow" id="playerShieldRow"></div>
+      </div>
+      <div id="handArea"></div>
+      <div id="instructions">
+        <span id="combatHint"></span>
+      </div>
+    </div>
+
+    <div id="tutorialBox">
+      <h3>How to Play</h3>
+      <p><strong>Goal:</strong> Break all of your opponent's Shield cards to extract key information. Protect your own shields — if all of yours are broken, the conversation ends and you lose.</p>
+      <p><strong>Priority:</strong> The value that determines whose turn it is. When positive, you are in <strong>Attack Phase</strong> — play cards or place a Shield. When zero or negative, the opponent acts in <strong>Defense Phase</strong>.</p>
+      <p><strong>Card types:</strong> Enchantment (stays on field), Sorcery (discarded after use), Instant (usable in any phase, discarded after use).</p>
+      <p><strong>Controls:</strong> Click a card to select it, click again to play it. In Attack Phase, click "Place Shield" to lay a card face-down. In Defense Phase, click one of your own Shields to sacrifice it, or play an Instant card.</p>
+      <p>After each action you draw one card from each deck.</p>
+      <button class="btn" id="closeTutorial" style="margin-top:12px;">Got it</button>
+    </div>
+
+    <div id="endScreen">
+      <h2 id="endTitle"></h2>
+      <p id="endText" style="color:#bbb;margin-bottom:20px;max-width:600px;text-align:center;line-height:1.6;"></p>
+      <button class="btn" id="restartBtn">Return to Main Menu</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== Game Config ====================
+const CANVAS_W = 960, CANVAS_H = 640;
+const TILE = 32;
+const STATE = { TITLE: 0, OVERWORLD: 1, DIALOG: 2, COMBAT: 3, END: 4 };
+
+// ==================== Utilities ====================
+function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+function choice(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function shuffle(arr) { for (let i = arr.length - 1; i > 0; i--) { const j = randInt(0, i); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; }
+
+// ==================== Card System ====================
+const SUPER = { PERSONAL: 'Personal', WORLD: 'Information' };
+const TYPE = { ENCHANT: 'enchantment', SORCERY: 'sorcery', INSTANT: 'instant' };
+const COLOR = { RED: '#e94560', BLUE: '#00d9ff', GREEN: '#4ecca3', YELLOW: '#f4d03f', GRAY: '#888' };
+
+class Card {
+  constructor(name, supertype, type, cost, effect, color, breakLink = null) {
+    this.name = name;
+    this.supertype = supertype;
+    this.type = type;
+    this.cost = cost;
+    this.effect = effect;
+    this.color = color;
+    this.breakLink = breakLink; // if this is a shield-break card, the info card it reveals
+  }
+}
+
+class Deck {
+  constructor(cards) {
+    this.cards = shuffle([...cards]);
+    this.discard = [];
+  }
+  draw() {
+    if (this.cards.length === 0) {
+      if (this.discard.length === 0) return null;
+      this.cards = shuffle(this.discard);
+      this.discard = [];
+    }
+    return this.cards.pop();
+  }
+  discardCard(card) { if (card) this.discard.push(card); }
+  addToBottom(card) { if (card) this.cards.unshift(card); }
+}
+
+// ==================== Card Database ====================
+const CARD_DB = {
+  // Personal cards
+  intimidate:     new Card('Intimidate',       SUPER.PERSONAL, TYPE.SORCERY, 3, 'Opponent Patience -2, Priority -2', COLOR.RED),
+  streetSmarts:   new Card('Street Smarts',    SUPER.PERSONAL, TYPE.ENCHANT, 2, 'Draw +1 card each turn',            COLOR.BLUE),
+  persuade:       new Card('Persuade',         SUPER.PERSONAL, TYPE.SORCERY, 4, 'Opponent Patience -3, Priority -3', COLOR.GREEN),
+  logicalAppeal:  new Card('Logical Appeal',   SUPER.PERSONAL, TYPE.SORCERY, 3, 'Priority +3',                       COLOR.BLUE),
+  empathy:        new Card('Empathy',          SUPER.PERSONAL, TYPE.INSTANT, 2, 'Restore 1 Shield',                  COLOR.GREEN),
+  threaten:       new Card('Threaten',         SUPER.PERSONAL, TYPE.SORCERY, 5, 'Opponent Patience -4',              COLOR.RED),
+  offerHelp:      new Card('Offer Help',       SUPER.PERSONAL, TYPE.SORCERY, 3, 'Opponent Patience -2, Priority +2', COLOR.GREEN),
+  composure:      new Card('Composure',        SUPER.PERSONAL, TYPE.INSTANT, 1, 'Priority +2',                       COLOR.BLUE),
+  probe:          new Card('Probe',            SUPER.PERSONAL, TYPE.SORCERY, 2, 'Peek at one opponent Shield',        COLOR.YELLOW),
+
+  // World / Information cards
+  streetInfo:     new Card('Street Info',      SUPER.WORLD, TYPE.SORCERY, 2, 'Priority +1',                          COLOR.YELLOW),
+  bloodTrail:     new Card('Blood Trail',      SUPER.WORLD, TYPE.SORCERY, 3, 'Break a Shield',                       COLOR.RED, 'illegalVials'),
+  vampireNetwork: new Card('Vampire Network',  SUPER.WORLD, TYPE.ENCHANT, 2, 'Information cards cost 1 less',        COLOR.BLUE),
+  nobleConnection:new Card('Noble Connection', SUPER.WORLD, TYPE.SORCERY, 4, 'Break a Shield',                       COLOR.RED, 'nobleIdentity'),
+  collegeRecords: new Card('College Records',  SUPER.WORLD, TYPE.SORCERY, 2, 'Priority +2',                          COLOR.BLUE),
+  bloodAnalysis:  new Card('Blood Analysis',   SUPER.WORLD, TYPE.SORCERY, 3, 'Opponent Patience -1',                 COLOR.RED),
+  loanLedger:     new Card('Loan Ledger',      SUPER.WORLD, TYPE.SORCERY, 3, 'Break a Shield',                       COLOR.RED, 'debtSource'),
+  distributionNet:new Card('Distribution Net', SUPER.WORLD, TYPE.SORCERY, 4, 'Break a Shield',                       COLOR.RED, 'transactionLog'),
+  ponder:         new Card('Ponder',           SUPER.WORLD, TYPE.SORCERY, 1, 'Draw a card',                          COLOR.GRAY),
+
+  // Opponent hidden info cards (revealed when shields break)
+  gutterfangSource: new Card('Blood Dealer Source',  SUPER.WORLD, TYPE.SORCERY, 0, 'OBTAINED: Gutterfang named his noble supplier',         COLOR.RED),
+  nobleIdentity:    new Card('Noble Identity',       SUPER.WORLD, TYPE.SORCERY, 0, 'OBTAINED: Supplier is a vampire noble',                  COLOR.RED),
+  illegalVials:     new Card('Illegal Blood Vials',  SUPER.WORLD, TYPE.SORCERY, 0, 'OBTAINED: Illegal blood product found on the scene',     COLOR.RED),
+
+  debtSource:       new Card('Debt Source',          SUPER.WORLD, TYPE.SORCERY, 0, 'OBTAINED: Mariposa debt repaid through illicit gains',   COLOR.RED),
+  transactionLog:   new Card('Transaction Log',      SUPER.WORLD, TYPE.SORCERY, 0, 'OBTAINED: A ledger of all blood dealings',               COLOR.RED),
+
+  maryannNotebook:  new Card('Transaction Notebook', SUPER.WORLD, TYPE.SORCERY, 0, 'OBTAINED: Notebook records all her transactions',        COLOR.RED),
+  maryannVials:     new Card('Blood Vials on Person',SUPER.WORLD, TYPE.SORCERY, 0, 'OBTAINED: She is carrying blood vials',                  COLOR.RED),
+  maryannMastermind:new Card('Mastermind Revealed',  SUPER.WORLD, TYPE.SORCERY, 0, 'OBTAINED: Mary-Ann Mariposa is the network mastermind',  COLOR.RED),
+};
+
+// ==================== Combat System ====================
+class Combat {
+  constructor(player, encounter) {
+    this.player = player;
+    this.encounter = encounter;
+    this.phase = 'attack';
+    this.priority = 5;
+    this.turnCount = 0;
+    this.logs = [];
+    this.selectedCard = null;
+    this.awaitingShieldChoice = false;
+    this.pendingOppCard = null; // opponent's pending break-shield card
+    this.gameOver = false;
+    this.winner = null;
+
+    // Init shields
+    this.playerShields = [];
+    for (let i = 0; i < encounter.playerShields; i++) this.playerShields.push({ card: null, broken: false });
+    this.oppShields = [];
+    for (let i = 0; i < encounter.oppShields; i++) {
+      const link = encounter.shieldLinks[i] || null;
+      this.oppShields.push({ card: link, broken: false });
+    }
+
+    // Init decks and hands
+    this.personalDeck = new Deck(encounter.personalDeck.map(k => CARD_DB[k]));
+    this.worldDeck    = new Deck(encounter.worldDeck.map(k => CARD_DB[k]));
+    this.oppDeck      = new Deck(encounter.oppDeck.map(k => CARD_DB[k]));
+
+    this.hand    = [];
+    this.oppHand = [];
+    this.field   = []; // enchantments on the field
+
+    // Opening hands
+    for (let i = 0; i < 4; i++) this.drawCards();
+    for (let i = 0; i < 3; i++) this.oppHand.push(this.oppDeck.draw());
+
+    this.updatePhase();
+  }
+
+  drawCards() {
+    const p = this.personalDeck.draw();
+    const w = this.worldDeck.draw();
+    if (p) this.hand.push(p);
+    if (w) this.hand.push(w);
+  }
+
+  updatePhase() {
+    if (this.priority > 0) {
+      this.phase = 'attack';
+    } else {
+      this.phase = 'defense';
+      // Auto-trigger opponent action in defense phase
+      setTimeout(() => this.opponentAction(), 800);
+    }
+    this.render();
+  }
+
+  log(msg) {
+    this.logs.unshift(msg);
+    if (this.logs.length > 20) this.logs.pop();
+    this.renderLog();
+  }
+
+  playCard(card, fromHand = true) {
+    if (this.gameOver) return;
+    if (this.phase !== 'attack' && card.type !== TYPE.INSTANT) {
+      this.log('Only Instant cards can be played in Defense Phase!');
+      return;
+    }
+    if (this.priority < card.cost) {
+      this.log('Not enough Priority to play this card!');
+      return;
+    }
+
+    this.priority = clamp(this.priority - card.cost, -10, 10);
+    if (fromHand) {
+      const idx = this.hand.indexOf(card);
+      if (idx >= 0) this.hand.splice(idx, 1);
+    }
+
+    this.log(`You played [${card.name}]`);
+    this.resolveCardEffect(card, 'player');
+
+    if (card.type === TYPE.ENCHANT) {
+      this.field.push(card);
+    } else {
+      this.worldDeck.discardCard(card);
+    }
+
+    this.selectedCard = null;
+    this.drawCards();
+    this.checkEndCondition();
+    if (!this.gameOver) this.updatePhase();
+  }
+
+  resolveCardEffect(card, source) {
+    const eff = card.effect;
+    if (eff.includes('Break a Shield')) {
+      const targetShields = source === 'player' ? this.oppShields : this.playerShields;
+      const intact = targetShields.filter(s => !s.broken);
+      if (intact.length > 0) {
+        if (source === 'player') {
+          // Player breaks opponent's shield; reveal the linked info card
+          const s = intact[0];
+          s.broken = true;
+          const revealed = s.card ? CARD_DB[s.card] : null;
+          if (revealed) {
+            this.log(`Shield broken! Reveals: ${revealed.name}`);
+            this.player.collectedInfo.push(revealed);
+          } else {
+            this.log('Shield broken!');
+          }
+        } else {
+          // Opponent breaks player shield — player chooses which one
+          this.awaitingShieldChoice = true;
+          this.pendingBreakSource = source;
+          this.log('Opponent plays a shield-break! Choose a Shield to sacrifice.');
+          return;
+        }
+      } else {
+        this.log('No shields left to break.');
+      }
+    }
+    if (eff.includes('Opponent Patience')) {
+      const m = eff.match(/Opponent Patience ([+-]\d+)/);
+      if (m) {
+        const delta = parseInt(m[1]);
+        this.encounter.patience = Math.max(0, this.encounter.patience + delta);
+        this.log(`Opponent Patience ${delta > 0 ? '+' : ''}${delta} (${this.encounter.patience} remaining)`);
+      }
+    }
+    if (eff.includes('Priority')) {
+      const m = eff.match(/Priority ([+-]\d+)/);
+      if (m) this.priority = clamp(this.priority + parseInt(m[1]), -10, 10);
+    }
+    if (eff.includes('Restore 1 Shield')) {
+      const broken = this.playerShields.find(s => s.broken);
+      if (broken) { broken.broken = false; this.log('Restored 1 Shield.'); }
+      else this.log('No broken shields to restore.');
+    }
+    if (eff.includes('Draw a card')) {
+      this.drawCards();
+      this.log('Drew a card.');
+    }
+    if (eff.includes('Peek at one opponent Shield')) {
+      const intact = this.oppShields.filter(s => !s.broken);
+      if (intact.length > 0) {
+        const s = intact[randInt(0, intact.length - 1)];
+        const revealed = s.card ? CARD_DB[s.card] : null;
+        this.log(`Shield peek: ${revealed ? revealed.name : '(no info)'}`);
+      }
+    }
+  }
+
+  placeShield() {
+    if (this.gameOver) return;
+    if (this.phase !== 'attack') { this.log('Shields can only be placed in Attack Phase.'); return; }
+    if (this.playerShields.length >= 4 && !this.playerShields.some(s => s.broken)) {
+      this.log('Shield slots are full.');
+      return;
+    }
+    // Consume a World card from hand as the shield (if available)
+    const shieldCard = this.hand.find(c => c.supertype === SUPER.WORLD);
+    if (shieldCard) {
+      const idx = this.hand.indexOf(shieldCard);
+      this.hand.splice(idx, 1);
+      this.worldDeck.discardCard(shieldCard);
+    }
+    // Replace a broken slot first, otherwise add a new one
+    const emptyIdx = this.playerShields.findIndex(s => s.broken);
+    if (emptyIdx !== -1) {
+      this.playerShields[emptyIdx] = { card: null, broken: false };
+    } else {
+      this.playerShields.push({ card: null, broken: false });
+    }
+    this.priority = clamp(this.priority - 2, -10, 10);
+    this.log('Placed a Shield.');
+    this.drawCards();
+    this.updatePhase();
+  }
+
+  chooseShieldToBreak(index) {
+    if (!this.awaitingShieldChoice) return;
+    if (this.playerShields[index].broken) return;
+    this.playerShields[index].broken = true;
+    this.awaitingShieldChoice = false;
+    this.log(`Your Shield #${index + 1} was broken!`);
+    // Discard and draw for opponent
+    if (this.pendingOppCard) {
+      this.oppDeck.discardCard(this.pendingOppCard);
+      this.pendingOppCard = null;
+      const draw = this.oppDeck.draw();
+      if (draw) this.oppHand.push(draw);
+    }
+    // FIX: After a shield is broken, the player regains priority instead of losing more.
+    // The opponent made their point — now it's your turn to respond.
+    this.priority = clamp(this.priority + 5, -10, 10);
+    this.checkEndCondition();
+    if (!this.gameOver) this.updatePhase();
+  }
+
+  opponentAction() {
+    if (this.gameOver) return;
+    const card = this.oppHand.shift();
+    if (!card) {
+      this.log('Opponent has no cards to play.');
+      this.priority = clamp(this.priority - 2, -10, 10);
+      this.updatePhase();
+      return;
+    }
+
+    this.log(`Opponent plays [${card.name}]`);
+    if (card.effect.includes('Break a Shield')) {
+      const intact = this.playerShields.filter(s => !s.broken);
+      if (intact.length > 0) {
+        this.awaitingShieldChoice = true;
+        this.pendingOppCard = card;
+        this.render();
+        return; // Wait for player to choose
+      }
+    }
+    if (card.effect.includes('Priority')) {
+      const m = card.effect.match(/Priority ([+-]\d+)/);
+      if (m) this.priority = clamp(this.priority + parseInt(m[1]), -10, 10);
+    }
+    if (card.effect.includes('Opponent Patience')) {
+      const m = card.effect.match(/Opponent Patience ([+-]\d+)/);
+      if (m) this.encounter.patience = Math.max(0, this.encounter.patience + parseInt(m[1]));
+    }
+
+    this.oppDeck.discardCard(card);
+    const draw = this.oppDeck.draw();
+    if (draw) this.oppHand.push(draw);
+
+    this.priority = clamp(this.priority - 3, -10, 10);
+    this.checkEndCondition();
+    if (!this.gameOver) this.updatePhase();
+  }
+
+  checkEndCondition() {
+    const playerIntact = this.playerShields.filter(s => !s.broken).length;
+    const oppIntact    = this.oppShields.filter(s => !s.broken).length;
+
+    if (playerIntact === 0) {
+      this.gameOver = true;
+      this.winner = 'opponent';
+      this.log('All your shields were broken — the conversation is over!');
+      return;
+    }
+    if (oppIntact === 0) {
+      this.gameOver = true;
+      this.winner = 'player';
+      this.log("Opponent's shields all broken — you got the intel!");
+      return;
+    }
+    if (this.encounter.patience <= 0) {
+      this.gameOver = true;
+      this.winner = 'player';
+      this.log('Opponent ran out of patience — conversation ended!');
+      return;
+    }
+  }
+
+  // ==================== DOM Rendering ====================
+  render() {
+    const handArea = document.getElementById('handArea');
+    handArea.innerHTML = '';
+
+    // Place Shield button (attack phase only)
+    if (this.phase === 'attack') {
+      const placeBtn = document.createElement('div');
+      placeBtn.className = 'shieldCard';
+      placeBtn.innerText = 'Place Shield\n(-2 Priority)';
+      placeBtn.onclick = () => this.placeShield();
+      handArea.appendChild(placeBtn);
+    }
+
+    // Hand cards
+    for (let i = 0; i < this.hand.length; i++) {
+      const c = this.hand[i];
+      const el = document.createElement('div');
+      el.className = 'card' + (this.selectedCard === c ? ' selected' : '');
+      if (this.phase === 'defense' && c.type !== TYPE.INSTANT) {
+        el.style.opacity = '0.5';
+        el.style.cursor = 'not-allowed';
+      }
+      if (this.awaitingShieldChoice) {
+        el.style.opacity = '0.5';
+        el.style.cursor = 'not-allowed';
+      }
+      el.innerHTML = `
+        <div class="cardCost">${c.cost}</div>
+        <div class="cardName">${c.name}</div>
+        <div class="cardType">${c.supertype} · ${c.type === TYPE.ENCHANT ? 'Enchantment' : c.type === TYPE.SORCERY ? 'Sorcery' : 'Instant'}</div>
+        <div class="cardEffect">${c.effect}</div>
+        <div class="cardColor" style="background:${c.color}"></div>
+      `;
+      el.onclick = () => {
+        if (this.awaitingShieldChoice) return;
+        if (this.phase === 'defense' && c.type !== TYPE.INSTANT) return;
+        if (this.selectedCard === c) {
+          this.playCard(c);
+        } else {
+          this.selectedCard = c;
+          this.render();
+        }
+      };
+      handArea.appendChild(el);
+    }
+
+    // Info panels
+    document.getElementById('oppName').innerText = this.encounter.name;
+    document.getElementById('oppPatience').style.width = (this.encounter.patience / this.encounter.maxPatience * 100) + '%';
+    const priPct = ((this.priority + 10) / 20) * 100;
+    document.getElementById('playerPriority').style.width = priPct + '%';
+    document.getElementById('phaseName').innerText = this.phase === 'attack' ? 'Attack Phase' : 'Defense Phase';
+    document.getElementById('phaseName').style.color = this.phase === 'attack' ? '#4ecca3' : '#e94560';
+    document.getElementById('priorityNum').innerText = this.priority;
+
+    // Opponent shields
+    const oppShieldRow = document.getElementById('oppShieldRow');
+    oppShieldRow.innerHTML = '';
+    for (let i = 0; i < this.oppShields.length; i++) {
+      const s = this.oppShields[i];
+      const el = document.createElement('div');
+      el.className = 'shieldCard' + (s.broken ? ' broken' : '');
+      el.innerText = s.broken ? (s.card ? CARD_DB[s.card].name : 'Broken') : 'Shield';
+      oppShieldRow.appendChild(el);
+    }
+
+    // Player shields
+    const playerShieldRow = document.getElementById('playerShieldRow');
+    playerShieldRow.innerHTML = '';
+    for (let i = 0; i < this.playerShields.length; i++) {
+      const s = this.playerShields[i];
+      const el = document.createElement('div');
+      el.className = 'shieldCard' + (s.broken ? ' broken' : '');
+      el.innerText = s.broken ? 'Broken' : `Shield ${i + 1}`;
+      if (this.awaitingShieldChoice && !s.broken) {
+        el.style.borderColor = '#e94560';
+        el.style.cursor = 'pointer';
+        el.onclick = () => this.chooseShieldToBreak(i);
+      }
+      playerShieldRow.appendChild(el);
+    }
+
+    // Hint text
+    const hint = document.getElementById('combatHint');
+    if (this.awaitingShieldChoice) {
+      hint.innerText = 'Choose one of your Shields to sacrifice.';
+    } else if (this.phase === 'attack') {
+      hint.innerText = 'Your turn: click a card to select, click again to play. Or click "Place Shield".';
+    } else {
+      hint.innerText = 'Defense Phase: Opponent is acting... You may play an Instant card.';
+    }
+  }
+
+  renderLog() {
+    const logEl = document.getElementById('combatLog');
+    logEl.innerHTML = this.logs.map(l => `<div class="logEntry">${l}</div>`).join('');
+  }
+}
+
+// ==================== Dialogue System ====================
+const DIALOGS = {
+  intro: [
+    { speaker: 'Narrator', text: 'You are a private investigator in a fantasy city teeming with magic and shadows.' },
+    { speaker: 'Narrator', text: 'A beast-man of high renown has been grievously injured, and his sponsors have hired you to get to the bottom of it.' },
+    { speaker: 'Narrator', text: 'Your investigation has pointed you toward an illegal blood trade network — and a vampire noble may be pulling the strings...' },
+    { speaker: 'Narrator', text: 'Use WASD or Arrow Keys to move. Get close to a character and press E or Space to interact.' },
+  ],
+  gutterfang: [
+    { speaker: 'Gutterfang', text: "Y-you... who are you?! Back off! I didn't do nothin'!" },
+    { speaker: 'Detective', text: "Easy. I just want to know where those blood vials are coming from." },
+    { speaker: 'Gutterfang', text: "I don't know what you're talking about... blood? What blood?" },
+    { speaker: 'Detective', text: "You know, the White Deer officers aren't as patient as I am. Be a shame if I had to give them a call." },
+    { speaker: 'Gutterfang', text: "No! Don't bring them in! Alright, alright... it's a vampire noble. Noble blood, being dealt out." },
+    { speaker: 'Narrator', text: '[Conversation begins] Break all of Gutterfang\'s Shields to extract the key information!' },
+  ],
+  maryann: [
+    { speaker: 'Mary-Ann Mariposa', text: "I know you're with the White Deer, but that doesn't give you the right to stalk a college student." },
+    { speaker: 'Detective', text: "Wrong on two counts. I'm not with the White Deer, and I'm not stalking a student. I'm trying to locate a businesswoman." },
+    { speaker: 'Mary-Ann', text: "...Creepy and deluded. I'm leaving." },
+    { speaker: 'Detective', text: "There are better ways to clear debts that don't belong to you. Especially for someone as talented as yourself." },
+    { speaker: 'Mary-Ann', text: "My situation? What do any of you people know of me? Red Moon, White Deer... in the end, all bullies wearing different skins." },
+    { speaker: 'Narrator', text: '[Conversation begins] Mary-Ann is far more difficult than Gutterfang. Tread carefully!' },
+  ],
+  winGutterfang: [
+    { speaker: 'Gutterfang', text: "Fine, FINE! It's the Mariposa family! Noble house. Happy now?!" },
+    { speaker: 'Detective', text: "Mariposa... interesting. Thanks for your cooperation." },
+    { speaker: 'Narrator', text: 'You have the lead. Time to investigate the Mariposa family.' },
+  ],
+  winMaryann: [
+    { speaker: 'Mary-Ann', text: "...You're right. I can't keep going like this. It'll only end badly." },
+    { speaker: 'Detective', text: "Cooperating is your best option. Hand over the vials and the notebook." },
+    { speaker: 'Narrator', text: 'Mary-Ann surrendered the blood vials and the transaction notebook. Your investigation is complete.' },
+    { speaker: 'Narrator', text: "She realizes your employer is the beast-man's sponsor — but it's too late for that to matter." },
+  ],
+  lose: [
+    { speaker: 'Narrator', text: 'The conversation broke down. The other party lost interest and you walked away empty-handed.' },
+    { speaker: 'Narrator', text: 'You may need to prepare more thoroughly before trying again...' },
+  ]
+};
+
+// ==================== Main Game Class ====================
+class Game {
+  constructor() {
+    this.canvas = document.getElementById('gameCanvas');
+    this.ctx    = this.canvas.getContext('2d');
+    this.state  = STATE.TITLE;
+    this.keys   = {};
+    this.player = { x: 480, y: 500, speed: 3, collectedInfo: [] };
+    this.camera = { x: 0, y: 0 };
+    this.dialogQueue   = [];
+    this.dialogIndex   = 0;
+    this.combat        = null;
+    this.combatEndTimer= null;
+    this.currentEncounter = null;
+    this.encounters = {
+      gutterfang: {
+        name: 'Gutterfang',
+        x: 200, y: 300,
+        done: false,
+        patience: 5, maxPatience: 5,
+        playerShields: 3,
+        oppShields: 3,
+        shieldLinks: ['gutterfangSource', 'nobleIdentity', 'illegalVials'],
+        personalDeck: ['intimidate', 'streetSmarts', 'persuade', 'probe', 'composure'],
+        worldDeck:    ['streetInfo', 'bloodTrail', 'vampireNetwork', 'nobleConnection', 'streetInfo', 'bloodTrail', 'ponder'],
+        oppDeck:      ['bloodTrail', 'streetInfo', 'streetInfo', 'bloodTrail', 'streetInfo'],
+      },
+      maryann: {
+        name: 'Mary-Ann Mariposa',
+        x: 700, y: 200,
+        done: false,
+        patience: 8, maxPatience: 8,
+        playerShields: 3,
+        oppShields: 3,
+        shieldLinks: ['maryannNotebook', 'maryannVials', 'maryannMastermind'],
+        personalDeck: ['logicalAppeal', 'empathy', 'threaten', 'offerHelp', 'probe', 'composure', 'persuade'],
+        worldDeck:    ['collegeRecords', 'bloodAnalysis', 'loanLedger', 'distributionNet', 'collegeRecords', 'bloodAnalysis', 'ponder', 'ponder'],
+        oppDeck:      ['bloodTrail', 'loanLedger', 'bloodTrail', 'distributionNet', 'collegeRecords', 'bloodAnalysis'],
+      }
+    };
+    this.map = this.generateMap();
+
+    this.bindInput();
+    this.loop = this.loop.bind(this);
+    requestAnimationFrame(this.loop);
+  }
+
+  generateMap() {
+    const w = 40, h = 30;
+    const map = [];
+    for (let y = 0; y < h; y++) {
+      const row = [];
+      for (let x = 0; x < w; x++) {
+        let t = 'grass';
+        if (x < 2 || x >= w - 2 || y < 2 || y >= h - 2) t = 'wall';
+        if (Math.abs(x - 15) < 2 || Math.abs(y - 20) < 2) t = 'path';
+        if ((x > 5 && x < 12 && y > 5 && y < 12) || (x > 25 && x < 35 && y > 8 && y < 15)) t = 'building';
+        row.push(t);
+      }
+      map.push(row);
+    }
+    return map;
+  }
+
+  bindInput() {
+    window.addEventListener('keydown', e => {
+      this.keys[e.key] = true;
+      if (e.key === ' ' || e.key === 'e' || e.key === 'E') {
+        if (this.state === STATE.OVERWORLD) this.tryInteract();
+        else if (this.state === STATE.DIALOG) this.advanceDialog();
+      }
+    });
+    window.addEventListener('keyup', e => this.keys[e.key] = false);
+
+    document.getElementById('startBtn').onclick = () => {
+      this.state = STATE.DIALOG;
+      this.dialogQueue = [...DIALOGS.intro];
+      this.dialogIndex = 0;
+      this.showDialog();
+      document.getElementById('titleScreen').style.display = 'none';
+    };
+
+    document.getElementById('tutorialBtn').onclick = () => {
+      document.getElementById('tutorialBox').style.display = 'block';
+    };
+    document.getElementById('closeTutorial').onclick = () => {
+      document.getElementById('tutorialBox').style.display = 'none';
+    };
+
+    document.getElementById('restartBtn').onclick = () => {
+      location.reload();
+    };
+
+    document.getElementById('dialogBox').onclick = () => {
+      if (this.state === STATE.DIALOG) this.advanceDialog();
+    };
+  }
+
+  tryInteract() {
+    for (const key in this.encounters) {
+      const enc = this.encounters[key];
+      if (enc.done) continue;
+      const dx = this.player.x - enc.x;
+      const dy = this.player.y - enc.y;
+      if (Math.sqrt(dx * dx + dy * dy) < 50) {
+        if (key === 'maryann' && !this.encounters.gutterfang.done) {
+          this.startDialog([{ speaker: 'Narrator', text: "You don't feel ready to face Mary-Ann yet. Find Gutterfang first." }]);
+        } else {
+          this.startCombat(key);
+        }
+        return;
+      }
+    }
+  }
+
+  startDialog(lines) {
+    this.state = STATE.DIALOG;
+    this.dialogQueue = lines;
+    this.dialogIndex = 0;
+    this.showDialog();
+  }
+
+  showDialog() {
+    const box = document.getElementById('dialogBox');
+    const line = this.dialogQueue[this.dialogIndex];
+    document.getElementById('speakerName').innerText = line.speaker;
+    document.getElementById('dialogText').innerText  = line.text;
+    box.style.display = 'block';
+  }
+
+  advanceDialog() {
+    this.dialogIndex++;
+    if (this.dialogIndex >= this.dialogQueue.length) {
+      document.getElementById('dialogBox').style.display = 'none';
+      if (this.pendingCombat) {
+        const key = this.pendingCombat;
+        this.pendingCombat = null;
+        this.enterCombat(key);
+      } else {
+        this.state = STATE.OVERWORLD;
+      }
+    } else {
+      this.showDialog();
+    }
+  }
+
+  startCombat(key) {
+    this.pendingCombat = key;
+    const lines = key === 'gutterfang' ? DIALOGS.gutterfang : DIALOGS.maryann;
+    this.startDialog(lines);
+  }
+
+  enterCombat(key) {
+    if (this.combatEndTimer) { clearTimeout(this.combatEndTimer); this.combatEndTimer = null; }
+    this.state = STATE.COMBAT;
+    this.currentEncounter = key;
+    this.combat = new Combat(this.player, this.encounters[key]);
+    document.getElementById('combatUI').style.display = 'block';
+    this.combat.render();
+  }
+
+  endCombat() {
+    if (!this.combat || !this.combat.gameOver) return;
+    if (this.combatEndTimer) { clearTimeout(this.combatEndTimer); this.combatEndTimer = null; }
+    const key = this.currentEncounter;
+    const won = this.combat.winner === 'player';
+    this.combat = null;
+    document.getElementById('combatUI').style.display = 'none';
+
+    if (won) {
+      this.encounters[key].done = true;
+      if (key === 'maryann') {
+        this.startDialog(DIALOGS.winMaryann);
+        setTimeout(() => this.showEndScreen(true, 'Case Closed', 'You successfully exposed the illegal blood trade network and cornered Mary-Ann Mariposa. The beast-man\'s sponsors will be pleased.'), 3000);
+      } else {
+        this.startDialog(DIALOGS.winGutterfang);
+      }
+    } else {
+      this.showEndScreen(false, 'Case Stalled', "You failed to extract enough information. Your client is disappointed — but the case isn't cold yet.");
+    }
+  }
+
+  showEndScreen(win, title, text) {
+    this.state = STATE.END;
+    const screen = document.getElementById('endScreen');
+    const h2 = document.getElementById('endTitle');
+    h2.innerText = title;
+    h2.className = win ? 'win' : 'lose';
+    document.getElementById('endText').innerText = text;
+    screen.style.display = 'flex';
+  }
+
+  updateOverworld() {
+    let dx = 0, dy = 0;
+    if (this.keys['w'] || this.keys['ArrowUp'])    dy -= this.player.speed;
+    if (this.keys['s'] || this.keys['ArrowDown'])   dy += this.player.speed;
+    if (this.keys['a'] || this.keys['ArrowLeft'])   dx -= this.player.speed;
+    if (this.keys['d'] || this.keys['ArrowRight'])  dx += this.player.speed;
+
+    const newX = clamp(this.player.x + dx, 32, this.map[0].length * TILE - 32);
+    const newY = clamp(this.player.y + dy, 32, this.map.length  * TILE - 32);
+
+    const tx = Math.floor(newX / TILE);
+    const ty = Math.floor(newY / TILE);
+    if (this.map[ty] && this.map[ty][tx] !== 'building' && this.map[ty][tx] !== 'wall') {
+      this.player.x = newX;
+      this.player.y = newY;
+    }
+
+    this.camera.x = clamp(this.player.x - CANVAS_W / 2, 0, this.map[0].length * TILE - CANVAS_W);
+    this.camera.y = clamp(this.player.y - CANVAS_H / 2, 0, this.map.length  * TILE - CANVAS_H);
+  }
+
+  drawOverworld() {
+    const ctx = this.ctx;
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+    const startX = Math.floor(this.camera.x / TILE);
+    const startY = Math.floor(this.camera.y / TILE);
+    const endX   = startX + Math.ceil(CANVAS_W / TILE) + 1;
+    const endY   = startY + Math.ceil(CANVAS_H / TILE) + 1;
+
+    for (let y = startY; y <= endY; y++) {
+      for (let x = startX; x <= endX; x++) {
+        if (!this.map[y] || !this.map[y][x]) continue;
+        const t  = this.map[y][x];
+        const px = x * TILE - this.camera.x;
+        const py = y * TILE - this.camera.y;
+        if      (t === 'grass')    ctx.fillStyle = '#2d4a3e';
+        else if (t === 'path')     ctx.fillStyle = '#5a5a5a';
+        else if (t === 'building') ctx.fillStyle = '#3a3a55';
+        else if (t === 'wall')     ctx.fillStyle = '#1a1a2e';
+        ctx.fillRect(px, py, TILE, TILE);
+        if (t === 'path') {
+          ctx.fillStyle = '#666';
+          ctx.fillRect(px + 2, py + 2, TILE - 4, TILE - 4);
+        }
+      }
+    }
+
+    // Draw NPCs
+    for (const key in this.encounters) {
+      const enc = this.encounters[key];
+      if (enc.done) continue;
+      const px = enc.x - this.camera.x;
+      const py = enc.y - this.camera.y;
+
+      ctx.fillStyle = key === 'gutterfang' ? '#8B4513' : '#800080';
+      ctx.beginPath();
+      ctx.arc(px, py, 14, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.fillStyle = '#fff';
+      ctx.font = '12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(enc.name, px, py - 20);
+
+      const pdx = this.player.x - enc.x;
+      const pdy = this.player.y - enc.y;
+      if (Math.sqrt(pdx * pdx + pdy * pdy) < 50) {
+        ctx.fillStyle = '#e94560';
+        ctx.font = '11px sans-serif';
+        ctx.fillText('Press E to talk', px, py + 28);
+      }
+    }
+
+    // Draw player
+    const px = this.player.x - this.camera.x;
+    const py = this.player.y - this.camera.y;
+    ctx.fillStyle = '#00d9ff';
+    ctx.beginPath();
+    ctx.arc(px, py, 10, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // HUD
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(10, 10, 210, 60);
+    ctx.fillStyle = '#fff';
+    ctx.font = '14px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('WASD / Arrow Keys — Move', 18, 32);
+    ctx.fillText('E / Space — Interact',     18, 56);
+
+    // Objective marker
+    const target = !this.encounters.gutterfang.done ? 'Gutterfang'
+                 : !this.encounters.maryann.done    ? 'Mary-Ann'
+                 : null;
+    if (target) {
+      ctx.fillStyle = 'rgba(233,69,96,0.85)';
+      ctx.fillRect(CANVAS_W - 230, 10, 220, 30);
+      ctx.fillStyle = '#fff';
+      ctx.font = '13px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(`Objective: Talk to ${target}`, CANVAS_W - 120, 30);
+    }
+  }
+
+  loop() {
+    if (this.state === STATE.OVERWORLD) {
+      this.updateOverworld();
+      this.drawOverworld();
+    } else if (this.state === STATE.COMBAT) {
+      this.ctx.fillStyle = '#0a0a1a';
+      this.ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+      if (this.combat && this.combat.gameOver && !this.combatEndTimer) {
+        this.combatEndTimer = setTimeout(() => {
+          this.combatEndTimer = null;
+          if (this.state === STATE.COMBAT) this.endCombat();
+        }, 1800);
+      }
+    } else {
+      this.ctx.fillStyle = '#1a1a2e';
+      this.ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    }
+    requestAnimationFrame(this.loop);
+  }
+}
+
+// Start
+window.onload = () => new Game();
+</script>
+
+</body>
+</html>
