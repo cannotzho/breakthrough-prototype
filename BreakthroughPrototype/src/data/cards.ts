@@ -37,8 +37,8 @@ export const CARDS: Record<string, CardDef> = {
     supertype: 'Personal',
     type: 'sorcery',
     cost: 3,
-    effectText: 'Opponent Patience −2, Priority −2',
-    effects: { opponentPatience: -2, priority: -2 },
+    effectText: 'Opponent Patience −2, Priority +2',
+    effects: { opponentPatience: -2, priority: 2 },
     color: '#e94560',
   },
 
@@ -59,8 +59,8 @@ export const CARDS: Record<string, CardDef> = {
     supertype: 'Personal',
     type: 'sorcery',
     cost: 4,
-    effectText: 'Opponent Patience −3, Priority −3',
-    effects: { opponentPatience: -3, priority: -3 },
+    effectText: 'Opponent Patience −3, Priority +2',
+    effects: { opponentPatience: -3, priority: 2 },
     color: '#4ecca3',
   },
 

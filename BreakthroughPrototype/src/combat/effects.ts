@@ -58,10 +58,21 @@ const clamp = (v: number) => Math.max(-10, Math.min(10, v));
 /**
  * Apply a card's effects from the player's perspective.
  * breakShield targets opponent shields; restoreShield targets player shields.
+ * Personal cards are further modified by the opponent's disposition.
  */
 export function resolvePlayerEffect(state: CombatState, card: CardDef): CombatState {
   let s = state;
   const eff = card.effects;
+
+  // Determine whether this Personal card hits a vulnerability or resistance
+  const isVulnerable = card.supertype === 'Personal' && s.disposition.vulnerable.includes(card.id);
+  const isResistant  = card.supertype === 'Personal' && s.disposition.resistant.includes(card.id);
+
+  if (isVulnerable) {
+    s = addLog(s, 'Vulnerable! Opponent is susceptible to this approach.');
+  } else if (isResistant) {
+    s = addLog(s, 'Resistant. Opponent shrugs off this approach.');
+  }
 
   if (eff.breakShield) {
     const targetIdx = s.oppShields.findIndex(sh => !sh.broken);
@@ -83,14 +94,25 @@ export function resolvePlayerEffect(state: CombatState, card: CardDef): CombatSt
   }
 
   if (eff.opponentPatience !== undefined) {
-    const newPat = Math.max(0, s.oppPatience + eff.opponentPatience);
-    const delta = eff.opponentPatience;
+    // Apply disposition multiplier to patience drain for Personal cards
+    let patDelta = eff.opponentPatience;
+    if (isVulnerable) patDelta = patDelta * 2;
+    else if (isResistant) patDelta = Math.ceil(patDelta * 0.5);
+
+    const newPat = Math.max(0, s.oppPatience + patDelta);
     s = { ...s, oppPatience: newPat };
-    s = addLog(s, `Opponent Patience ${delta > 0 ? '+' : ''}${delta} (${newPat} remaining)`);
+    s = addLog(s, `Opponent Patience ${patDelta > 0 ? '+' : ''}${patDelta} (${newPat} remaining)`);
   }
 
   if (eff.priority !== undefined) {
-    s = { ...s, priority: clamp(s.priority + eff.priority) };
+    // Disposition adds/subtracts 1 from priority for Personal cards
+    let priDelta = eff.priority;
+    if (isVulnerable) priDelta += 1;
+    else if (isResistant) priDelta = Math.max(0, priDelta - 1);
+    s = { ...s, priority: clamp(s.priority + priDelta) };
+  } else if (isVulnerable || isResistant) {
+    // Personal cards with no explicit priority effect still get the ±1 modifier
+    s = { ...s, priority: clamp(s.priority + (isVulnerable ? 1 : -1)) };
   }
 
   if (eff.restoreShield) {

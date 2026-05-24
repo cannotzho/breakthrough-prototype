@@ -24,6 +24,11 @@ export const ENCOUNTERS: Record<string, EncounterConfig> = {
       'streetInfo', 'bloodTrail', 'ponder',
     ],
     oppDeck: ['bloodTrail', 'streetInfo', 'streetInfo', 'bloodTrail', 'streetInfo'],
+    // Street thug — responds to shows of force, unmoved by reason or compassion
+    disposition: {
+      vulnerable: ['intimidate', 'threaten'],
+      resistant: ['logicalAppeal', 'empathy'],
+    },
   },
 
   maryann: {
@@ -45,5 +50,10 @@ export const ENCOUNTERS: Record<string, EncounterConfig> = {
       'bloodTrail', 'loanLedger', 'bloodTrail',
       'distributionNet', 'collegeRecords', 'bloodAnalysis',
     ],
+    // Calculating businesswoman — responds to reason and empathy, not brute intimidation
+    disposition: {
+      vulnerable: ['persuade', 'logicalAppeal', 'empathy', 'offerHelp'],
+      resistant: ['intimidate', 'threaten'],
+    },
   },
 };

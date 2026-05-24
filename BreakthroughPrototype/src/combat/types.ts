@@ -59,6 +59,17 @@ export interface CombatState {
   oppMaxPatience: number;
   collectedInfo: string[];    // info card IDs obtained from broken opponent shields
   opponentActionTrigger: number; // increments each time opponent should act
+  disposition: Disposition;   // this opponent's vulnerability/resistance profile
+}
+
+/**
+ * Describes how an opponent responds to different Personal card approaches.
+ * vulnerable: card IDs that deal double patience drain and +1 priority against this opponent.
+ * resistant:  card IDs that deal halved patience drain and -1 priority against this opponent.
+ */
+export interface Disposition {
+  vulnerable: string[];
+  resistant: string[];
 }
 
 export interface EncounterConfig {
@@ -71,6 +82,7 @@ export interface EncounterConfig {
   personalDeck: string[];  // card IDs
   worldDeck: string[];     // card IDs
   oppDeck: string[];       // card IDs
+  disposition: Disposition;
 }
 
 export type AppScreen = 'overworld' | 'combat';

@@ -90,6 +90,7 @@ function initCombat(encounter: EncounterConfig): CombatState {
     oppMaxPatience: encounter.patience,
     collectedInfo: [],
     opponentActionTrigger: 0,
+    disposition: encounter.disposition,
   };
 
   // Opening hands: 4 card pairs for player, 3 cards for opponent
