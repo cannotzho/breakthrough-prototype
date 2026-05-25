@@ -292,12 +292,12 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
       }
 
       if (s.oppHand.length === 0) {
-        s = { ...s, priority: clamp(s.priority - 2) };
-        s = addLog(s, 'Opponent has no cards to play.');
+        // Opponent truly has nothing — nudge priority toward attack and loop until positive
+        s = addLog(s, 'Opponent has nothing to say…');
+        s = { ...s, priority: clamp(s.priority + 1) };
         s = checkEndCondition(s);
         if (!s.gameOver) {
           s = updatePhase(s);
-          // Still in defense → re-trigger
           if (s.phase === 'defense') s = triggerOpponentAction(s);
         }
         return s;
