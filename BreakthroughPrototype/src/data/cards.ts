@@ -231,6 +231,85 @@ export const CARDS: Record<string, CardDef> = {
     color: '#888888',
   },
 
+  // ── Starter Compendium Cards (player's background knowledge at game start) ───
+
+  beastManAssault: {
+    id: 'beastManAssault',
+    name: 'Beast-Man Assault',
+    supertype: 'Information',
+    type: 'sorcery',
+    cost: 1,
+    effectText: 'Priority +1. A renowned beast-man was grievously injured. Sponsors have commissioned a full investigation.',
+    effects: { priority: 1 },
+    color: '#f4d03f',
+  },
+
+  bloodTradeSuspicion: {
+    id: 'bloodTradeSuspicion',
+    name: 'Blood Trade Suspicion',
+    supertype: 'Information',
+    type: 'sorcery',
+    cost: 1,
+    effectText: 'Priority +1. The injury is believed connected to an illegal blood substance trade operating in this district.',
+    effects: { priority: 1 },
+    color: '#e94560',
+  },
+
+  theRustyTap: {
+    id: 'theRustyTap',
+    name: 'The Rusty Tap',
+    supertype: 'Information',
+    type: 'sorcery',
+    cost: 2,
+    effectText: 'Break a Shield. A pub identified as a known distribution hub for illegal blood product.',
+    effects: { breakShield: true },
+    color: '#e94560',
+  },
+
+  whiteDeerDepartment: {
+    id: 'whiteDeerDepartment',
+    name: 'White Deer Department',
+    supertype: 'Information',
+    type: 'instant',
+    cost: 1,
+    effectText: 'Priority +1. The official law enforcement body. The detective has contacts here — a useful card to play.',
+    effects: { priority: 1 },
+    color: '#00d9ff',
+  },
+
+  nobleVampireHouses: {
+    id: 'nobleVampireHouses',
+    name: 'Noble Vampire Houses',
+    supertype: 'Information',
+    type: 'sorcery',
+    cost: 1,
+    effectText: 'Draw a card. Vampire noble families hold significant social and financial power. Knowing who\'s who is half the battle.',
+    effects: { drawCards: 1 },
+    color: '#f4d03f',
+  },
+
+  redMoonDescends: {
+    id: 'redMoonDescends',
+    name: 'Red Moon Descends',
+    supertype: 'Information',
+    type: 'sorcery',
+    cost: 2,
+    effectText: 'Opponent Patience −1, Priority +1. A recently outed vampire supremacist cult. Kara Mariposa fled — survival over ideology.',
+    effects: { opponentPatience: -1, priority: 1 },
+    color: '#e94560',
+  },
+
+  mariposafamily: {
+    id: 'mariposafamily',
+    name: 'Mariposa Family',
+    supertype: 'Information',
+    type: 'sorcery',
+    cost: 1,
+    effectText: 'Draw a card. A publicly known but disgraced vampire noble house. Their current situation is unclear.',
+    effects: { drawCards: 1 },
+    color: '#f4d03f',
+  },
+
   // ── Hidden Info Cards (revealed when opponent shields are broken) ────────────
   // Cost 0, no gameplay effects — they represent evidence obtained.
 
@@ -322,3 +401,14 @@ export const CARDS: Record<string, CardDef> = {
     color: '#e94560',
   },
 };
+
+/** Card IDs the player owns at the start of a fresh game. */
+export const STARTER_COMPENDIUM: string[] = [
+  'beastManAssault',
+  'bloodTradeSuspicion',
+  'theRustyTap',
+  'whiteDeerDepartment',
+  'nobleVampireHouses',
+  'redMoonDescends',
+  'mariposafamily',
+];

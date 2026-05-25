@@ -22,6 +22,7 @@ export const ENCOUNTERS: Record<string, EncounterConfig> = {
     worldDeck: [
       'streetInfo', 'bloodTrail', 'vampireNetwork', 'nobleConnection',
       'streetInfo', 'bloodTrail', 'ponder',
+      'theRustyTap', 'bloodTradeSuspicion', 'beastManAssault', 'whiteDeerDepartment',
     ],
     oppDeck: ['bloodTrail', 'streetInfo', 'streetInfo', 'bloodTrail', 'streetInfo'],
     // Street thug — responds to shows of force, unmoved by reason or compassion
@@ -45,6 +46,7 @@ export const ENCOUNTERS: Record<string, EncounterConfig> = {
     worldDeck: [
       'collegeRecords', 'bloodAnalysis', 'loanLedger', 'distributionNet',
       'collegeRecords', 'bloodAnalysis', 'ponder', 'ponder',
+      'mariposafamily', 'redMoonDescends', 'nobleVampireHouses', 'beastManAssault', 'bloodTradeSuspicion',
     ],
     oppDeck: [
       'bloodTrail', 'loanLedger', 'bloodTrail',
