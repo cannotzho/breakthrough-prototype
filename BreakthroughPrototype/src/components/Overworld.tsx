@@ -4,6 +4,7 @@ import { useRef, useEffect, useState, useCallback } from 'react';
 interface Props {
   completedEncounters: Set<string>;
   onStartCombat: (encounterId: string) => void;
+  onResetGame: () => void;
 }
 
 /* ── World constants ─────────────────────────────────────────── */
@@ -81,7 +82,7 @@ function btnStyle(bg: string): React.CSSProperties {
 }
 
 /* ── Component ───────────────────────────────────────────────── */
-export default function Overworld({ completedEncounters, onStartCombat }: Props) {
+export default function Overworld({ completedEncounters, onStartCombat, onResetGame }: Props) {
   const canvasRef   = useRef<HTMLCanvasElement>(null);
   const keysRef     = useRef(new Set<string>());
   const playerRef   = useRef({ x: 576, y: 600 });
@@ -430,6 +431,22 @@ export default function Overworld({ completedEncounters, onStartCombat }: Props)
           }} />
         </div>
       )}
+
+      {/* New Game button — bottom-right corner */}
+      <button
+        onClick={onResetGame}
+        style={{
+          position: 'absolute', bottom: 12, right: 12,
+          background: '#000000bb', border: '1px solid #1e2a40',
+          padding: '6px 14px', borderRadius: 6,
+          fontFamily: 'monospace', fontSize: 11, color: '#666',
+          cursor: 'pointer',
+        }}
+        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#e94560'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#e94560'; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = '#666'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#1e2a40'; }}
+      >
+        New Game
+      </button>
 
       {/* Dialog overlay */}
       {dialog && (

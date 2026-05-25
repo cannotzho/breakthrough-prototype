@@ -50,6 +50,13 @@ export default function App() {
     setScreen('overworld');
   }
 
+  function resetGame() {
+    setCompletedEncounters(new Set());
+    setEncounterId(null);
+    setChosenWorldDeck([]);
+    setScreen('overworld');
+  }
+
   if (screen === 'deckbuilder' && encounterId) {
     return (
       <div className="h-screen w-screen overflow-hidden">
@@ -77,5 +84,5 @@ export default function App() {
     );
   }
 
-  return <Overworld completedEncounters={completedEncounters} onStartCombat={openDeckBuilder} />;
+  return <Overworld completedEncounters={completedEncounters} onStartCombat={openDeckBuilder} onResetGame={resetGame} />;
 }
