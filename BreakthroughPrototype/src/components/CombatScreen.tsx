@@ -6,6 +6,7 @@ import CombatHUD from './CombatHUD';
 import Battlefield from './Battlefield';
 import HandArea from './HandArea';
 import CombatLog from './CombatLog';
+import CardComponent from './CardComponent';
 
 interface Props {
   encounterId: string;
@@ -32,12 +33,46 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, addToCompen
   // Drag state — shared between HandArea (source) and Battlefield/ShieldRow (targets)
   const [draggingCardId, setDraggingCardId] = useState<string | null>(null);
 
+  // Ghost card — follows mouse cursor during HTML5 drag
+  const [ghostPos, setGhostPos] = useState<{ x: number; y: number } | null>(null);
+  useEffect(() => {
+    if (!draggingCardId) { setGhostPos(null); return; }
+    const onMove = (e: MouseEvent) => setGhostPos({ x: e.clientX, y: e.clientY });
+    document.addEventListener('mousemove', onMove);
+    return () => document.removeEventListener('mousemove', onMove);
+  }, [draggingCardId]);
+
+  // Card staging — show played card for 600 ms before resolving effects
+  const [stagedCardId, setStagedCardId] = useState<string | null>(null);
+  const stagedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => { if (stagedTimerRef.current) clearTimeout(stagedTimerRef.current); };
+  }, []);
+
+  function handlePlayCard(cardId: string) {
+    if (stagedTimerRef.current) clearTimeout(stagedTimerRef.current);
+    setStagedCardId(cardId);
+    stagedTimerRef.current = setTimeout(() => {
+      playCard(cardId);
+      setStagedCardId(null);
+      stagedTimerRef.current = null;
+    }, 600);
+  }
+
+  function handleCancelStaged() {
+    if (stagedTimerRef.current) { clearTimeout(stagedTimerRef.current); stagedTimerRef.current = null; }
+    setStagedCardId(null);
+  }
+
   function handleRetry() {
     prevCollectedRef.current = [];
+    handleCancelStaged();
     resetCombat();
   }
 
   const hiddenShields = state.oppShields.filter(s => !s.broken);
+  const ghostCard = ghostPos && draggingCardId ? CARDS[draggingCardId] : null;
 
   return (
     <div className="flex flex-col h-full bg-[#0a0a1a] relative">
@@ -51,8 +86,10 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, addToCompen
           state={state}
           onChooseShield={chooseShieldToBreak}
           isDragging={draggingCardId !== null}
-          onDropPlay={(cardId) => { setDraggingCardId(null); playCard(cardId); }}
+          onDropPlay={(cardId) => { setDraggingCardId(null); handlePlayCard(cardId); }}
           onDropShield={() => { setDraggingCardId(null); placeShield(); }}
+          stagedCardId={stagedCardId}
+          onCancelStaged={handleCancelStaged}
         />
 
         {/* Log — sidebar on desktop, hidden on very small screens */}
@@ -82,11 +119,24 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, addToCompen
       <HandArea
         state={state}
         onSelectCard={selectCard}
-        onPlayCard={playCard}
+        onPlayCard={handlePlayCard}
         onPlaceShield={placeShield}
         onDragStart={(cardId) => setDraggingCardId(cardId)}
         onDragEnd={() => setDraggingCardId(null)}
+        onGhostMove={(x, y) => setGhostPos({ x, y })}
+        draggingCardId={draggingCardId}
+        stagedCardId={stagedCardId}
       />
+
+      {/* Ghost card — follows cursor/finger during drag */}
+      {ghostCard && ghostPos && (
+        <div
+          className="fixed pointer-events-none z-50 opacity-80 shadow-2xl"
+          style={{ left: ghostPos.x - 44, top: ghostPos.y - 30, transform: 'scale(1.05)' }}
+        >
+          <CardComponent card={ghostCard} />
+        </div>
+      )}
 
       {/* Game over overlay */}
       {state.gameOver && (

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { CombatState } from '../combat/types';
 import { CARDS } from '../data/cards';
 import ShieldRow from './ShieldRow';
+import CardComponent from './CardComponent';
 
 interface Props {
   state: CombatState;
@@ -9,11 +10,15 @@ interface Props {
   isDragging: boolean;
   onDropPlay: (cardId: string) => void;
   onDropShield: () => void;
+  stagedCardId: string | null;
+  onCancelStaged: () => void;
 }
 
-export default function Battlefield({ state, onChooseShield, isDragging, onDropPlay, onDropShield }: Props) {
+export default function Battlefield({ state, onChooseShield, isDragging, onDropPlay, onDropShield, stagedCardId, onCancelStaged }: Props) {
   const [playZoneOver, setPlayZoneOver] = useState(false);
   const [shieldZoneOver, setShieldZoneOver] = useState(false);
+
+  const stagedCard = stagedCardId ? CARDS[stagedCardId] : null;
 
   return (
     <div className="flex flex-col items-center justify-center gap-4 py-4 flex-1">
@@ -26,29 +31,45 @@ export default function Battlefield({ state, onChooseShield, isDragging, onDropP
       {/* Divider */}
       <div className="w-full max-w-sm h-px bg-[#0f3460] opacity-60" />
 
-      {/* Play zone — always present, highlighted when a card is being dragged */}
-      <div
-        data-dropzone="play"
-        className={[
-          'w-full max-w-xs rounded-lg border-2 border-dashed py-3 text-center text-xs uppercase tracking-wider transition-all select-none',
-          playZoneOver
-            ? 'border-[#4ecca3] text-[#4ecca3] bg-[rgba(78,204,163,0.15)] scale-105'
-            : isDragging
-              ? 'border-[#4ecca3] text-[#4ecca3] bg-[rgba(78,204,163,0.05)]'
-              : 'border-[#1e2a40] text-[#2a3a50]',
-        ].join(' ')}
-        onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setPlayZoneOver(true); }}
-        onDragEnter={(e) => { e.preventDefault(); setPlayZoneOver(true); }}
-        onDragLeave={() => setPlayZoneOver(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setPlayZoneOver(false);
-          const cardId = e.dataTransfer.getData('text/plain');
-          if (cardId) onDropPlay(cardId);
-        }}
-      >
-        {isDragging ? 'Drop to Play' : '· · ·'}
-      </div>
+      {/* Staging zone — card appears here for 600 ms before effects resolve */}
+      {stagedCard ? (
+        <div className="flex flex-col items-center gap-1">
+          <p className="text-[#e94560] text-xs uppercase tracking-wider animate-pulse">Resolving…</p>
+          <div
+            className="relative cursor-pointer"
+            onClick={onCancelStaged}
+            title="Click to cancel"
+          >
+            <CardComponent card={stagedCard} />
+            <div className="absolute inset-0 rounded-md border-2 border-[#e94560] shadow-[0_0_16px_rgba(233,69,96,0.6)] pointer-events-none" />
+          </div>
+          <p className="text-[#555] text-[9px]">tap to cancel</p>
+        </div>
+      ) : (
+        /* Play zone — highlighted when a card is being dragged */
+        <div
+          data-dropzone="play"
+          className={[
+            'w-full max-w-xs rounded-lg border-2 border-dashed py-3 text-center text-xs uppercase tracking-wider transition-all select-none',
+            playZoneOver
+              ? 'border-[#4ecca3] text-[#4ecca3] bg-[rgba(78,204,163,0.15)] scale-105'
+              : isDragging
+                ? 'border-[#4ecca3] text-[#4ecca3] bg-[rgba(78,204,163,0.05)]'
+                : 'border-[#1e2a40] text-[#2a3a50]',
+          ].join(' ')}
+          onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setPlayZoneOver(true); }}
+          onDragEnter={(e) => { e.preventDefault(); setPlayZoneOver(true); }}
+          onDragLeave={() => setPlayZoneOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setPlayZoneOver(false);
+            const cardId = e.dataTransfer.getData('text/plain');
+            if (cardId) onDropPlay(cardId);
+          }}
+        >
+          {isDragging ? 'Drop to Play' : '· · ·'}
+        </div>
+      )}
 
       {/* Player shield row — also a drop zone for shield placement */}
       <div className="flex flex-col items-center gap-1">

@@ -10,9 +10,12 @@ interface Props {
   onPlaceShield: () => void;
   onDragStart: (cardId: string) => void;
   onDragEnd: () => void;
+  onGhostMove: (x: number, y: number) => void;
+  draggingCardId: string | null;
+  stagedCardId: string | null;
 }
 
-export default function HandArea({ state, onSelectCard, onPlayCard, onPlaceShield, onDragStart, onDragEnd }: Props) {
+export default function HandArea({ state, onSelectCard, onPlayCard, onPlaceShield, onDragStart, onDragEnd, onGhostMove, draggingCardId, stagedCardId }: Props) {
   const { hand, phase, selectedCardId, awaitingShieldChoice, priority, field } = state;
 
   const vnActive = field.includes('vampireNetwork');
@@ -34,6 +37,7 @@ export default function HandArea({ state, onSelectCard, onPlayCard, onPlaceShiel
   }
 
   function handleCardTap(cardId: string) {
+    if (stagedCardId) return; // locked while a card is resolving
     if (!isPlayable(cardId) && cardId !== selectedCardId) return;
     if (selectedCardId === cardId) {
       onPlayCard(cardId);
@@ -61,6 +65,7 @@ export default function HandArea({ state, onSelectCard, onPlayCard, onPlaceShiel
         onDragStart(touchDragRef.current.cardId);
       }
       e.preventDefault(); // prevent scroll while dragging
+      onGhostMove(touch.clientX, touch.clientY);
     }
   }
 
@@ -101,27 +106,38 @@ export default function HandArea({ state, onSelectCard, onPlayCard, onPlaceShiel
         const card = CARDS[cardId];
         if (!card) return null;
         const playable = isPlayable(cardId);
-        const selected = selectedCardId === cardId;
+        const selected = selectedCardId === cardId && cardId !== stagedCardId;
+        const isBeingDragged = cardId === draggingCardId;
+        const isStaged = cardId === stagedCardId;
         return (
           <div
             key={idx}
-            draggable={playable}
+            draggable={playable && !stagedCardId}
             onDragStart={(e) => {
-              if (!playable) { e.preventDefault(); return; }
+              if (!playable || stagedCardId) { e.preventDefault(); return; }
+              // Suppress browser's default drag ghost; we render our own
+              const img = new Image();
+              img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+              e.dataTransfer.setDragImage(img, 0, 0);
               e.dataTransfer.setData('text/plain', cardId);
               e.dataTransfer.effectAllowed = 'move';
+              onGhostMove(e.clientX, e.clientY);
               onDragStart(cardId);
             }}
             onDragEnd={onDragEnd}
             onTouchStart={(e) => handleTouchStart(e, cardId)}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
-            style={{ cursor: playable ? 'grab' : 'default' }}
+            style={{
+              cursor: playable && !stagedCardId ? 'grab' : 'default',
+              opacity: isBeingDragged || isStaged ? 0.25 : 1,
+              transition: 'opacity 0.15s',
+            }}
           >
             <CardComponent
               card={{ ...card, cost: getActualCost(cardId) }}
               selected={selected}
-              disabled={!playable && !selected}
+              disabled={(!playable && !selected) || !!stagedCardId}
               onClick={() => handleCardTap(cardId)}
             />
           </div>
