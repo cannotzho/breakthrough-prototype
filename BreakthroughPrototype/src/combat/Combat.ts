@@ -33,8 +33,8 @@ function checkEndCondition(state: CombatState): CombatState {
   }
   if (state.oppPatience <= 0) {
     return addLog(
-      { ...state, gameOver: true, winner: 'player' },
-      'Opponent ran out of patience — conversation ended!',
+      { ...state, gameOver: true, winner: 'opponent' },
+      'Opponent lost patience — they shut you out.',
     );
   }
   return state;
