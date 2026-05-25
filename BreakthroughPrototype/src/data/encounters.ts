@@ -32,6 +32,7 @@ export const ENCOUNTERS: Record<string, EncounterConfig> = {
       vulnerable: ['intimidate', 'threaten'],
       resistant: ['logicalAppeal', 'empathy'],
     },
+    valuableShields: ['bloodTrail', 'streetInfo', 'theRustyTap'],
   },
 
   maryann: {
@@ -59,5 +60,6 @@ export const ENCOUNTERS: Record<string, EncounterConfig> = {
       vulnerable: ['persuade', 'logicalAppeal', 'empathy', 'offerHelp'],
       resistant: ['intimidate', 'threaten'],
     },
+    valuableShields: ['loanLedger', 'distributionNet', 'bloodAnalysis'],
   },
 };

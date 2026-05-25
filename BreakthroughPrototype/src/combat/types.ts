@@ -31,6 +31,7 @@ export interface CardDef {
 export interface ShieldSlot {
   broken: boolean;
   linkedCardId?: string; // info card revealed when this shield breaks (opponent shields)
+  usedCardId?: string;   // World card ID consumed when this player shield was placed
 }
 
 export interface DeckState {
@@ -60,6 +61,7 @@ export interface CombatState {
   collectedInfo: string[];    // info card IDs obtained from broken opponent shields
   opponentActionTrigger: number; // increments each time opponent should act
   disposition: Disposition;   // this opponent's vulnerability/resistance profile
+  valuableShields: string[];     // card IDs the NPC cares about keeping hidden
 }
 
 /**
@@ -84,6 +86,7 @@ export interface EncounterConfig {
   worldDeck: string[];
   oppDeck: string[];       // card IDs
   disposition: Disposition;
+  valuableShields: string[]; // World card IDs especially meaningful to this NPC
 }
 
 export type AppScreen = 'overworld' | 'combat';

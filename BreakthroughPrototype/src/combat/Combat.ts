@@ -106,6 +106,7 @@ function initCombat({ encounter, chosenWorldDeck }: InitArg): CombatState {
     collectedInfo: [],
     opponentActionTrigger: 0,
     disposition: encounter.disposition,
+    valuableShields: encounter.valuableShields,
   };
 
   // Opening hands: 4 card pairs for player, 3 cards for opponent
@@ -224,20 +225,21 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
 
       // Consume a World card from hand as shield material if available
       const worldIdx = s.hand.findIndex(id => CARDS[id]?.supertype === 'Information');
+      let consumedCardId: string | undefined;
       if (worldIdx !== -1) {
-        const worldId = s.hand[worldIdx];
+        consumedCardId = s.hand[worldIdx];
         s = { ...s, hand: s.hand.filter((_, i) => i !== worldIdx) };
-        s = { ...s, worldDeck: { ...s.worldDeck, discard: [...s.worldDeck.discard, worldId] } };
+        s = { ...s, worldDeck: { ...s.worldDeck, discard: [...s.worldDeck.discard, consumedCardId] } };
       }
 
-      // Repair an existing broken slot rather than adding a new one
+      // Repair an existing broken slot or add a new one; store which card was used
       const brokenIdx = s.playerShields.findIndex(sh => sh.broken);
       if (brokenIdx !== -1) {
         const newShields = [...s.playerShields];
-        newShields[brokenIdx] = { broken: false };
+        newShields[brokenIdx] = { ...newShields[brokenIdx], broken: false, usedCardId: consumedCardId };
         s = { ...s, playerShields: newShields };
       } else {
-        s = { ...s, playerShields: [...s.playerShields, { broken: false }] };
+        s = { ...s, playerShields: [...s.playerShields, { broken: false, usedCardId: consumedCardId }] };
       }
 
       s = { ...s, priority: clamp(s.priority - 2) };
@@ -254,6 +256,10 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
       if (index < 0 || index >= state.playerShields.length || state.playerShields[index].broken) return state;
 
       let s = state;
+      const brokenSlot = s.playerShields[index];
+      const isValuable = brokenSlot.usedCardId !== undefined &&
+                         s.valuableShields.includes(brokenSlot.usedCardId);
+
       const newShields = [...s.playerShields];
       newShields[index] = { ...newShields[index], broken: true };
       s = { ...s, playerShields: newShields, awaitingShieldChoice: false };
@@ -270,8 +276,16 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
         if (drawn) s = { ...s, oppHand: [...s.oppHand, drawn] };
       }
 
-      // Player gets priority back after absorbing the hit
-      s = { ...s, priority: clamp(s.priority + 5) };
+      // Tiered break bonuses: valuable shield → NPC surges, plain shield → NPC barely notices
+      if (isValuable) {
+        const cardName = CARDS[brokenSlot.usedCardId!]?.name ?? brokenSlot.usedCardId!;
+        s = addLog(s, `Opponent finds ${cardName} behind the shield — their patience surges!`);
+        s = { ...s, oppPatience: Math.min(s.oppMaxPatience, s.oppPatience + 2), priority: 5 };
+      } else {
+        s = addLog(s, 'Opponent breaks the shield — but it means little to them.');
+        s = { ...s, oppPatience: Math.max(0, s.oppPatience - 1), priority: 1 };
+      }
+
       s = checkEndCondition(s);
       if (!s.gameOver) s = updatePhase(s);
       return s;
