@@ -18,7 +18,7 @@ interface Props {
 
 export default function CombatScreen({ encounterId, chosenWorldDeck, addToCompendium, onEnd }: Props) {
   const encounter = ENCOUNTERS[encounterId];
-  const { state, selectCard, playCard, placeShield, endTurn, chooseShieldToBreak, resetCombat } = useCombat(encounter, chosenWorldDeck);
+  const { state, selectCard, playCard, placeShield, endTurn, chooseShieldToBreak, dismissDialogue, resetCombat } = useCombat(encounter, chosenWorldDeck);
 
   // Add newly revealed info cards to the player's compendium
   const prevCollectedRef = useRef<string[]>([]);
@@ -29,6 +29,13 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, addToCompen
     });
     prevCollectedRef.current = state.collectedInfo;
   }, [state.collectedInfo, addToCompendium]);
+
+  // Auto-dismiss NPC dialogue after 2 seconds
+  useEffect(() => {
+    if (!state.activeDialogue) return;
+    const timer = setTimeout(dismissDialogue, 2000);
+    return () => clearTimeout(timer);
+  }, [state.activeDialogue, dismissDialogue]);
 
   // Drag state — shared between HandArea (source) and Battlefield/ShieldRow (targets)
   const [draggingCardId, setDraggingCardId] = useState<string | null>(null);
@@ -136,6 +143,16 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, addToCompen
           style={{ left: ghostPos.x - 44, top: ghostPos.y - 30, transform: 'scale(1.05)' }}
         >
           <CardComponent card={ghostCard} />
+        </div>
+      )}
+
+      {/* NPC dialogue bubble */}
+      {state.activeDialogue && !state.gameOver && (
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-20 max-w-xs w-full px-4 pointer-events-none">
+          <div className="bg-[rgba(15,52,96,0.95)] border border-[#4ecca3] rounded-lg p-3 shadow-lg">
+            <p className="text-[#4ecca3] text-[10px] uppercase tracking-wider mb-1">{encounter.name}</p>
+            <p className="text-[#eee] text-sm italic">"{state.activeDialogue}"</p>
+          </div>
         </div>
       )}
 

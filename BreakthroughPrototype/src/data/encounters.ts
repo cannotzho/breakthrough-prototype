@@ -33,6 +33,18 @@ export const ENCOUNTERS: Record<string, EncounterConfig> = {
       resistant: ['logicalAppeal', 'empathy'],
     },
     valuableShields: ['bloodTrail', 'streetInfo', 'theRustyTap'],
+    dialogue: {
+      onVulnerable: [
+        '…aight, aight. Back off.',
+        "Ugh, you don't quit, do ya.",
+        "Fine. What d'ya wanna know?",
+      ],
+      onResistant: [
+        "Don't gimme that sob story.",
+        "Logic? Out here? You're a joke.",
+        'Save the speech, detective.',
+      ],
+    },
   },
 
   maryann: {
@@ -61,5 +73,17 @@ export const ENCOUNTERS: Record<string, EncounterConfig> = {
       resistant: ['intimidate', 'threaten'],
     },
     valuableShields: ['loanLedger', 'distributionNet', 'bloodAnalysis'],
+    dialogue: {
+      onVulnerable: [
+        '…I suppose you make a fair point.',
+        "You're more perceptive than I gave you credit for.",
+        "That's… not an unreasonable position.",
+      ],
+      onResistant: [
+        'Intimidation? Really? How tiresome.',
+        "I've dealt with far worse than you, detective.",
+        'Threats are so… inelegant.',
+      ],
+    },
   },
 };

@@ -107,6 +107,8 @@ function initCombat({ encounter, chosenWorldDeck }: InitArg): CombatState {
     opponentActionTrigger: 0,
     disposition: encounter.disposition,
     valuableShields: encounter.valuableShields,
+    activeDialogue: null,
+    encounterDialogue: encounter.dialogue,
   };
 
   // Opening hands: 4 card pairs for player, 3 cards for opponent
@@ -129,6 +131,7 @@ type CombatAction =
   | { type: 'END_TURN' }
   | { type: 'CHOOSE_SHIELD_TO_BREAK'; index: number }
   | { type: 'OPPONENT_ACT' }
+  | { type: 'DISMISS_DIALOGUE' }
   | { type: 'RESET'; encounter: EncounterConfig; chosenWorldDeck: string[] };
 
 function combatReducer(state: CombatState, action: CombatAction): CombatState {
@@ -174,6 +177,7 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
         hand: handAfterPlay,
         priority: clamp(state.priority - actualCost),
         selectedCardId: null,
+        activeDialogue: null,
       };
 
       s = addLog(s, `You played [${card.name}]`);
@@ -210,7 +214,7 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
 
     case 'END_TURN': {
       if (state.awaitingShieldChoice || state.phase !== 'attack') return state;
-      let s: CombatState = { ...state, priority: 0, selectedCardId: null };
+      let s: CombatState = { ...state, priority: 0, selectedCardId: null, activeDialogue: null };
       s = addLog(s, 'You passed your turn.');
       s = drawOneCardPair(s);
       s = checkEndCondition(s);
@@ -221,7 +225,7 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
     case 'PLACE_SHIELD': {
       if (state.awaitingShieldChoice || state.phase !== 'attack') return state;
 
-      let s = state;
+      let s: CombatState = { ...state, activeDialogue: null };
 
       // Consume a World card from hand as shield material if available
       const worldIdx = s.hand.findIndex(id => CARDS[id]?.supertype === 'Information');
@@ -361,6 +365,10 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
       }
       return s;
     }
+
+    case 'DISMISS_DIALOGUE': {
+      return { ...state, activeDialogue: null };
+    }
   }
 }
 
@@ -382,10 +390,11 @@ export function useCombat(encounter: EncounterConfig, chosenWorldDeck: string[])
   const placeShield = useCallback(() => dispatch({ type: 'PLACE_SHIELD' }), []);
   const endTurn = useCallback(() => dispatch({ type: 'END_TURN' }), []);
   const chooseShieldToBreak = useCallback((index: number) => dispatch({ type: 'CHOOSE_SHIELD_TO_BREAK', index }), []);
+  const dismissDialogue = useCallback(() => dispatch({ type: 'DISMISS_DIALOGUE' }), []);
   const resetCombat = useCallback(
     () => dispatch({ type: 'RESET', encounter, chosenWorldDeck }),
     [encounter, chosenWorldDeck],
   );
 
-  return { state, selectCard, playCard, placeShield, endTurn, chooseShieldToBreak, resetCombat };
+  return { state, selectCard, playCard, placeShield, endTurn, chooseShieldToBreak, dismissDialogue, resetCombat };
 }

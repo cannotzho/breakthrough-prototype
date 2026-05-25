@@ -62,6 +62,8 @@ export interface CombatState {
   opponentActionTrigger: number; // increments each time opponent should act
   disposition: Disposition;   // this opponent's vulnerability/resistance profile
   valuableShields: string[];     // card IDs the NPC cares about keeping hidden
+  activeDialogue: string | null; // NPC line triggered by a disposition hit; null when idle
+  encounterDialogue: { onVulnerable: string[]; onResistant: string[] };
 }
 
 /**
@@ -87,6 +89,7 @@ export interface EncounterConfig {
   oppDeck: string[];       // card IDs
   disposition: Disposition;
   valuableShields: string[]; // World card IDs especially meaningful to this NPC
+  dialogue: { onVulnerable: string[]; onResistant: string[] };
 }
 
 export type AppScreen = 'overworld' | 'combat';

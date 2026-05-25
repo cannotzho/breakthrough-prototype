@@ -70,8 +70,16 @@ export function resolvePlayerEffect(state: CombatState, card: CardDef): CombatSt
 
   if (isVulnerable) {
     s = addLog(s, 'Vulnerable! Opponent is susceptible to this approach.');
+    const lines = s.encounterDialogue.onVulnerable;
+    if (lines.length > 0) {
+      s = { ...s, activeDialogue: lines[Math.floor(Math.random() * lines.length)] };
+    }
   } else if (isResistant) {
     s = addLog(s, 'Resistant. Opponent shrugs off this approach.');
+    const lines = s.encounterDialogue.onResistant;
+    if (lines.length > 0) {
+      s = { ...s, activeDialogue: lines[Math.floor(Math.random() * lines.length)] };
+    }
   }
 
   if (eff.breakShield) {
