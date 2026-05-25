@@ -1,13 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import Overworld from './components/Overworld';
+import DeckBuilder from './components/DeckBuilder';
 import CombatScreen from './components/CombatScreen';
 import { STARTER_COMPENDIUM } from './data/cards';
 
 const LS_COMPENDIUM = 'bt_compendium';
 
+type AppScreen = 'overworld' | 'deckbuilder' | 'combat';
+
 export default function App() {
-  const [screen, setScreen] = useState<'overworld' | 'combat'>('overworld');
+  const [screen, setScreen] = useState<AppScreen>('overworld');
   const [encounterId, setEncounterId] = useState<string | null>(null);
+  const [chosenWorldDeck, setChosenWorldDeck] = useState<string[]>([]);
   const [completedEncounters, setCompletedEncounters] = useState<Set<string>>(new Set());
 
   const [compendium, setCompendium] = useState<string[]>(() => {
@@ -27,8 +31,13 @@ export default function App() {
     setCompendium(prev => (prev.includes(cardId) ? prev : [...prev, cardId]));
   }, []);
 
-  function startCombat(id: string) {
+  function openDeckBuilder(id: string) {
     setEncounterId(id);
+    setScreen('deckbuilder');
+  }
+
+  function enterCombat(chosen: string[]) {
+    setChosenWorldDeck(chosen);
     setScreen('combat');
   }
 
@@ -37,7 +46,21 @@ export default function App() {
       setCompletedEncounters(prev => new Set([...prev, encounterId]));
     }
     setEncounterId(null);
+    setChosenWorldDeck([]);
     setScreen('overworld');
+  }
+
+  if (screen === 'deckbuilder' && encounterId) {
+    return (
+      <div className="h-screen w-screen overflow-hidden">
+        <DeckBuilder
+          compendium={compendium}
+          encounterId={encounterId}
+          onConfirm={enterCombat}
+          onCancel={() => setScreen('overworld')}
+        />
+      </div>
+    );
   }
 
   if (screen === 'combat' && encounterId) {
@@ -45,6 +68,7 @@ export default function App() {
       <div className="h-screen w-screen overflow-hidden">
         <CombatScreen
           encounterId={encounterId}
+          chosenWorldDeck={chosenWorldDeck}
           compendium={compendium}
           addToCompendium={addToCompendium}
           onEnd={endCombat}
@@ -53,5 +77,5 @@ export default function App() {
     );
   }
 
-  return <Overworld completedEncounters={completedEncounters} onStartCombat={startCombat} />;
+  return <Overworld completedEncounters={completedEncounters} onStartCombat={openDeckBuilder} />;
 }

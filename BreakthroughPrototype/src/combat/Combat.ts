@@ -65,7 +65,9 @@ function triggerOpponentAction(state: CombatState): CombatState {
 
 // ── Initialization ─────────────────────────────────────────────────────────────
 
-function initCombat(encounter: EncounterConfig): CombatState {
+type InitArg = { encounter: EncounterConfig; chosenWorldDeck: string[] };
+
+function initCombat({ encounter, chosenWorldDeck }: InitArg): CombatState {
   let state: CombatState = {
     phase: 'attack',
     priority: 5,
@@ -77,7 +79,7 @@ function initCombat(encounter: EncounterConfig): CombatState {
     hand: [],
     oppHand: [],
     personalDeck: { cards: shuffle([...encounter.personalDeck]), discard: [] },
-    worldDeck: { cards: shuffle([...encounter.worldDeck]), discard: [] },
+    worldDeck: { cards: shuffle([...chosenWorldDeck]), discard: [] },
     oppDeck: { cards: shuffle([...encounter.oppDeck]), discard: [] },
     field: [],
     logs: [],
@@ -313,8 +315,8 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
 
 // ── Public hook ────────────────────────────────────────────────────────────────
 
-export function useCombat(encounter: EncounterConfig) {
-  const [state, dispatch] = useReducer(combatReducer, encounter, initCombat);
+export function useCombat(encounter: EncounterConfig, chosenWorldDeck: string[]) {
+  const [state, dispatch] = useReducer(combatReducer, { encounter, chosenWorldDeck }, initCombat);
 
   // Schedule opponent action whenever the trigger counter changes
   useEffect(() => {

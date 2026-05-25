@@ -9,14 +9,15 @@ import CombatLog from './CombatLog';
 
 interface Props {
   encounterId: string;
+  chosenWorldDeck: string[];
   compendium: string[];
   addToCompendium: (cardId: string) => void;
   onEnd: (won: boolean) => void;
 }
 
-export default function CombatScreen({ encounterId, addToCompendium, onEnd }: Props) {
+export default function CombatScreen({ encounterId, chosenWorldDeck, addToCompendium, onEnd }: Props) {
   const encounter = ENCOUNTERS[encounterId];
-  const { state, selectCard, playCard, placeShield, chooseShieldToBreak } = useCombat(encounter);
+  const { state, selectCard, playCard, placeShield, chooseShieldToBreak } = useCombat(encounter, chosenWorldDeck);
 
   // Add newly revealed info cards to the player's compendium
   const prevCollectedRef = useRef<string[]>([]);
