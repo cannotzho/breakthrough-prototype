@@ -68,6 +68,19 @@ function triggerOpponentAction(state: CombatState): CombatState {
 type InitArg = { encounter: EncounterConfig; chosenWorldDeck: string[] };
 
 function initCombat({ encounter, chosenWorldDeck }: InitArg): CombatState {
+  // Ponder conversion: any chosen world card not on the encounter's relevance list
+  // is swapped to a Ponder for this combat only. Personal cards are never converted.
+  const relevanceSet = new Set(encounter.worldDeck);
+  const substitutionLogs: string[] = [];
+  const convertedWorldDeck = chosenWorldDeck.map(id => {
+    if (!relevanceSet.has(id)) {
+      const name = CARDS[id]?.name ?? id;
+      substitutionLogs.push(`${name} isn't relevant here — converted to Ponder.`);
+      return 'ponder';
+    }
+    return id;
+  });
+
   let state: CombatState = {
     phase: 'attack',
     priority: 5,
@@ -79,10 +92,10 @@ function initCombat({ encounter, chosenWorldDeck }: InitArg): CombatState {
     hand: [],
     oppHand: [],
     personalDeck: { cards: shuffle([...encounter.personalDeck]), discard: [] },
-    worldDeck: { cards: shuffle([...chosenWorldDeck]), discard: [] },
+    worldDeck: { cards: shuffle([...convertedWorldDeck]), discard: [] },
     oppDeck: { cards: shuffle([...encounter.oppDeck]), discard: [] },
     field: [],
-    logs: [],
+    logs: substitutionLogs,
     selectedCardId: null,
     awaitingShieldChoice: false,
     pendingOppCardId: null,

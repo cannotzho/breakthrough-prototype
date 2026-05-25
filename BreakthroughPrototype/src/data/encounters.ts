@@ -5,7 +5,9 @@ import type { EncounterConfig } from '../combat/types';
  *   - Starting patience for the opponent
  *   - How many shields each side starts with
  *   - shieldLinks: the info card ID revealed when each opponent shield breaks (in order)
- *   - personalDeck / worldDeck: the player's starting card pool
+ *   - personalDeck: the player's Personal card pool for this encounter
+ *   - worldDeck: relevance list — Information cards narratively relevant to this encounter;
+ *                cards the player brings that are NOT on this list are converted to Ponder at combat init
  *   - oppDeck: the opponent's deck
  *
  * Card IDs reference entries in src/data/cards.ts.
