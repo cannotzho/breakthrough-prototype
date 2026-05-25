@@ -125,6 +125,7 @@ type CombatAction =
   | { type: 'SELECT_CARD'; cardId: string }
   | { type: 'PLAY_CARD'; cardId: string }
   | { type: 'PLACE_SHIELD' }
+  | { type: 'END_TURN' }
   | { type: 'CHOOSE_SHIELD_TO_BREAK'; index: number }
   | { type: 'OPPONENT_ACT' }
   | { type: 'RESET'; encounter: EncounterConfig; chosenWorldDeck: string[] };
@@ -206,6 +207,16 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
       return s;
     }
 
+    case 'END_TURN': {
+      if (state.awaitingShieldChoice || state.phase !== 'attack') return state;
+      let s: CombatState = { ...state, priority: 0, selectedCardId: null };
+      s = addLog(s, 'You passed your turn.');
+      s = drawOneCardPair(s);
+      s = checkEndCondition(s);
+      if (!s.gameOver) s = updatePhase(s);
+      return s;
+    }
+
     case 'PLACE_SHIELD': {
       if (state.awaitingShieldChoice || state.phase !== 'attack') return state;
 
@@ -270,6 +281,15 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
       if (state.gameOver || state.awaitingShieldChoice || state.phase !== 'defense') return state;
 
       let s = state;
+
+      // Refill opponent hand from deck, reshuffling discard pile if needed
+      if (s.oppHand.length === 0) {
+        const [drawn, newDeck] = drawFromDeck(s.oppDeck);
+        if (drawn) {
+          s = { ...s, oppHand: [drawn], oppDeck: newDeck };
+          s = addLog(s, 'Opponent reshuffles their deck.');
+        }
+      }
 
       if (s.oppHand.length === 0) {
         s = { ...s, priority: clamp(s.priority - 2) };
@@ -346,11 +366,12 @@ export function useCombat(encounter: EncounterConfig, chosenWorldDeck: string[])
   const selectCard = useCallback((cardId: string) => dispatch({ type: 'SELECT_CARD', cardId }), []);
   const playCard = useCallback((cardId: string) => dispatch({ type: 'PLAY_CARD', cardId }), []);
   const placeShield = useCallback(() => dispatch({ type: 'PLACE_SHIELD' }), []);
+  const endTurn = useCallback(() => dispatch({ type: 'END_TURN' }), []);
   const chooseShieldToBreak = useCallback((index: number) => dispatch({ type: 'CHOOSE_SHIELD_TO_BREAK', index }), []);
   const resetCombat = useCallback(
     () => dispatch({ type: 'RESET', encounter, chosenWorldDeck }),
     [encounter, chosenWorldDeck],
   );
 
-  return { state, selectCard, playCard, placeShield, chooseShieldToBreak, resetCombat };
+  return { state, selectCard, playCard, placeShield, endTurn, chooseShieldToBreak, resetCombat };
 }
