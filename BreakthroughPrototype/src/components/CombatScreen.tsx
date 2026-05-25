@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useCombat } from '../combat/Combat';
 import { ENCOUNTERS } from '../data/encounters';
 import { CARDS } from '../data/cards';
@@ -9,12 +9,24 @@ import CombatLog from './CombatLog';
 
 interface Props {
   encounterId: string;
+  compendium: string[];
+  addToCompendium: (cardId: string) => void;
   onEnd: (won: boolean) => void;
 }
 
-export default function CombatScreen({ encounterId, onEnd }: Props) {
+export default function CombatScreen({ encounterId, addToCompendium, onEnd }: Props) {
   const encounter = ENCOUNTERS[encounterId];
   const { state, selectCard, playCard, placeShield, chooseShieldToBreak } = useCombat(encounter);
+
+  // Add newly revealed info cards to the player's compendium
+  const prevCollectedRef = useRef<string[]>([]);
+  useEffect(() => {
+    const prev = prevCollectedRef.current;
+    state.collectedInfo.forEach(id => {
+      if (!prev.includes(id)) addToCompendium(id);
+    });
+    prevCollectedRef.current = state.collectedInfo;
+  }, [state.collectedInfo, addToCompendium]);
 
   // Notify parent once combat is resolved (with a short delay for the player to read final log)
   useEffect(() => {

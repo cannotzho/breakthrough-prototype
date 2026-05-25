@@ -1,11 +1,31 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Overworld from './components/Overworld';
 import CombatScreen from './components/CombatScreen';
+import { STARTER_COMPENDIUM } from './data/cards';
+
+const LS_COMPENDIUM = 'bt_compendium';
 
 export default function App() {
   const [screen, setScreen] = useState<'overworld' | 'combat'>('overworld');
   const [encounterId, setEncounterId] = useState<string | null>(null);
   const [completedEncounters, setCompletedEncounters] = useState<Set<string>>(new Set());
+
+  const [compendium, setCompendium] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(LS_COMPENDIUM);
+      return saved ? (JSON.parse(saved) as string[]) : STARTER_COMPENDIUM;
+    } catch {
+      return STARTER_COMPENDIUM;
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem(LS_COMPENDIUM, JSON.stringify(compendium));
+  }, [compendium]);
+
+  const addToCompendium = useCallback((cardId: string) => {
+    setCompendium(prev => (prev.includes(cardId) ? prev : [...prev, cardId]));
+  }, []);
 
   function startCombat(id: string) {
     setEncounterId(id);
@@ -23,7 +43,12 @@ export default function App() {
   if (screen === 'combat' && encounterId) {
     return (
       <div className="h-screen w-screen overflow-hidden">
-        <CombatScreen encounterId={encounterId} onEnd={endCombat} />
+        <CombatScreen
+          encounterId={encounterId}
+          compendium={compendium}
+          addToCompendium={addToCompendium}
+          onEnd={endCombat}
+        />
       </div>
     );
   }
