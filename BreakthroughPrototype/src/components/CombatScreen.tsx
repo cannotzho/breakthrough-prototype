@@ -12,7 +12,7 @@ interface Props {
   chosenWorldDeck: string[];
   compendium: string[];
   addToCompendium: (cardId: string) => void;
-  onEnd: (won: boolean) => void;
+  onEnd: (won: boolean, collectedInfo?: string[]) => void;
 }
 
 export default function CombatScreen({ encounterId, chosenWorldDeck, addToCompendium, onEnd }: Props) {
@@ -106,7 +106,7 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, addToCompen
                 </div>
               )}
               <button
-                onClick={() => onEnd(true)}
+                onClick={() => onEnd(true, state.collectedInfo)}
                 className="px-6 py-2 bg-[#4ecca3] text-black rounded font-bold hover:bg-[#3db892] transition-colors"
               >
                 Leave

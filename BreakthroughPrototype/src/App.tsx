@@ -5,6 +5,7 @@ import CombatScreen from './components/CombatScreen';
 import { STARTER_COMPENDIUM } from './data/cards';
 
 const LS_COMPENDIUM = 'bt_compendium';
+const LS_COLLECTED = 'bt_collected';
 
 type AppScreen = 'overworld' | 'deckbuilder' | 'combat';
 
@@ -23,9 +24,22 @@ export default function App() {
     }
   });
 
+  const [collectedCards, setCollectedCards] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(LS_COLLECTED);
+      return saved ? (JSON.parse(saved) as string[]) : [];
+    } catch {
+      return [];
+    }
+  });
+
   useEffect(() => {
     localStorage.setItem(LS_COMPENDIUM, JSON.stringify(compendium));
   }, [compendium]);
+
+  useEffect(() => {
+    localStorage.setItem(LS_COLLECTED, JSON.stringify(collectedCards));
+  }, [collectedCards]);
 
   const addToCompendium = useCallback((cardId: string) => {
     setCompendium(prev => (prev.includes(cardId) ? prev : [...prev, cardId]));
@@ -41,9 +55,15 @@ export default function App() {
     setScreen('combat');
   }
 
-  function endCombat(won: boolean) {
+  function endCombat(won: boolean, newCollected?: string[]) {
     if (won && encounterId) {
       setCompletedEncounters(prev => new Set([...prev, encounterId]));
+    }
+    if (newCollected && newCollected.length > 0) {
+      setCollectedCards(prev => {
+        const additions = newCollected.filter(id => !prev.includes(id));
+        return additions.length > 0 ? [...prev, ...additions] : prev;
+      });
     }
     setEncounterId(null);
     setChosenWorldDeck([]);
@@ -52,6 +72,7 @@ export default function App() {
 
   function resetGame() {
     setCompletedEncounters(new Set());
+    setCollectedCards([]);
     setEncounterId(null);
     setChosenWorldDeck([]);
     setScreen('overworld');
@@ -84,5 +105,12 @@ export default function App() {
     );
   }
 
-  return <Overworld completedEncounters={completedEncounters} onStartCombat={openDeckBuilder} onResetGame={resetGame} />;
+  return (
+    <Overworld
+      completedEncounters={completedEncounters}
+      onStartCombat={openDeckBuilder}
+      onResetGame={resetGame}
+      collectedCards={collectedCards}
+    />
+  );
 }

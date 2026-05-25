@@ -1,10 +1,12 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
+import { CARDS } from '../data/cards';
 
 /* ── Props ──────────────────────────────────────────────────── */
 interface Props {
   completedEncounters: Set<string>;
   onStartCombat: (encounterId: string) => void;
   onResetGame: () => void;
+  collectedCards: string[];
 }
 
 /* ── World constants ─────────────────────────────────────────── */
@@ -82,7 +84,7 @@ function btnStyle(bg: string): React.CSSProperties {
 }
 
 /* ── Component ───────────────────────────────────────────────── */
-export default function Overworld({ completedEncounters, onStartCombat, onResetGame }: Props) {
+export default function Overworld({ completedEncounters, onStartCombat, onResetGame, collectedCards }: Props) {
   const canvasRef   = useRef<HTMLCanvasElement>(null);
   const keysRef     = useRef(new Set<string>());
   const playerRef   = useRef({ x: 576, y: 600 });
@@ -96,9 +98,10 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
   const joyRef      = useRef({ active: false, id: -1, sx: 0, sy: 0, dx: 0, dy: 0 });
   const [joyKnob, setJoyKnob] = useState({ x: 0, y: 0 });
 
-  const [nearNpc,       setNearNpc]       = useState<NpcDef | null>(null);
-  const [dialog,        setDialog]        = useState<{ npc: NpcDef; locked: boolean; done: boolean } | null>(null);
-  const [isTouchDevice, setIsTouchDevice] = useState(false);
+  const [nearNpc,         setNearNpc]         = useState<NpcDef | null>(null);
+  const [dialog,          setDialog]          = useState<{ npc: NpcDef; locked: boolean; done: boolean } | null>(null);
+  const [isTouchDevice,   setIsTouchDevice]   = useState(false);
+  const [showCollection,  setShowCollection]  = useState(false);
 
   /* ── Interact ─────────────────────────────────────────────── */
   const interact = useCallback(() => {
@@ -305,6 +308,10 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
         e.preventDefault();
         interact();
       }
+      if (!e.repeat && (e.key === 'i' || e.key === 'I')) {
+        e.preventDefault();
+        setShowCollection(prev => !prev);
+      }
     }
     function onKeyUp(e: KeyboardEvent) { keysRef.current.delete(e.key); }
     window.addEventListener('keydown', onKeyDown);
@@ -432,6 +439,24 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
         </div>
       )}
 
+      {/* Intel collection button — bottom-right, above New Game */}
+      <button
+        onClick={() => setShowCollection(prev => !prev)}
+        style={{
+          position: 'absolute', bottom: 48, right: 12,
+          background: '#000000bb', border: '1px solid #1e2a40',
+          padding: '6px 14px', borderRadius: 6,
+          fontFamily: 'monospace', fontSize: 11,
+          color: collectedCards.length > 0 ? '#4ecca3' : '#555',
+          cursor: 'pointer',
+        }}
+        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ecca3'; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#1e2a40'; }}
+        title="Intel Collection [I]"
+      >
+        Intel [{collectedCards.length}]
+      </button>
+
       {/* New Game button — bottom-right corner */}
       <button
         onClick={onResetGame}
@@ -447,6 +472,65 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
       >
         New Game
       </button>
+
+      {/* Intel collection panel */}
+      {showCollection && (
+        <div style={{
+          position: 'absolute', inset: 0, background: '#000000aa',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+        }}
+          onClick={() => setShowCollection(false)}
+        >
+          <div
+            style={{
+              background: '#16213e', border: '2px solid #0f3460',
+              borderRadius: 12, padding: 28, maxWidth: 420, width: '100%',
+              maxHeight: '80vh', overflow: 'auto',
+              fontFamily: 'monospace', color: '#ddd',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <p style={{ color: '#4ecca3', fontWeight: 'bold', fontSize: 16, margin: 0 }}>Intel Collection</p>
+              <button
+                onClick={() => setShowCollection(false)}
+                style={{ background: 'none', border: 'none', color: '#888', fontSize: 18, cursor: 'pointer', lineHeight: 1 }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {collectedCards.length === 0 ? (
+              <p style={{ color: '#555', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>
+                No intel gathered yet.
+                <br />
+                <span style={{ color: '#333' }}>Break opponent shields to collect information.</span>
+              </p>
+            ) : (
+              collectedCards.map((id) => {
+                const card = CARDS[id];
+                if (!card) return null;
+                return (
+                  <div key={id} style={{
+                    borderBottom: '1px solid #0f3460', paddingBottom: 12, marginBottom: 12,
+                  }}>
+                    <p style={{ color: '#4ecca3', fontSize: 13, fontWeight: 'bold', margin: '0 0 4px' }}>
+                      {card.name}
+                    </p>
+                    <p style={{ color: '#aaa', fontSize: 12, lineHeight: 1.5, margin: 0 }}>
+                      {card.effectText}
+                    </p>
+                  </div>
+                );
+              })
+            )}
+
+            <p style={{ color: '#333', fontSize: 10, textAlign: 'center', marginTop: 8 }}>
+              Press I to close
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Dialog overlay */}
       {dialog && (
