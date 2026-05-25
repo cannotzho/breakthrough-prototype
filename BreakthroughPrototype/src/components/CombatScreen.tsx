@@ -17,7 +17,7 @@ interface Props {
 
 export default function CombatScreen({ encounterId, chosenWorldDeck, addToCompendium, onEnd }: Props) {
   const encounter = ENCOUNTERS[encounterId];
-  const { state, selectCard, playCard, placeShield, chooseShieldToBreak } = useCombat(encounter, chosenWorldDeck);
+  const { state, selectCard, playCard, placeShield, chooseShieldToBreak, resetCombat } = useCombat(encounter, chosenWorldDeck);
 
   // Add newly revealed info cards to the player's compendium
   const prevCollectedRef = useRef<string[]>([]);
@@ -29,12 +29,12 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, addToCompen
     prevCollectedRef.current = state.collectedInfo;
   }, [state.collectedInfo, addToCompendium]);
 
-  // Notify parent once combat is resolved (with a short delay for the player to read final log)
-  useEffect(() => {
-    if (!state.gameOver) return;
-    const timer = setTimeout(() => onEnd(state.winner === 'player'), 2000);
-    return () => clearTimeout(timer);
-  }, [state.gameOver, state.winner, onEnd]);
+  function handleRetry() {
+    prevCollectedRef.current = [];
+    resetCombat();
+  }
+
+  const hiddenShields = state.oppShields.filter(s => !s.broken);
 
   return (
     <div className="flex flex-col h-full bg-[#0a0a1a] relative">
@@ -79,25 +79,62 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, addToCompen
 
       {/* Game over overlay */}
       {state.gameOver && (
-        <div className="absolute inset-0 bg-[rgba(0,0,0,0.85)] flex flex-col items-center justify-center z-10 p-6">
-          <h2
-            className="text-4xl font-bold mb-4"
-            style={{ color: state.winner === 'player' ? '#4ecca3' : '#e94560' }}
-          >
-            {state.winner === 'player' ? 'Breakthrough!' : 'Case Stalled'}
-          </h2>
-          <p className="text-[#bbb] text-center max-w-sm mb-2 leading-relaxed">
-            {state.winner === 'player'
-              ? "You extracted the key information. Returning to the overworld…"
-              : "The conversation broke down. You walked away empty-handed. Returning…"}
-          </p>
-          {state.winner === 'player' && state.collectedInfo.length > 0 && (
-            <div className="mt-2 text-center">
-              <p className="text-[#4ecca3] text-sm font-semibold mb-1">Intel collected:</p>
-              {state.collectedInfo.map((id, i) => (
-                <p key={i} className="text-[#bbb] text-sm">{CARDS[id]?.name ?? id}</p>
-              ))}
-            </div>
+        <div className="absolute inset-0 bg-[rgba(0,0,0,0.9)] flex flex-col items-center justify-center z-10 p-6">
+          {state.winner === 'player' ? (
+            <>
+              <h2 className="text-4xl font-bold mb-4 text-[#4ecca3]">Breakthrough!</h2>
+              <p className="text-[#bbb] text-center max-w-sm mb-4">
+                You extracted the key information.
+              </p>
+              {state.collectedInfo.length > 0 && (
+                <div className="mb-6 text-center">
+                  <p className="text-[#4ecca3] text-sm font-semibold mb-1">Intel collected:</p>
+                  {state.collectedInfo.map((id, i) => (
+                    <p key={i} className="text-[#bbb] text-sm">{CARDS[id]?.name ?? id}</p>
+                  ))}
+                </div>
+              )}
+              <button
+                onClick={() => onEnd(true)}
+                className="px-6 py-2 bg-[#4ecca3] text-black rounded font-bold hover:bg-[#3db892] transition-colors"
+              >
+                Leave
+              </button>
+            </>
+          ) : (
+            <>
+              <h2 className="text-4xl font-bold mb-4 text-[#e94560]">Case Stalled</h2>
+              <p className="text-[#bbb] text-center max-w-sm mb-4">
+                They shut you out. The conversation is over.
+              </p>
+              {hiddenShields.length > 0 && (
+                <div className="mb-6 text-center">
+                  <p className="text-[#e94560] text-sm mb-3">
+                    {hiddenShields.length} piece{hiddenShields.length !== 1 ? 's' : ''} of information remain hidden
+                  </p>
+                  {hiddenShields.map((_, i) => (
+                    <div key={i} className="flex items-center justify-center gap-2 py-1">
+                      <div className="w-3 h-5 bg-[#2a2a4e] border border-[#333] rounded" />
+                      <span className="text-[#555] text-sm tracking-widest font-mono">[ REDACTED ]</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-4">
+                <button
+                  onClick={handleRetry}
+                  className="px-6 py-2 bg-[#e94560] text-white rounded font-bold hover:bg-[#d03550] transition-colors"
+                >
+                  Try Again
+                </button>
+                <button
+                  onClick={() => onEnd(false)}
+                  className="px-6 py-2 bg-[#0f3460] text-white rounded hover:bg-[#1a4580] transition-colors"
+                >
+                  Leave
+                </button>
+              </div>
+            </>
           )}
         </div>
       )}

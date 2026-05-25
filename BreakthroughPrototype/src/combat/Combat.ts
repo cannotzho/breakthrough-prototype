@@ -126,9 +126,13 @@ type CombatAction =
   | { type: 'PLAY_CARD'; cardId: string }
   | { type: 'PLACE_SHIELD' }
   | { type: 'CHOOSE_SHIELD_TO_BREAK'; index: number }
-  | { type: 'OPPONENT_ACT' };
+  | { type: 'OPPONENT_ACT' }
+  | { type: 'RESET'; encounter: EncounterConfig; chosenWorldDeck: string[] };
 
 function combatReducer(state: CombatState, action: CombatAction): CombatState {
+  if (action.type === 'RESET') {
+    return initCombat({ encounter: action.encounter, chosenWorldDeck: action.chosenWorldDeck });
+  }
   if (state.gameOver && action.type !== 'OPPONENT_ACT') return state;
 
   switch (action.type) {
@@ -343,6 +347,10 @@ export function useCombat(encounter: EncounterConfig, chosenWorldDeck: string[])
   const playCard = useCallback((cardId: string) => dispatch({ type: 'PLAY_CARD', cardId }), []);
   const placeShield = useCallback(() => dispatch({ type: 'PLACE_SHIELD' }), []);
   const chooseShieldToBreak = useCallback((index: number) => dispatch({ type: 'CHOOSE_SHIELD_TO_BREAK', index }), []);
+  const resetCombat = useCallback(
+    () => dispatch({ type: 'RESET', encounter, chosenWorldDeck }),
+    [encounter, chosenWorldDeck],
+  );
 
-  return { state, selectCard, playCard, placeShield, chooseShieldToBreak };
+  return { state, selectCard, playCard, placeShield, chooseShieldToBreak, resetCombat };
 }
