@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useCombat } from '../combat/Combat';
 import { ENCOUNTERS } from '../data/encounters';
 import { CARDS } from '../data/cards';
@@ -29,6 +29,9 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, addToCompen
     prevCollectedRef.current = state.collectedInfo;
   }, [state.collectedInfo, addToCompendium]);
 
+  // Drag state — shared between HandArea (source) and Battlefield/ShieldRow (targets)
+  const [draggingCardId, setDraggingCardId] = useState<string | null>(null);
+
   function handleRetry() {
     prevCollectedRef.current = [];
     resetCombat();
@@ -44,7 +47,13 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, addToCompen
 
       {/* Main area: battlefield + log side by side on larger screens */}
       <div className="flex flex-1 overflow-hidden">
-        <Battlefield state={state} onChooseShield={chooseShieldToBreak} />
+        <Battlefield
+          state={state}
+          onChooseShield={chooseShieldToBreak}
+          isDragging={draggingCardId !== null}
+          onDropPlay={(cardId) => { setDraggingCardId(null); playCard(cardId); }}
+          onDropShield={() => { setDraggingCardId(null); placeShield(); }}
+        />
 
         {/* Log — sidebar on desktop, hidden on very small screens */}
         <div className="hidden sm:flex flex-col w-[200px] flex-shrink-0 p-2">
@@ -75,6 +84,8 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, addToCompen
         onSelectCard={selectCard}
         onPlayCard={playCard}
         onPlaceShield={placeShield}
+        onDragStart={(cardId) => setDraggingCardId(cardId)}
+        onDragEnd={() => setDraggingCardId(null)}
       />
 
       {/* Game over overlay */}

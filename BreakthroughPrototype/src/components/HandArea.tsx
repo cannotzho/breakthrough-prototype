@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { CARDS } from '../data/cards';
 import type { CombatState } from '../combat/types';
 import CardComponent from './CardComponent';
@@ -7,9 +8,11 @@ interface Props {
   onSelectCard: (id: string) => void;
   onPlayCard: (id: string) => void;
   onPlaceShield: () => void;
+  onDragStart: (cardId: string) => void;
+  onDragEnd: () => void;
 }
 
-export default function HandArea({ state, onSelectCard, onPlayCard, onPlaceShield }: Props) {
+export default function HandArea({ state, onSelectCard, onPlayCard, onPlaceShield, onDragStart, onDragEnd }: Props) {
   const { hand, phase, selectedCardId, awaitingShieldChoice, priority, field } = state;
 
   const vnActive = field.includes('vampireNetwork');
@@ -33,10 +36,52 @@ export default function HandArea({ state, onSelectCard, onPlayCard, onPlaceShiel
   function handleCardTap(cardId: string) {
     if (!isPlayable(cardId) && cardId !== selectedCardId) return;
     if (selectedCardId === cardId) {
-      // Second tap on selected card: play it
       onPlayCard(cardId);
     } else {
       onSelectCard(cardId);
+    }
+  }
+
+  // Touch drag tracking — store card id + whether the touch moved enough to be a drag
+  const touchDragRef = useRef<{ cardId: string; startX: number; startY: number; moved: boolean } | null>(null);
+
+  function handleTouchStart(e: React.TouchEvent, cardId: string) {
+    const touch = e.changedTouches[0];
+    touchDragRef.current = { cardId, startX: touch.clientX, startY: touch.clientY, moved: false };
+  }
+
+  function handleTouchMove(e: React.TouchEvent) {
+    if (!touchDragRef.current) return;
+    const touch = e.changedTouches[0];
+    const dx = Math.abs(touch.clientX - touchDragRef.current.startX);
+    const dy = Math.abs(touch.clientY - touchDragRef.current.startY);
+    if (dx > 10 || dy > 10) {
+      if (!touchDragRef.current.moved) {
+        touchDragRef.current.moved = true;
+        onDragStart(touchDragRef.current.cardId);
+      }
+      e.preventDefault(); // prevent scroll while dragging
+    }
+  }
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (!touchDragRef.current) return;
+    const { cardId, moved } = touchDragRef.current;
+    touchDragRef.current = null;
+
+    if (!moved) return; // was a tap — let the click handler run naturally
+
+    e.preventDefault(); // prevent synthetic click after a drag
+    onDragEnd();
+
+    const touch = e.changedTouches[0];
+    const el = document.elementFromPoint(touch.clientX, touch.clientY);
+    const dropZone = el?.closest('[data-dropzone]')?.getAttribute('data-dropzone');
+
+    if (dropZone === 'play' && isPlayable(cardId)) {
+      onPlayCard(cardId);
+    } else if (dropZone === 'shield' && phase === 'attack' && !awaitingShieldChoice) {
+      onPlaceShield();
     }
   }
 
@@ -58,13 +103,28 @@ export default function HandArea({ state, onSelectCard, onPlayCard, onPlaceShiel
         const playable = isPlayable(cardId);
         const selected = selectedCardId === cardId;
         return (
-          <CardComponent
+          <div
             key={idx}
-            card={{ ...card, cost: getActualCost(cardId) }}
-            selected={selected}
-            disabled={!playable && !selected}
-            onClick={() => handleCardTap(cardId)}
-          />
+            draggable={playable}
+            onDragStart={(e) => {
+              if (!playable) { e.preventDefault(); return; }
+              e.dataTransfer.setData('text/plain', cardId);
+              e.dataTransfer.effectAllowed = 'move';
+              onDragStart(cardId);
+            }}
+            onDragEnd={onDragEnd}
+            onTouchStart={(e) => handleTouchStart(e, cardId)}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            style={{ cursor: playable ? 'grab' : 'default' }}
+          >
+            <CardComponent
+              card={{ ...card, cost: getActualCost(cardId) }}
+              selected={selected}
+              disabled={!playable && !selected}
+              onClick={() => handleCardTap(cardId)}
+            />
+          </div>
         );
       })}
 

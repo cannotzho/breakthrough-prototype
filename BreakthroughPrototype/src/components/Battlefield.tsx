@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { CombatState } from '../combat/types';
 import { CARDS } from '../data/cards';
 import ShieldRow from './ShieldRow';
@@ -5,11 +6,17 @@ import ShieldRow from './ShieldRow';
 interface Props {
   state: CombatState;
   onChooseShield: (index: number) => void;
+  isDragging: boolean;
+  onDropPlay: (cardId: string) => void;
+  onDropShield: () => void;
 }
 
-export default function Battlefield({ state, onChooseShield }: Props) {
+export default function Battlefield({ state, onChooseShield, isDragging, onDropPlay, onDropShield }: Props) {
+  const [playZoneOver, setPlayZoneOver] = useState(false);
+  const [shieldZoneOver, setShieldZoneOver] = useState(false);
+
   return (
-    <div className="flex flex-col items-center justify-center gap-6 py-4 flex-1">
+    <div className="flex flex-col items-center justify-center gap-4 py-4 flex-1">
       {/* Opponent shield row */}
       <div className="flex flex-col items-center gap-1">
         <p className="text-[#888] text-xs uppercase tracking-wider">Opponent Shields</p>
@@ -19,19 +26,76 @@ export default function Battlefield({ state, onChooseShield }: Props) {
       {/* Divider */}
       <div className="w-full max-w-sm h-px bg-[#0f3460] opacity-60" />
 
-      {/* Player shield row */}
+      {/* Play zone — always present, highlighted when a card is being dragged */}
+      <div
+        data-dropzone="play"
+        className={[
+          'w-full max-w-xs rounded-lg border-2 border-dashed py-3 text-center text-xs uppercase tracking-wider transition-all select-none',
+          playZoneOver
+            ? 'border-[#4ecca3] text-[#4ecca3] bg-[rgba(78,204,163,0.15)] scale-105'
+            : isDragging
+              ? 'border-[#4ecca3] text-[#4ecca3] bg-[rgba(78,204,163,0.05)]'
+              : 'border-[#1e2a40] text-[#2a3a50]',
+        ].join(' ')}
+        onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setPlayZoneOver(true); }}
+        onDragEnter={(e) => { e.preventDefault(); setPlayZoneOver(true); }}
+        onDragLeave={() => setPlayZoneOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setPlayZoneOver(false);
+          const cardId = e.dataTransfer.getData('text/plain');
+          if (cardId) onDropPlay(cardId);
+        }}
+      >
+        {isDragging ? 'Drop to Play' : '· · ·'}
+      </div>
+
+      {/* Player shield row — also a drop zone for shield placement */}
       <div className="flex flex-col items-center gap-1">
         <p className="text-[#888] text-xs uppercase tracking-wider">
           {state.awaitingShieldChoice
             ? '⚠ Choose a Shield to sacrifice'
-            : 'Your Shields'}
+            : shieldZoneOver
+              ? 'Drop to Place Shield'
+              : isDragging
+                ? 'Drop to Place Shield'
+                : 'Your Shields'}
         </p>
-        <ShieldRow
-          shields={state.playerShields}
-          owner="player"
-          awaitingChoice={state.awaitingShieldChoice}
-          onChoose={onChooseShield}
-        />
+        <div
+          data-dropzone="shield"
+          className={[
+            'rounded-lg p-1 transition-all',
+            shieldZoneOver
+              ? 'bg-[rgba(15,52,96,0.5)] ring-2 ring-[#0f3460] scale-105'
+              : isDragging && state.phase === 'attack'
+                ? 'bg-[rgba(15,52,96,0.2)] ring-1 ring-[#0f3460]'
+                : '',
+          ].join(' ')}
+          onDragOver={(e) => {
+            if (state.phase !== 'attack' || state.awaitingShieldChoice) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            setShieldZoneOver(true);
+          }}
+          onDragEnter={(e) => {
+            if (state.phase !== 'attack' || state.awaitingShieldChoice) return;
+            e.preventDefault();
+            setShieldZoneOver(true);
+          }}
+          onDragLeave={() => setShieldZoneOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setShieldZoneOver(false);
+            if (state.phase === 'attack' && !state.awaitingShieldChoice) onDropShield();
+          }}
+        >
+          <ShieldRow
+            shields={state.playerShields}
+            owner="player"
+            awaitingChoice={state.awaitingShieldChoice}
+            onChoose={onChooseShield}
+          />
+        </div>
       </div>
 
       {/* Active enchantments on field */}
