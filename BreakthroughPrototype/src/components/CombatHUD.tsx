@@ -1,12 +1,51 @@
+import { useState } from 'react';
 import type { CombatState } from '../combat/types';
+import { CARDS } from '../data/cards';
 
 interface Props {
   state: CombatState;
   encounterName: string;
 }
 
+function PileModal({ title, cardIds, onClose }: { title: string; cardIds: string[]; onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-[#16213e] border-2 border-[#0f3460] rounded-xl p-5 max-w-sm w-full max-h-[70vh] overflow-auto font-mono text-[#ddd]"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex justify-between items-center mb-3">
+          <p className="text-[#4ecca3] font-bold text-sm">{title} — {cardIds.length} card{cardIds.length !== 1 ? 's' : ''}</p>
+          <button onClick={onClose} className="text-[#888] text-lg leading-none hover:text-white bg-transparent border-0 cursor-pointer">✕</button>
+        </div>
+        {cardIds.length === 0 ? (
+          <p className="text-[#555] text-xs text-center py-4">Empty</p>
+        ) : (
+          cardIds.map((id, i) => {
+            const card = CARDS[id];
+            return (
+              <div key={i} className="border-b border-[#0f3460] pb-2 mb-2 last:border-0 last:mb-0">
+                <p className="text-[#ccc] text-xs font-bold mb-0.5">{card?.name ?? id}</p>
+                <p className="text-[#666] text-[10px] leading-snug">{card?.effectText ?? ''}</p>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function CombatHUD({ state, encounterName }: Props) {
   const { priority, oppPatience, oppMaxPatience, phase, awaitingShieldChoice } = state;
+  const [showDeck, setShowDeck] = useState(false);
+  const [showDiscard, setShowDiscard] = useState(false);
+
+  const drawPile = [...state.personalDeck.cards, ...state.worldDeck.cards];
+  const discardPile = [...state.personalDeck.discard, ...state.worldDeck.discard];
 
   const patiencePct = Math.max(0, (oppPatience / oppMaxPatience) * 100);
 
@@ -64,12 +103,33 @@ export default function CombatHUD({ state, encounterName }: Props) {
         <p className="text-[#888] text-[10px] mt-0.5">
           Hand: <span className="text-white">{state.hand.length}</span> cards
         </p>
+        <div className="flex gap-2 mt-0.5">
+          <button
+            onClick={() => setShowDeck(true)}
+            className="text-[10px] text-[#4ecca3] underline decoration-dotted bg-transparent border-0 cursor-pointer p-0 hover:text-white"
+          >
+            Deck: {drawPile.length}
+          </button>
+          <button
+            onClick={() => setShowDiscard(true)}
+            className="text-[10px] text-[#888] underline decoration-dotted bg-transparent border-0 cursor-pointer p-0 hover:text-white"
+          >
+            Discard: {discardPile.length}
+          </button>
+        </div>
       </div>
 
       {/* Hint bar — full width below the boxes */}
       <div className="w-full">
         <p className="text-[#888] text-[10px] text-center italic px-2">{hint}</p>
       </div>
+
+      {showDeck && (
+        <PileModal title="Draw Pile" cardIds={drawPile} onClose={() => setShowDeck(false)} />
+      )}
+      {showDiscard && (
+        <PileModal title="Discard Pile" cardIds={discardPile} onClose={() => setShowDiscard(false)} />
+      )}
     </div>
   );
 }
