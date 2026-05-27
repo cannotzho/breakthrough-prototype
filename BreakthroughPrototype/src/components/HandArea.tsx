@@ -16,11 +16,46 @@ interface Props {
   stagedCardId: string | null;
 }
 
+function PileModal({ title, cardIds, onClose }: { title: string; cardIds: string[]; onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-[#16213e] border-2 border-[#0f3460] rounded-xl p-5 max-w-md w-full max-h-[80vh] overflow-auto font-mono text-[#ddd]"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex justify-between items-center mb-4">
+          <p className="text-[#4ecca3] font-bold text-sm">{title} — {cardIds.length} card{cardIds.length !== 1 ? 's' : ''}</p>
+          <button onClick={onClose} className="text-[#888] text-lg leading-none hover:text-white bg-transparent border-0 cursor-pointer">✕</button>
+        </div>
+        {cardIds.length === 0 ? (
+          <p className="text-[#555] text-xs text-center py-4">Empty</p>
+        ) : (
+          <div className="grid grid-cols-3 gap-2 justify-items-center">
+            {cardIds.map((id, i) => {
+              const card = CARDS[id];
+              if (!card) return null;
+              return <CardComponent key={i} card={card} />;
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function HandArea({ state, onSelectCard: _onSelectCard, onPlayCard, onPlaceShield, onEndTurn, onDragStart, onDragEnd, onGhostMove, draggingCardId, stagedCardId }: Props) {
   const { hand, phase, awaitingShieldChoice, priority, field } = state;
 
   const [contextMenu, setContextMenu] = useState<{ cardId: string; x: number; y: number } | null>(null);
   const [inspectCardId, setInspectCardId] = useState<string | null>(null);
+  const [showDeck, setShowDeck] = useState(false);
+  const [showDiscard, setShowDiscard] = useState(false);
+
+  const drawPile = [...state.personalDeck.cards, ...state.worldDeck.cards];
+  const discardPile = [...state.personalDeck.discard, ...state.worldDeck.discard];
 
   const vnActive = field.includes('vampireNetwork');
   const reduction = vnActive ? (CARDS['vampireNetwork']?.effects.reduceInfoCost ?? 0) : 0;
@@ -93,66 +128,109 @@ export default function HandArea({ state, onSelectCard: _onSelectCard, onPlayCar
 
   const contextCard = contextMenu ? CARDS[contextMenu.cardId] : null;
   const canShield = phase === 'attack' && !awaitingShieldChoice;
+  const intactShields = state.playerShields.filter(s => !s.broken).length;
+  const totalShields = state.playerShields.length;
 
   return (
     <div
-      className="flex items-center gap-2 px-3 py-2 overflow-x-auto bg-[rgba(10,15,30,0.92)] border-t-2 border-[#0f3460] min-h-[148px]"
+      className="flex flex-col bg-[rgba(10,15,30,0.92)] border-t-2 border-[#0f3460]"
       onClick={() => setContextMenu(null)}
     >
-      {/* End Turn button — only in attack phase */}
-      {phase === 'attack' && !awaitingShieldChoice && (
+      {/* Detective status row — condensed single line above hand */}
+      <div className="flex items-center gap-3 px-3 py-1.5 border-b border-[#1a2540] flex-wrap">
+        <span className="text-[#4ecca3] text-[10px] font-bold uppercase tracking-widest flex-shrink-0">Detective</span>
+        <span className="text-[#888] text-[10px] flex-shrink-0">
+          Priority <span className={`font-bold ${priority > 0 ? 'text-[#4ecca3]' : priority < 0 ? 'text-[#e94560]' : 'text-[#666]'}`}>
+            {priority > 0 ? `+${priority}` : priority}
+          </span>
+        </span>
+        {/* Mini priority bar */}
+        <div className="relative h-2 w-16 bg-[#111827] rounded-full overflow-hidden flex-shrink-0">
+          {priority > 0 && (
+            <div className="absolute top-0 h-full bg-[#4ecca3] rounded-r-full" style={{ left: '50%', width: `${(priority / 10) * 50}%` }} />
+          )}
+          {priority < 0 && (
+            <div className="absolute top-0 h-full bg-[#e94560] rounded-l-full" style={{ right: '50%', width: `${(Math.abs(priority) / 10) * 50}%` }} />
+          )}
+          <div className="absolute top-0 left-1/2 -translate-x-px w-px h-full bg-[#4a4a6a]" />
+        </div>
+        <span className="text-[#888] text-[10px] flex-shrink-0">
+          Shields <span className="text-white">{intactShields}/{totalShields}</span>
+        </span>
+        <span className="text-[#888] text-[10px] flex-shrink-0">
+          Hand <span className="text-white">{hand.length}</span>
+        </span>
         <button
-          onClick={(e) => { e.stopPropagation(); onEndTurn(); }}
-          className="flex-shrink-0 flex flex-col items-center justify-center w-[72px] h-[100px] sm:w-[80px] sm:h-[106px] rounded-md border-2 border-dashed border-[#4ecca3] bg-[#0a2a1e] text-[#4ecca3] text-[10px] text-center leading-snug cursor-pointer hover:bg-[#0f3d2c] hover:border-[#6ee8c0] transition-colors"
+          onClick={(e) => { e.stopPropagation(); setShowDeck(true); }}
+          className="text-[10px] text-[#4ecca3] underline decoration-dotted bg-transparent border-0 cursor-pointer p-0 hover:text-white flex-shrink-0"
         >
-          End<br />Turn
+          Deck: {drawPile.length}
         </button>
-      )}
+        <button
+          onClick={(e) => { e.stopPropagation(); setShowDiscard(true); }}
+          className="text-[10px] text-[#888] underline decoration-dotted bg-transparent border-0 cursor-pointer p-0 hover:text-white flex-shrink-0"
+        >
+          Discard: {discardPile.length}
+        </button>
+      </div>
 
-      {hand.map((cardId, idx) => {
-        const card = CARDS[cardId];
-        if (!card) return null;
-        const playable = isPlayable(cardId);
-        const isBeingDragged = cardId === draggingCardId;
-        const isStaged = cardId === stagedCardId;
-        const isMenuOpen = contextMenu?.cardId === cardId;
-        return (
-          <div
-            key={idx}
-            draggable={playable && !stagedCardId}
-            onClick={(e) => handleCardClick(e, cardId)}
-            onDragStart={(e) => {
-              if (!playable || stagedCardId) { e.preventDefault(); return; }
-              const img = new Image();
-              img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-              e.dataTransfer.setDragImage(img, 0, 0);
-              e.dataTransfer.setData('text/plain', cardId);
-              e.dataTransfer.effectAllowed = 'move';
-              onGhostMove(e.clientX, e.clientY);
-              onDragStart(cardId);
-            }}
-            onDragEnd={onDragEnd}
-            onTouchStart={(e) => handleTouchStart(e, cardId)}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-            style={{
-              cursor: playable && !stagedCardId ? 'grab' : 'pointer',
-              opacity: isBeingDragged || isStaged ? 0.25 : 1,
-              transition: 'opacity 0.15s',
-            }}
+      {/* Hand */}
+      <div className="flex items-center gap-2 px-3 py-2 overflow-x-auto min-h-[148px]">
+        {/* End Turn button — only in attack phase */}
+        {phase === 'attack' && !awaitingShieldChoice && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onEndTurn(); }}
+            className="flex-shrink-0 flex flex-col items-center justify-center w-[72px] h-[100px] sm:w-[80px] sm:h-[106px] rounded-md border-2 border-dashed border-[#4ecca3] bg-[#0a2a1e] text-[#4ecca3] text-[10px] text-center leading-snug cursor-pointer hover:bg-[#0f3d2c] hover:border-[#6ee8c0] transition-colors"
           >
-            <CardComponent
-              card={{ ...card, cost: getActualCost(cardId) }}
-              selected={isMenuOpen}
-              disabled={!!stagedCardId}
-            />
-          </div>
-        );
-      })}
+            End<br />Turn
+          </button>
+        )}
 
-      {hand.length === 0 && (
-        <p className="text-[#555] text-sm italic flex-1 text-center">— No cards in hand —</p>
-      )}
+        {hand.map((cardId, idx) => {
+          const card = CARDS[cardId];
+          if (!card) return null;
+          const playable = isPlayable(cardId);
+          const isBeingDragged = cardId === draggingCardId;
+          const isStaged = cardId === stagedCardId;
+          const isMenuOpen = contextMenu?.cardId === cardId;
+          return (
+            <div
+              key={idx}
+              draggable={playable && !stagedCardId}
+              onClick={(e) => handleCardClick(e, cardId)}
+              onDragStart={(e) => {
+                if (!playable || stagedCardId) { e.preventDefault(); return; }
+                const img = new Image();
+                img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+                e.dataTransfer.setDragImage(img, 0, 0);
+                e.dataTransfer.setData('text/plain', cardId);
+                e.dataTransfer.effectAllowed = 'move';
+                onGhostMove(e.clientX, e.clientY);
+                onDragStart(cardId);
+              }}
+              onDragEnd={onDragEnd}
+              onTouchStart={(e) => handleTouchStart(e, cardId)}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              style={{
+                cursor: playable && !stagedCardId ? 'grab' : 'pointer',
+                opacity: isBeingDragged || isStaged ? 0.25 : 1,
+                transition: 'opacity 0.15s',
+              }}
+            >
+              <CardComponent
+                card={{ ...card, cost: getActualCost(cardId) }}
+                selected={isMenuOpen}
+                disabled={!!stagedCardId}
+              />
+            </div>
+          );
+        })}
+
+        {hand.length === 0 && (
+          <p className="text-[#555] text-sm italic flex-1 text-center">— No cards in hand —</p>
+        )}
+      </div>
 
       {/* Context menu */}
       {contextMenu && contextCard && (
@@ -221,6 +299,9 @@ export default function HandArea({ state, onSelectCard: _onSelectCard, onPlayCar
           </div>
         </div>
       )}
+
+      {showDeck && <PileModal title="Draw Pile" cardIds={drawPile} onClose={() => setShowDeck(false)} />}
+      {showDiscard && <PileModal title="Discard Pile" cardIds={discardPile} onClose={() => setShowDiscard(false)} />}
     </div>
   );
 }
