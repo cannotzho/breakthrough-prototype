@@ -181,11 +181,17 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
       };
 
       s = addLog(s, `You played [${card.name}]`);
+      const intactBefore = s.oppShields.filter(sh => !sh.broken).length;
       s = resolvePlayerEffect(s, card);
+      const shieldWasBroken = card.effects.breakShield &&
+        s.oppShields.filter(sh => !sh.broken).length < intactBefore;
 
-      // Place enchantments on field; discard others to the appropriate deck
+      // Place enchantments on field; shield-breakers that land are consumed entirely;
+      // all others discard to the appropriate deck
       if (card.type === 'enchantment') {
         s = { ...s, field: [...s.field, action.cardId] };
+      } else if (shieldWasBroken) {
+        // Card consumed — removed from the game, not sent to any discard pile
       } else if (card.supertype === 'Personal') {
         s = { ...s, personalDeck: { ...s.personalDeck, discard: [...s.personalDeck.discard, action.cardId] } };
       } else {
