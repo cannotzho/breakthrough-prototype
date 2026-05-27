@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { CARDS } from '../data/cards';
 import CardComponent from './CardComponent';
 import type { CardDef, CardEffects, EncounterConfig, CardSupertype, CardType } from '../combat/types';

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { CombatState } from '../combat/types';
 import { CARDS } from '../data/cards';
+import CardComponent from './CardComponent';
 
 interface Props {
   state: CombatState;
@@ -14,25 +15,23 @@ function PileModal({ title, cardIds, onClose }: { title: string; cardIds: string
       onClick={onClose}
     >
       <div
-        className="bg-[#16213e] border-2 border-[#0f3460] rounded-xl p-5 max-w-sm w-full max-h-[70vh] overflow-auto font-mono text-[#ddd]"
+        className="bg-[#16213e] border-2 border-[#0f3460] rounded-xl p-5 max-w-md w-full max-h-[80vh] overflow-auto font-mono text-[#ddd]"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex justify-between items-center mb-3">
+        <div className="flex justify-between items-center mb-4">
           <p className="text-[#4ecca3] font-bold text-sm">{title} — {cardIds.length} card{cardIds.length !== 1 ? 's' : ''}</p>
           <button onClick={onClose} className="text-[#888] text-lg leading-none hover:text-white bg-transparent border-0 cursor-pointer">✕</button>
         </div>
         {cardIds.length === 0 ? (
           <p className="text-[#555] text-xs text-center py-4">Empty</p>
         ) : (
-          cardIds.map((id, i) => {
-            const card = CARDS[id];
-            return (
-              <div key={i} className="border-b border-[#0f3460] pb-2 mb-2 last:border-0 last:mb-0">
-                <p className="text-[#ccc] text-xs font-bold mb-0.5">{card?.name ?? id}</p>
-                <p className="text-[#666] text-[10px] leading-snug">{card?.effectText ?? ''}</p>
-              </div>
-            );
-          })
+          <div className="grid grid-cols-3 gap-2 justify-items-center">
+            {cardIds.map((id, i) => {
+              const card = CARDS[id];
+              if (!card) return null;
+              return <CardComponent key={i} card={card} />;
+            })}
+          </div>
         )}
       </div>
     </div>

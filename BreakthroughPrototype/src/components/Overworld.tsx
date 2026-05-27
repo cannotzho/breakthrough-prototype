@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { CARDS } from '../data/cards';
+import CardComponent from './CardComponent';
 
 /* ── Props ──────────────────────────────────────────────────── */
 interface Props {
@@ -547,34 +548,29 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
                 No cards available.
               </p>
             ) : (
-              compendium.map((id) => {
-                const card = CARDS[id];
-                if (!card) return null;
-                const obtained = collectedCards.includes(id);
-                return (
-                  <div key={id} style={{
-                    borderBottom: '1px solid #0f3460', paddingBottom: 12, marginBottom: 12,
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                      <p style={{ color: obtained ? '#4ecca3' : '#ccc', fontSize: 13, fontWeight: 'bold', margin: 0 }}>
-                        {card.name}
-                      </p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(96px, 1fr))', gap: 10, justifyItems: 'center' }}>
+                {compendium.map((id) => {
+                  const card = CARDS[id];
+                  if (!card) return null;
+                  const obtained = collectedCards.includes(id);
+                  return (
+                    <div key={id} style={{ opacity: obtained ? 1 : 0.4, position: 'relative' }}>
+                      <CardComponent card={card} />
                       {obtained && (
-                        <span style={{
-                          color: '#4ecca3', fontSize: 9,
+                        <div style={{
+                          position: 'absolute', bottom: 4, right: 4,
                           background: '#0a2a1e', border: '1px solid #4ecca3',
-                          borderRadius: 3, padding: '1px 5px', letterSpacing: 1,
+                          borderRadius: 3, padding: '1px 4px',
+                          fontSize: 8, color: '#4ecca3', letterSpacing: 1,
+                          pointerEvents: 'none',
                         }}>
-                          OBTAINED
-                        </span>
+                          ✓
+                        </div>
                       )}
                     </div>
-                    <p style={{ color: obtained ? '#aaa' : '#666', fontSize: 12, lineHeight: 1.5, margin: 0 }}>
-                      {card.effectText}
-                    </p>
-                  </div>
-                );
-              })
+                  );
+                })}
+              </div>
             )}
 
             <p style={{ color: '#333', fontSize: 10, textAlign: 'center', marginTop: 8 }}>
