@@ -9,8 +9,6 @@ export default function CombatHUD({ state, encounterName }: Props) {
   const { priority, oppPatience, oppMaxPatience, phase, awaitingShieldChoice } = state;
 
   const patiencePct = Math.max(0, (oppPatience / oppMaxPatience) * 100);
-  // Priority meter: map -10..+10 to 0..100%
-  const priorityPct = ((priority + 10) / 20) * 100;
 
   const phaseLabel = awaitingShieldChoice
     ? 'Choose Shield'
@@ -46,18 +44,14 @@ export default function CombatHUD({ state, encounterName }: Props) {
         </p>
       </div>
 
-      {/* Phase + Priority */}
+      {/* Phase */}
       <div className="flex-1 min-w-[120px] bg-[#16213e] rounded p-2 border border-[#0f3460] text-center">
         <p className="text-[#888] text-[10px] uppercase tracking-wider">Phase</p>
         <p className="font-bold text-sm" style={{ color: phaseColor }}>{phaseLabel}</p>
         <p className="text-[#888] text-[10px] mt-1">Priority</p>
-        <p className="text-[#00d9ff] font-bold text-lg leading-none">{priority}</p>
-        <div className="w-full h-1.5 bg-[#333] rounded-full mt-1 overflow-hidden">
-          <div
-            className="h-full rounded-full bg-[#00d9ff] transition-all duration-300"
-            style={{ width: `${priorityPct}%` }}
-          />
-        </div>
+        <p className="font-bold text-lg leading-none" style={{ color: priority > 0 ? '#4ecca3' : priority < 0 ? '#e94560' : '#888' }}>
+          {priority > 0 ? `+${priority}` : priority}
+        </p>
       </div>
 
       {/* Player info */}
