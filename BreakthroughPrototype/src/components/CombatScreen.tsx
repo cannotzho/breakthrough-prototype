@@ -37,19 +37,37 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, addToCompen
     return () => clearTimeout(timer);
   }, [state.activeDialogue, dismissDialogue]);
 
+  // Shield break animation — track which player shield was just broken
+  const prevPlayerShieldsRef = useRef(state.playerShields);
+  const [justBrokenShieldIdx, setJustBrokenShieldIdx] = useState<number | null>(null);
+  const justBrokenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    const prev = prevPlayerShieldsRef.current;
+    const curr = state.playerShields;
+    for (let i = 0; i < curr.length; i++) {
+      if (curr[i].broken && (!prev[i] || !prev[i].broken)) {
+        if (justBrokenTimerRef.current) clearTimeout(justBrokenTimerRef.current);
+        setJustBrokenShieldIdx(i);
+        justBrokenTimerRef.current = setTimeout(() => setJustBrokenShieldIdx(null), 900);
+        break;
+      }
+    }
+    prevPlayerShieldsRef.current = curr;
+  }, [state.playerShields]);
+
   // Drag state — shared between HandArea (source) and Battlefield/ShieldRow (targets)
   const [draggingCardId, setDraggingCardId] = useState<string | null>(null);
 
-  // Ghost card — follows mouse cursor during HTML5 drag
+  // Ghost card — follows cursor during HTML5 drag via dragover (mousemove doesn't fire during native drag)
   const [ghostPos, setGhostPos] = useState<{ x: number; y: number } | null>(null);
   useEffect(() => {
     if (!draggingCardId) { setGhostPos(null); return; }
-    const onMove = (e: MouseEvent) => setGhostPos({ x: e.clientX, y: e.clientY });
-    document.addEventListener('mousemove', onMove);
-    return () => document.removeEventListener('mousemove', onMove);
+    const onMove = (e: DragEvent) => setGhostPos({ x: e.clientX, y: e.clientY });
+    document.addEventListener('dragover', onMove);
+    return () => document.removeEventListener('dragover', onMove);
   }, [draggingCardId]);
 
-  // Card staging — show played card for 600 ms before resolving effects
+  // Card staging — show played card for 1000 ms before resolving effects
   const [stagedCardId, setStagedCardId] = useState<string | null>(null);
   const stagedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -64,7 +82,7 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, addToCompen
       playCard(cardId);
       setStagedCardId(null);
       stagedTimerRef.current = null;
-    }, 600);
+    }, 1000);
   }
 
   function handleCancelStaged() {
@@ -97,6 +115,7 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, addToCompen
           onDropShield={() => { setDraggingCardId(null); placeShield(); }}
           stagedCardId={stagedCardId}
           onCancelStaged={handleCancelStaged}
+          justBrokenPlayerShieldIdx={justBrokenShieldIdx}
         />
 
         {/* Log — sidebar on desktop, hidden on very small screens */}
