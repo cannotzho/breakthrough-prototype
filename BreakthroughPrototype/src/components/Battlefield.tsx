@@ -12,9 +12,10 @@ interface Props {
   onDropShield: () => void;
   stagedCardId: string | null;
   onCancelStaged: () => void;
+  justBrokenPlayerShieldIdx?: number | null;
 }
 
-export default function Battlefield({ state, onChooseShield, isDragging, onDropPlay, onDropShield, stagedCardId, onCancelStaged }: Props) {
+export default function Battlefield({ state, onChooseShield, isDragging, onDropPlay, onDropShield, stagedCardId, onCancelStaged, justBrokenPlayerShieldIdx }: Props) {
   const [playZoneOver, setPlayZoneOver] = useState(false);
   const [shieldZoneOver, setShieldZoneOver] = useState(false);
 
@@ -28,8 +29,31 @@ export default function Battlefield({ state, onChooseShield, isDragging, onDropP
         <ShieldRow shields={state.oppShields} owner="opponent" />
       </div>
 
-      {/* Divider */}
-      <div className="w-full max-w-sm h-px bg-[#0f3460] opacity-60" />
+      {/* Priority bar — center pip = 0, left = opponent's turn, right = player's turn */}
+      <div className="w-full max-w-sm px-2">
+        <div className="flex justify-between items-baseline mb-1">
+          <span className="text-[10px] text-[#888] uppercase tracking-wider">Opponent</span>
+          <span className={`text-[11px] font-bold tabular-nums ${state.priority > 0 ? 'text-[#4ecca3]' : state.priority < 0 ? 'text-[#e94560]' : 'text-[#666]'}`}>
+            {state.priority > 0 ? `+${state.priority}` : state.priority}
+          </span>
+          <span className="text-[10px] text-[#888] uppercase tracking-wider">You</span>
+        </div>
+        <div className="relative h-3 bg-[#111827] rounded-full overflow-hidden">
+          {state.priority > 0 && (
+            <div
+              className="absolute top-0 h-full bg-[#4ecca3] rounded-r-full transition-all duration-300"
+              style={{ left: '50%', width: `${(state.priority / 10) * 50}%` }}
+            />
+          )}
+          {state.priority < 0 && (
+            <div
+              className="absolute top-0 h-full bg-[#e94560] rounded-l-full transition-all duration-300"
+              style={{ right: '50%', width: `${(Math.abs(state.priority) / 10) * 50}%` }}
+            />
+          )}
+          <div className="absolute top-0 left-1/2 -translate-x-px w-0.5 h-full bg-[#4a4a6a]" />
+        </div>
+      </div>
 
       {/* Staging zone — card appears here for 600 ms before effects resolve */}
       {stagedCard ? (
@@ -115,6 +139,7 @@ export default function Battlefield({ state, onChooseShield, isDragging, onDropP
             owner="player"
             awaitingChoice={state.awaitingShieldChoice}
             onChoose={onChooseShield}
+            justBrokenIdx={justBrokenPlayerShieldIdx}
           />
         </div>
       </div>
