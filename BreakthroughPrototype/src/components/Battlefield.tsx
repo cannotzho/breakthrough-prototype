@@ -23,12 +23,6 @@ export default function Battlefield({ state, onChooseShield, isDragging, onDropP
 
   return (
     <div className="flex flex-col items-center justify-center gap-4 py-4 flex-1">
-      {/* Opponent shield row */}
-      <div className="flex flex-col items-center gap-1">
-        <p className="text-[#888] text-xs uppercase tracking-wider">Opponent Shields</p>
-        <ShieldRow shields={state.oppShields} owner="opponent" />
-      </div>
-
       {/* Priority bar — center pip = 0, left = opponent's turn, right = player's turn */}
       <div className="w-full max-w-sm px-2">
         <div className="flex justify-between items-baseline mb-1">
@@ -94,6 +88,12 @@ export default function Battlefield({ state, onChooseShield, isDragging, onDropP
           {isDragging ? 'Drop to Play' : '· · ·'}
         </div>
       )}
+
+      {/* Opponent shield row */}
+      <div className="flex flex-col items-center gap-1">
+        <p className="text-[#888] text-xs uppercase tracking-wider">Opponent Shields</p>
+        <ShieldRow shields={state.oppShields} owner="opponent" />
+      </div>
 
       {/* Player shield row — also a drop zone for shield placement */}
       <div className="flex flex-col items-center gap-1">
