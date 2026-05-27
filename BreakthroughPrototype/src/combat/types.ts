@@ -79,6 +79,7 @@ export interface Disposition {
 export interface EncounterConfig {
   id: string;
   name: string;
+  portraitUrl?: string;
   patience: number;
   playerShields: number;
   oppShields: number;

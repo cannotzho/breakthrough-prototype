@@ -13,9 +13,11 @@ interface Props {
   stagedCardId: string | null;
   onCancelStaged: () => void;
   justBrokenPlayerShieldIdx?: number | null;
+  encounterName: string;
+  portraitUrl?: string;
 }
 
-export default function Battlefield({ state, onChooseShield, isDragging, onDropPlay, onDropShield, stagedCardId, onCancelStaged, justBrokenPlayerShieldIdx }: Props) {
+export default function Battlefield({ state, onChooseShield, isDragging, onDropPlay, onDropShield, stagedCardId, onCancelStaged, justBrokenPlayerShieldIdx, encounterName, portraitUrl }: Props) {
   const [playZoneOver, setPlayZoneOver] = useState(false);
   const [shieldZoneOver, setShieldZoneOver] = useState(false);
 
@@ -64,17 +66,23 @@ export default function Battlefield({ state, onChooseShield, isDragging, onDropP
           <p className="text-[#555] text-[9px]">tap to cancel</p>
         </div>
       ) : (
-        /* Play zone — highlighted when a card is being dragged */
+        /* Play zone — enlarged natural drag target with opponent portrait background */
         <div
           data-dropzone="play"
           className={[
-            'w-full max-w-xs rounded-lg border-2 border-dashed py-3 text-center text-xs uppercase tracking-wider transition-all select-none',
+            'w-full max-w-sm rounded-xl border-2 border-dashed transition-all select-none relative overflow-hidden',
+            'min-h-[120px] flex items-center justify-center',
             playZoneOver
-              ? 'border-[#4ecca3] text-[#4ecca3] bg-[rgba(78,204,163,0.15)] scale-105'
+              ? 'border-[#4ecca3] scale-[1.02]'
               : isDragging
-                ? 'border-[#4ecca3] text-[#4ecca3] bg-[rgba(78,204,163,0.05)]'
-                : 'border-[#1e2a40] text-[#2a3a50]',
+                ? 'border-[#4ecca3]'
+                : 'border-[#1e2a40]',
           ].join(' ')}
+          style={{
+            background: portraitUrl
+              ? `url(${portraitUrl}) center/cover no-repeat`
+              : 'linear-gradient(135deg, #0d1625 0%, #16213e 40%, #0f3460 100%)',
+          }}
           onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setPlayZoneOver(true); }}
           onDragEnter={(e) => { e.preventDefault(); setPlayZoneOver(true); }}
           onDragLeave={() => setPlayZoneOver(false)}
@@ -85,7 +93,14 @@ export default function Battlefield({ state, onChooseShield, isDragging, onDropP
             if (cardId) onDropPlay(cardId);
           }}
         >
-          {isDragging ? 'Drop to Play' : '· · ·'}
+          {/* Overlay for text legibility */}
+          <div className="absolute inset-0 bg-black/50" />
+          <span className={[
+            'relative z-10 text-sm uppercase tracking-widest font-bold transition-colors',
+            playZoneOver ? 'text-[#4ecca3]' : isDragging ? 'text-[#4ecca3]' : 'text-[#2a4060]',
+          ].join(' ')}>
+            {isDragging ? 'Drop to Play' : encounterName}
+          </span>
         </div>
       )}
 

@@ -116,6 +116,8 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, addToCompen
           stagedCardId={stagedCardId}
           onCancelStaged={handleCancelStaged}
           justBrokenPlayerShieldIdx={justBrokenShieldIdx}
+          encounterName={encounter.name}
+          portraitUrl={encounter.portraitUrl}
         />
 
         {/* Log — sidebar on desktop, hidden on very small screens */}
