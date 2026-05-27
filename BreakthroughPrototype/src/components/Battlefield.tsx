@@ -21,6 +21,11 @@ export default function Battlefield({ state, onChooseShield, isDragging, onDropP
   const [playZoneOver, setPlayZoneOver] = useState(false);
   const [shieldZoneOver, setShieldZoneOver] = useState(false);
 
+  const phaseLabel = state.awaitingShieldChoice
+    ? 'Choose Shield'
+    : state.phase === 'attack' ? 'Your Turn' : "Opponent's Turn";
+  const phaseColor = state.awaitingShieldChoice ? '#f4d03f' : state.phase === 'attack' ? '#4ecca3' : '#e94560';
+
   const stagedCard = stagedCardId ? CARDS[stagedCardId] : null;
 
   return (
@@ -49,6 +54,9 @@ export default function Battlefield({ state, onChooseShield, isDragging, onDropP
           )}
           <div className="absolute top-0 left-1/2 -translate-x-px w-0.5 h-full bg-[#4a4a6a]" />
         </div>
+        <p className="text-center text-[10px] uppercase tracking-widest mt-1 font-semibold" style={{ color: phaseColor }}>
+          {phaseLabel}
+        </p>
       </div>
 
       {/* Staging zone — card appears here for 600 ms before effects resolve */}
