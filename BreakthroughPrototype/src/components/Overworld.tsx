@@ -103,6 +103,7 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
   const [dialog,          setDialog]          = useState<{ npc: NpcDef; locked: boolean; done: boolean } | null>(null);
   const [isTouchDevice,   setIsTouchDevice]   = useState(false);
   const [showCollection,  setShowCollection]  = useState(false);
+  const [showNotes,       setShowNotes]       = useState(false);
 
   /* ── Interact ─────────────────────────────────────────────── */
   const interact = useCallback(() => {
@@ -313,6 +314,10 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
         e.preventDefault();
         setShowCollection(prev => !prev);
       }
+      if (!e.repeat && (e.key === 'n' || e.key === 'N')) {
+        e.preventDefault();
+        setShowNotes(prev => !prev);
+      }
     }
     function onKeyUp(e: KeyboardEvent) { keysRef.current.delete(e.key); }
     window.addEventListener('keydown', onKeyDown);
@@ -440,6 +445,24 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
         </div>
       )}
 
+      {/* Notes button — bottom-right, above Compendium */}
+      <button
+        onClick={() => setShowNotes(prev => !prev)}
+        style={{
+          position: 'absolute', bottom: 84, right: 12,
+          background: '#000000bb', border: '1px solid #1e2a40',
+          padding: '6px 14px', borderRadius: 6,
+          fontFamily: 'monospace', fontSize: 11,
+          color: '#c8a96e',
+          cursor: 'pointer',
+        }}
+        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#c8a96e'; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#1e2a40'; }}
+        title="Notes [N]"
+      >
+        Notes [N]
+      </button>
+
       {/* Intel collection button — bottom-right, above New Game */}
       <button
         onClick={() => setShowCollection(prev => !prev)}
@@ -538,6 +561,118 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
 
             <p style={{ color: '#333', fontSize: 10, textAlign: 'center', marginTop: 8 }}>
               Press I to close
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Notes panel */}
+      {showNotes && (
+        <div style={{
+          position: 'absolute', inset: 0, background: '#000000aa',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+        }}
+          onClick={() => setShowNotes(false)}
+        >
+          <div
+            style={{
+              background: '#1a1408', border: '2px solid #4a3820',
+              borderRadius: 4, padding: 32, maxWidth: 480, width: '100%',
+              maxHeight: '82vh', overflow: 'auto',
+              fontFamily: '"Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif',
+              color: '#e8dfc4',
+              boxShadow: '0 0 40px #00000099, inset 0 0 60px #00000044',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div style={{ borderBottom: '1px solid #4a3820', marginBottom: 20, paddingBottom: 12 }}>
+              <p style={{ color: '#c8a96e', fontWeight: 'bold', fontSize: 20, margin: '0 0 4px', letterSpacing: 2, textTransform: 'uppercase' }}>
+                Case Notes
+              </p>
+              <p style={{ color: '#6a5840', fontSize: 11, margin: 0, fontFamily: 'monospace', letterSpacing: 1 }}>
+                DETECTIVE'S FIELD JOURNAL — RESTRICTED
+              </p>
+            </div>
+
+            {/* Section: The Case */}
+            <div style={{ marginBottom: 24 }}>
+              <p style={{ color: '#c8a96e', fontSize: 13, fontWeight: 'bold', margin: '0 0 10px', letterSpacing: 1, textTransform: 'uppercase', borderBottom: '1px solid #2a2010', paddingBottom: 6 }}>
+                The Case
+              </p>
+              <p style={{ fontSize: 13, lineHeight: 1.8, margin: '0 0 8px', color: '#d4c8a8' }}>
+                Three dockworkers turned up dry in a week — not a drop of blood left in them. The Harbour Authority
+                is calling it a disease. Someone higher up knows better.
+              </p>
+              <p style={{ fontSize: 13, lineHeight: 1.8, margin: 0, color: '#d4c8a8' }}>
+                Every trail leads back to the same stretch of cobblestone between the Rusty Tap and the College.
+                There's a blood trade running through this city — quiet, expensive, and protected. Finding out
+                who's running it means getting to people who don't want to be found.
+              </p>
+            </div>
+
+            {/* Section: Persons of Interest */}
+            <div style={{ marginBottom: 24 }}>
+              <p style={{ color: '#c8a96e', fontSize: 13, fontWeight: 'bold', margin: '0 0 10px', letterSpacing: 1, textTransform: 'uppercase', borderBottom: '1px solid #2a2010', paddingBottom: 6 }}>
+                Persons of Interest
+              </p>
+
+              {/* Gutterfang */}
+              <div style={{ marginBottom: 16, paddingLeft: 12, borderLeft: '2px solid #3a2a10' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                  <p style={{ fontSize: 13, fontWeight: 'bold', margin: 0, color: '#e8dfc4' }}>Gutterfang</p>
+                  {completedEncounters.has('gutterfang') ? (
+                    <span style={{ fontSize: 10, color: '#4ecca3', fontFamily: 'monospace', background: '#0a2a1e', border: '1px solid #4ecca3', borderRadius: 3, padding: '1px 6px' }}>
+                      ✓ Interviewed
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: 10, color: '#6a5840', fontFamily: 'monospace' }}>Not yet interviewed</span>
+                  )}
+                </div>
+                <p style={{ fontSize: 12, lineHeight: 1.7, margin: 0, color: '#a89878' }}>
+                  Operates out of the alley district. Known fence for stolen medical stock — surgical tools, stored
+                  blood, unmarked vials. Blood-stained coat, nervous hands. Either he's guilty or he's seen
+                  something that scared him badly.
+                </p>
+              </div>
+
+              {/* Mary-Ann */}
+              <div style={{ paddingLeft: 12, borderLeft: '2px solid #3a2a10' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                  <p style={{ fontSize: 13, fontWeight: 'bold', margin: 0, color: '#e8dfc4' }}>Mary-Ann Mariposa</p>
+                  {completedEncounters.has('maryann') ? (
+                    <span style={{ fontSize: 10, color: '#4ecca3', fontFamily: 'monospace', background: '#0a2a1e', border: '1px solid #4ecca3', borderRadius: 3, padding: '1px 6px' }}>
+                      ✓ Interviewed
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: 10, color: '#6a5840', fontFamily: 'monospace' }}>Not yet interviewed</span>
+                  )}
+                </div>
+                <p style={{ fontSize: 12, lineHeight: 1.7, margin: 0, color: '#a89878' }}>
+                  Larkgrove Women's College — officially, a patroness of the sciences. Rumoured to have funded
+                  three private research contracts in the last year, all classified. Charming. Dangerous. Does not
+                  rattle easily.
+                </p>
+              </div>
+            </div>
+
+            {/* Section: Evidence */}
+            <div style={{ marginBottom: 20 }}>
+              <p style={{ color: '#c8a96e', fontSize: 13, fontWeight: 'bold', margin: '0 0 10px', letterSpacing: 1, textTransform: 'uppercase', borderBottom: '1px solid #2a2010', paddingBottom: 6 }}>
+                Evidence
+              </p>
+              <ul style={{ margin: 0, padding: '0 0 0 18px', fontSize: 12, lineHeight: 1.9, color: '#a89878' }}>
+                <li>Unsigned ledger page — lists "Type O, 12 units" delivered to a Seashaker Casino storage room.</li>
+                <li>Matchbook from the Rusty Tap, found on the third victim. Back room meetings, most likely.</li>
+                <li>Moneylender's Office records show a lump-sum payment to an unnamed "medical contractor" — same week as the first death.</li>
+                <li>
+                  <span style={{ color: '#c8a96e' }}>NOTE:</span> The Harbour Authority physician was pulled off the case on day two. Someone has reach.
+                </li>
+              </ul>
+            </div>
+
+            <p style={{ color: '#3a2a10', fontSize: 10, textAlign: 'center', marginTop: 8, fontFamily: 'monospace' }}>
+              Press N to close
             </p>
           </div>
         </div>
