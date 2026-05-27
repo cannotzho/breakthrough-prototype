@@ -3,13 +3,18 @@ import Overworld from './components/Overworld';
 import DeckBuilder from './components/DeckBuilder';
 import CombatScreen from './components/CombatScreen';
 import { STARTER_COMPENDIUM } from './data/cards';
+import DevTools from './components/DevTools';
 
 const LS_COMPENDIUM = 'bt_compendium';
 const LS_COLLECTED = 'bt_collected';
 
 type AppScreen = 'overworld' | 'deckbuilder' | 'combat';
 
+const isDevRoute = import.meta.env.DEV && window.location.pathname.replace(/\/$/, '').endsWith('/dev');
+
 export default function App() {
+  if (isDevRoute) return <DevTools />;
+
   const [screen, setScreen] = useState<AppScreen>('overworld');
   const [encounterId, setEncounterId] = useState<string | null>(null);
   const [chosenWorldDeck, setChosenWorldDeck] = useState<string[]>([]);

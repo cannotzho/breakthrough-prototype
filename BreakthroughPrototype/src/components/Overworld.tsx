@@ -481,6 +481,24 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
         Compendium [{compendium.length}]
       </button>
 
+      {/* Dev Tools link — bottom-right, dev builds only */}
+      {import.meta.env.DEV && (
+        <a
+          href="./dev"
+          style={{
+            position: 'absolute', bottom: 120, right: 12,
+            background: '#000000bb', border: '1px solid #1e2a40',
+            padding: '6px 14px', borderRadius: 6,
+            fontFamily: 'monospace', fontSize: 11, color: '#555',
+            cursor: 'pointer', textDecoration: 'none', display: 'block',
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.borderColor = '#00d9ff'; (e.currentTarget as HTMLAnchorElement).style.color = '#00d9ff'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.borderColor = '#1e2a40'; (e.currentTarget as HTMLAnchorElement).style.color = '#555'; }}
+        >
+          Dev Tools
+        </a>
+      )}
+
       {/* New Game button — bottom-right corner */}
       <button
         onClick={onResetGame}
