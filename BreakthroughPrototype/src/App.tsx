@@ -111,6 +111,7 @@ export default function App() {
       onStartCombat={openDeckBuilder}
       onResetGame={resetGame}
       collectedCards={collectedCards}
+      compendium={compendium}
     />
   );
 }

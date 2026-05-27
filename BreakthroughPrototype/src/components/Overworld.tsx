@@ -7,6 +7,7 @@ interface Props {
   onStartCombat: (encounterId: string) => void;
   onResetGame: () => void;
   collectedCards: string[];
+  compendium: string[];
 }
 
 /* ── World constants ─────────────────────────────────────────── */
@@ -84,7 +85,7 @@ function btnStyle(bg: string): React.CSSProperties {
 }
 
 /* ── Component ───────────────────────────────────────────────── */
-export default function Overworld({ completedEncounters, onStartCombat, onResetGame, collectedCards }: Props) {
+export default function Overworld({ completedEncounters, onStartCombat, onResetGame, collectedCards, compendium }: Props) {
   const canvasRef   = useRef<HTMLCanvasElement>(null);
   const keysRef     = useRef(new Set<string>());
   const playerRef   = useRef({ x: 576, y: 600 });
@@ -447,14 +448,14 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
           background: '#000000bb', border: '1px solid #1e2a40',
           padding: '6px 14px', borderRadius: 6,
           fontFamily: 'monospace', fontSize: 11,
-          color: collectedCards.length > 0 ? '#4ecca3' : '#555',
+          color: '#4ecca3',
           cursor: 'pointer',
         }}
         onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ecca3'; }}
         onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#1e2a40'; }}
-        title="Intel Collection [I]"
+        title="Compendium [I]"
       >
-        Intel [{collectedCards.length}]
+        Compendium [{compendium.length}]
       </button>
 
       {/* New Game button — bottom-right corner */}
@@ -491,7 +492,7 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
             onClick={e => e.stopPropagation()}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <p style={{ color: '#4ecca3', fontWeight: 'bold', fontSize: 16, margin: 0 }}>Intel Collection</p>
+              <p style={{ color: '#4ecca3', fontWeight: 'bold', fontSize: 16, margin: 0 }}>Compendium</p>
               <button
                 onClick={() => setShowCollection(false)}
                 style={{ background: 'none', border: 'none', color: '#888', fontSize: 18, cursor: 'pointer', lineHeight: 1 }}
@@ -500,24 +501,34 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
               </button>
             </div>
 
-            {collectedCards.length === 0 ? (
+            {compendium.length === 0 ? (
               <p style={{ color: '#555', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>
-                No intel gathered yet.
-                <br />
-                <span style={{ color: '#333' }}>Break opponent shields to collect information.</span>
+                No cards available.
               </p>
             ) : (
-              collectedCards.map((id) => {
+              compendium.map((id) => {
                 const card = CARDS[id];
                 if (!card) return null;
+                const obtained = collectedCards.includes(id);
                 return (
                   <div key={id} style={{
                     borderBottom: '1px solid #0f3460', paddingBottom: 12, marginBottom: 12,
                   }}>
-                    <p style={{ color: '#4ecca3', fontSize: 13, fontWeight: 'bold', margin: '0 0 4px' }}>
-                      {card.name}
-                    </p>
-                    <p style={{ color: '#aaa', fontSize: 12, lineHeight: 1.5, margin: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                      <p style={{ color: obtained ? '#4ecca3' : '#ccc', fontSize: 13, fontWeight: 'bold', margin: 0 }}>
+                        {card.name}
+                      </p>
+                      {obtained && (
+                        <span style={{
+                          color: '#4ecca3', fontSize: 9,
+                          background: '#0a2a1e', border: '1px solid #4ecca3',
+                          borderRadius: 3, padding: '1px 5px', letterSpacing: 1,
+                        }}>
+                          OBTAINED
+                        </span>
+                      )}
+                    </div>
+                    <p style={{ color: obtained ? '#aaa' : '#666', fontSize: 12, lineHeight: 1.5, margin: 0 }}>
                       {card.effectText}
                     </p>
                   </div>
