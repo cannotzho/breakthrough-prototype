@@ -2,7 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import Overworld from './components/Overworld';
 import DeckBuilder from './components/DeckBuilder';
 import CombatScreen from './components/CombatScreen';
-import { STARTER_COMPENDIUM } from './data/cards';
+import { STARTER_COMPENDIUM, CARDS } from './data/cards';
+
+const MAX_DECK = 15;
 import DevTools from './components/DevTools';
 
 const LS_COMPENDIUM = 'bt_compendium';
@@ -52,7 +54,12 @@ export default function App() {
 
   function openDeckBuilder(id: string) {
     setEncounterId(id);
-    setScreen('deckbuilder');
+    const uniqueIds = [...new Set(compendium)].filter(cid => CARDS[cid]);
+    if (uniqueIds.length <= MAX_DECK) {
+      enterCombat(uniqueIds);
+    } else {
+      setScreen('deckbuilder');
+    }
   }
 
   function enterCombat(chosen: string[]) {
