@@ -189,7 +189,6 @@ export default function HandArea({ state, onSelectCard: _onSelectCard, onPlayCar
         {hand.map((cardId, idx) => {
           const card = CARDS[cardId];
           if (!card) return null;
-          const playable = isPlayable(cardId);
           const isBeingDragged = cardId === draggingCardId;
           const isStaged = cardId === stagedCardId;
           const isMenuOpen = contextMenu?.cardId === cardId;
