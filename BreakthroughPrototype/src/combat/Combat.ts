@@ -65,14 +65,25 @@ function triggerOpponentAction(state: CombatState): CombatState {
 
 // ── Initialization ─────────────────────────────────────────────────────────────
 
-type InitArg = { encounter: EncounterConfig; chosenWorldDeck: string[] };
+type InitArg = { encounter: EncounterConfig; chosenWorldDeck: string[]; preShields?: string[] };
 
-function initCombat({ encounter, chosenWorldDeck }: InitArg): CombatState {
+function initCombat({ encounter, chosenWorldDeck, preShields = [] }: InitArg): CombatState {
+  // Remove pre-selected shield cards from the world deck (one removal per shield card)
+  const deckWithoutShields = [...chosenWorldDeck];
+  const validPreShields: string[] = [];
+  for (const shieldId of preShields.slice(0, encounter.playerShields)) {
+    const idx = deckWithoutShields.indexOf(shieldId);
+    if (idx !== -1) {
+      deckWithoutShields.splice(idx, 1);
+      validPreShields.push(shieldId);
+    }
+  }
+
   // Ponder conversion: any chosen world card not on the encounter's relevance list
   // is swapped to a Ponder for this combat only. Personal cards are never converted.
   const relevanceSet = new Set(encounter.worldDeck);
   const substitutionLogs: string[] = [];
-  const convertedWorldDeck = chosenWorldDeck.map(id => {
+  const convertedWorldDeck = deckWithoutShields.map(id => {
     if (!relevanceSet.has(id)) {
       const name = CARDS[id]?.name ?? id;
       substitutionLogs.push(`${name} isn't relevant here — converted to Ponder.`);
@@ -81,10 +92,20 @@ function initCombat({ encounter, chosenWorldDeck }: InitArg): CombatState {
     return id;
   });
 
+  // Build playerShields: pre-placed first, then empty slots up to encounter limit
+  const playerShieldsInit: import('./types').ShieldSlot[] = [];
+  for (let i = 0; i < encounter.playerShields; i++) {
+    if (i < validPreShields.length) {
+      playerShieldsInit.push({ broken: false, usedCardId: validPreShields[i] });
+    } else {
+      playerShieldsInit.push({ broken: false });
+    }
+  }
+
   let state: CombatState = {
     phase: 'attack',
     priority: 5,
-    playerShields: Array.from({ length: encounter.playerShields }, () => ({ broken: false })),
+    playerShields: playerShieldsInit,
     oppShields: encounter.shieldLinks.slice(0, encounter.oppShields).map(link => ({
       broken: false,
       linkedCardId: link,
@@ -132,11 +153,11 @@ type CombatAction =
   | { type: 'CHOOSE_SHIELD_TO_BREAK'; index: number }
   | { type: 'OPPONENT_ACT' }
   | { type: 'DISMISS_DIALOGUE' }
-  | { type: 'RESET'; encounter: EncounterConfig; chosenWorldDeck: string[] };
+  | { type: 'RESET'; encounter: EncounterConfig; chosenWorldDeck: string[]; preShields?: string[] };
 
 function combatReducer(state: CombatState, action: CombatAction): CombatState {
   if (action.type === 'RESET') {
-    return initCombat({ encounter: action.encounter, chosenWorldDeck: action.chosenWorldDeck });
+    return initCombat({ encounter: action.encounter, chosenWorldDeck: action.chosenWorldDeck, preShields: action.preShields });
   }
   if (state.gameOver && action.type !== 'OPPONENT_ACT') return state;
 
@@ -380,8 +401,8 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
 
 // ── Public hook ────────────────────────────────────────────────────────────────
 
-export function useCombat(encounter: EncounterConfig, chosenWorldDeck: string[]) {
-  const [state, dispatch] = useReducer(combatReducer, { encounter, chosenWorldDeck }, initCombat);
+export function useCombat(encounter: EncounterConfig, chosenWorldDeck: string[], preShields: string[] = []) {
+  const [state, dispatch] = useReducer(combatReducer, { encounter, chosenWorldDeck, preShields }, initCombat);
 
   // Schedule opponent action whenever the trigger counter changes
   useEffect(() => {
@@ -398,8 +419,8 @@ export function useCombat(encounter: EncounterConfig, chosenWorldDeck: string[])
   const chooseShieldToBreak = useCallback((index: number) => dispatch({ type: 'CHOOSE_SHIELD_TO_BREAK', index }), []);
   const dismissDialogue = useCallback(() => dispatch({ type: 'DISMISS_DIALOGUE' }), []);
   const resetCombat = useCallback(
-    () => dispatch({ type: 'RESET', encounter, chosenWorldDeck }),
-    [encounter, chosenWorldDeck],
+    () => dispatch({ type: 'RESET', encounter, chosenWorldDeck, preShields }),
+    [encounter, chosenWorldDeck, preShields],
   );
 
   return { state, selectCard, playCard, placeShield, endTurn, chooseShieldToBreak, dismissDialogue, resetCombat };

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Overworld from './components/Overworld';
 import DeckBuilder from './components/DeckBuilder';
+import ShieldSelector from './components/ShieldSelector';
 import CombatScreen from './components/CombatScreen';
 import { STARTER_COMPENDIUM, CARDS } from './data/cards';
 
@@ -10,7 +11,7 @@ import DevTools from './components/DevTools';
 const LS_COMPENDIUM = 'bt_compendium';
 const LS_COLLECTED = 'bt_collected';
 
-type AppScreen = 'overworld' | 'deckbuilder' | 'combat';
+type AppScreen = 'overworld' | 'deckbuilder' | 'shieldselector' | 'combat';
 
 const isDevRoute = import.meta.env.DEV && window.location.pathname.replace(/\/$/, '').endsWith('/dev');
 
@@ -20,6 +21,7 @@ export default function App() {
   const [screen, setScreen] = useState<AppScreen>('overworld');
   const [encounterId, setEncounterId] = useState<string | null>(null);
   const [chosenWorldDeck, setChosenWorldDeck] = useState<string[]>([]);
+  const [preShields, setPreShields] = useState<string[]>([]);
   const [completedEncounters, setCompletedEncounters] = useState<Set<string>>(new Set());
 
   const [compendium, setCompendium] = useState<string[]>(() => {
@@ -64,6 +66,11 @@ export default function App() {
 
   function enterCombat(chosen: string[]) {
     setChosenWorldDeck(chosen);
+    setScreen('shieldselector');
+  }
+
+  function startCombat(shields: string[]) {
+    setPreShields(shields);
     setScreen('combat');
   }
 
@@ -79,6 +86,7 @@ export default function App() {
     }
     setEncounterId(null);
     setChosenWorldDeck([]);
+    setPreShields([]);
     setScreen('overworld');
   }
 
@@ -87,6 +95,7 @@ export default function App() {
     setCollectedCards([]);
     setEncounterId(null);
     setChosenWorldDeck([]);
+    setPreShields([]);
     setScreen('overworld');
   }
 
@@ -103,12 +112,26 @@ export default function App() {
     );
   }
 
+  if (screen === 'shieldselector' && encounterId) {
+    return (
+      <div className="h-screen w-screen overflow-hidden">
+        <ShieldSelector
+          chosenWorldDeck={chosenWorldDeck}
+          encounterId={encounterId}
+          onConfirm={startCombat}
+          onCancel={() => setScreen('overworld')}
+        />
+      </div>
+    );
+  }
+
   if (screen === 'combat' && encounterId) {
     return (
       <div className="h-screen w-screen overflow-hidden">
         <CombatScreen
           encounterId={encounterId}
           chosenWorldDeck={chosenWorldDeck}
+          preShields={preShields}
           compendium={compendium}
           addToCompendium={addToCompendium}
           onEnd={endCombat}

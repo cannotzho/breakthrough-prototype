@@ -11,14 +11,15 @@ import CardComponent from './CardComponent';
 interface Props {
   encounterId: string;
   chosenWorldDeck: string[];
+  preShields?: string[];
   compendium: string[];
   addToCompendium: (cardId: string) => void;
   onEnd: (won: boolean, collectedInfo?: string[]) => void;
 }
 
-export default function CombatScreen({ encounterId, chosenWorldDeck, addToCompendium, onEnd }: Props) {
+export default function CombatScreen({ encounterId, chosenWorldDeck, preShields = [], addToCompendium, onEnd }: Props) {
   const encounter = ENCOUNTERS[encounterId];
-  const { state, selectCard, playCard, placeShield, endTurn, chooseShieldToBreak, dismissDialogue, resetCombat } = useCombat(encounter, chosenWorldDeck);
+  const { state, selectCard, playCard, placeShield, endTurn, chooseShieldToBreak, dismissDialogue, resetCombat } = useCombat(encounter, chosenWorldDeck, preShields);
 
   // Add newly revealed info cards to the player's compendium
   const prevCollectedRef = useRef<string[]>([]);
