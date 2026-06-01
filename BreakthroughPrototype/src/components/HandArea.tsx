@@ -119,7 +119,7 @@ export default function HandArea({ state, onSelectCard: _onSelectCard, onPlayCar
     const el = document.elementFromPoint(touch.clientX, touch.clientY);
     const dropZone = el?.closest('[data-dropzone]')?.getAttribute('data-dropzone');
 
-    if (dropZone === 'play' && isPlayable(cardId)) {
+    if (dropZone === 'play') {
       onPlayCard(cardId);
     } else if (dropZone === 'shield' && phase === 'attack' && !awaitingShieldChoice) {
       onPlaceShield();
@@ -196,10 +196,10 @@ export default function HandArea({ state, onSelectCard: _onSelectCard, onPlayCar
           return (
             <div
               key={idx}
-              draggable={playable && !stagedCardId}
+              draggable={!stagedCardId}
               onClick={(e) => handleCardClick(e, cardId)}
               onDragStart={(e) => {
-                if (!playable || stagedCardId) { e.preventDefault(); return; }
+                if (stagedCardId) { e.preventDefault(); return; }
                 const img = new Image();
                 img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
                 e.dataTransfer.setDragImage(img, 0, 0);
@@ -213,7 +213,7 @@ export default function HandArea({ state, onSelectCard: _onSelectCard, onPlayCar
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
               style={{
-                cursor: playable && !stagedCardId ? 'grab' : 'pointer',
+                cursor: !stagedCardId ? 'grab' : 'pointer',
                 opacity: isBeingDragged || isStaged ? 0.25 : 1,
                 transition: 'opacity 0.15s',
               }}

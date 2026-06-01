@@ -59,6 +59,10 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
   // Shield peek — player clicked a face-down shield to inspect it
   const [peekShieldCardId, setPeekShieldCardId] = useState<string | null>(null);
 
+  // Priority toast — shown briefly when player tries to play an unaffordable card
+  const [showPriorityToast, setShowPriorityToast] = useState(false);
+  const priorityToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Drag state — shared between HandArea (source) and Battlefield/ShieldRow (targets)
   const [draggingCardId, setDraggingCardId] = useState<string | null>(null);
 
@@ -76,10 +80,28 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
   const stagedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    return () => { if (stagedTimerRef.current) clearTimeout(stagedTimerRef.current); };
+    return () => {
+      if (stagedTimerRef.current) clearTimeout(stagedTimerRef.current);
+      if (priorityToastTimerRef.current) clearTimeout(priorityToastTimerRef.current);
+    };
   }, []);
 
+  function canAfford(cardId: string): boolean {
+    const card = CARDS[cardId];
+    if (!card) return false;
+    const vnActive = state.field.includes('vampireNetwork');
+    const reduction = vnActive && card.supertype === 'Information'
+      ? (CARDS['vampireNetwork']?.effects.reduceInfoCost ?? 0) : 0;
+    return state.priority >= Math.max(0, card.cost - reduction);
+  }
+
   function handlePlayCard(cardId: string) {
+    if (!canAfford(cardId)) {
+      if (priorityToastTimerRef.current) clearTimeout(priorityToastTimerRef.current);
+      setShowPriorityToast(true);
+      priorityToastTimerRef.current = setTimeout(() => setShowPriorityToast(false), 1500);
+      return;
+    }
     if (stagedTimerRef.current) clearTimeout(stagedTimerRef.current);
     setStagedCardId(cardId);
     stagedTimerRef.current = setTimeout(() => {
@@ -169,6 +191,15 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
           style={{ left: ghostPos.x - 44, top: ghostPos.y - 30, transform: 'scale(1.05)' }}
         >
           <CardComponent card={ghostCard} />
+        </div>
+      )}
+
+      {/* Not enough priority toast */}
+      {showPriorityToast && (
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 pointer-events-none">
+          <div className="bg-[rgba(233,69,96,0.95)] border border-[#e94560] rounded-lg px-5 py-2.5 shadow-2xl">
+            <p className="text-white text-sm font-bold font-mono tracking-wide">Not enough priority</p>
+          </div>
         </div>
       )}
 
