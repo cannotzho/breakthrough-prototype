@@ -7,6 +7,8 @@ import Battlefield from './Battlefield';
 import HandArea from './HandArea';
 import CombatLog from './CombatLog';
 import CardComponent from './CardComponent';
+import TutorialTooltip from './TutorialTooltip';
+import { useTutorial } from '../tutorial/useTutorial';
 
 interface Props {
   encounterId: string;
@@ -20,6 +22,7 @@ interface Props {
 export default function CombatScreen({ encounterId, chosenWorldDeck, preShields = [], addToCompendium, onEnd }: Props) {
   const encounter = ENCOUNTERS[encounterId];
   const { state, selectCard, playCard, placeShield, endTurn, chooseShieldToBreak, dismissDialogue, resetCombat } = useCombat(encounter, chosenWorldDeck, preShields);
+  const { active: tutorialStep, dismiss: dismissTutorial } = useTutorial(encounterId, state);
 
   // Add newly revealed info cards to the player's compendium
   const prevCollectedRef = useRef<string[]>([]);
@@ -225,6 +228,11 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
             <p className="text-[#eee] text-sm italic">"{state.activeDialogue}"</p>
           </div>
         </div>
+      )}
+
+      {/* Tutorial tooltip — one step at a time, Gutterfang only */}
+      {tutorialStep && !state.gameOver && !peekShieldCardId && (
+        <TutorialTooltip step={tutorialStep} onDismiss={dismissTutorial} />
       )}
 
       {/* Game over overlay */}
