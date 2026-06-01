@@ -16,15 +16,17 @@ export const ENCOUNTERS: Record<string, EncounterConfig> = {
   gutterfang: {
     id: 'gutterfang',
     name: 'Gutterfang',
-    patience: 5,
+    patience: 8, // raised from 5 — doubled patience drain on vulnerable hits was too punishing for tutorial
     playerShields: 3,
     oppShields: 3,
     shieldLinks: ['gutterfangSource', 'nobleIdentity', 'illegalVials'],
     personalDeck: ['intimidate', 'streetSmarts', 'persuade', 'probe', 'composure'],
     worldDeck: [
-      'streetInfo', 'bloodTrail', 'vampireNetwork', 'nobleConnection',
+      'streetInfo', 'bloodTrail', 'vampireNetwork', // TODO: designer review — vampireNetwork is a strategic utility; fits The Rusty Tap underworld but is not street-level narrative evidence
+      'nobleConnection', // TODO: designer review — noble connections as leverage vs a gutter criminal is narratively thin
       'streetInfo', 'bloodTrail', 'ponder',
       'theRustyTap', 'bloodTradeSuspicion', 'beastManAssault', 'whiteDeerDepartment',
+      'redMoonDescends', 'mariposafamily', // cult and noble house behind the blood trade — relevant context when pressing Gutterfang on his supplier
     ],
     oppDeck: ['bloodTrail', 'streetInfo', 'streetInfo', 'bloodTrail', 'streetInfo'],
     // Street thug — responds to shows of force, unmoved by reason or compassion
