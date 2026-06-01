@@ -56,6 +56,9 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
     prevPlayerShieldsRef.current = curr;
   }, [state.playerShields]);
 
+  // Shield peek — player clicked a face-down shield to inspect it
+  const [peekShieldCardId, setPeekShieldCardId] = useState<string | null>(null);
+
   // Drag state — shared between HandArea (source) and Battlefield/ShieldRow (targets)
   const [draggingCardId, setDraggingCardId] = useState<string | null>(null);
 
@@ -111,6 +114,7 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
         <Battlefield
           state={state}
           onChooseShield={chooseShieldToBreak}
+          onPeekShield={(cardId) => setPeekShieldCardId(cardId)}
           isDragging={draggingCardId !== null}
           onDropPlay={(cardId) => { setDraggingCardId(null); handlePlayCard(cardId); }}
           onDropShield={() => { setDraggingCardId(null); placeShield(); }}
@@ -165,6 +169,20 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
           style={{ left: ghostPos.x - 44, top: ghostPos.y - 30, transform: 'scale(1.05)' }}
         >
           <CardComponent card={ghostCard} />
+        </div>
+      )}
+
+      {/* Shield peek overlay — only visible to player, no game state change */}
+      {peekShieldCardId && CARDS[peekShieldCardId] && (
+        <div
+          className="absolute inset-0 z-50 bg-black/70 flex flex-col items-center justify-center p-4"
+          onClick={() => setPeekShieldCardId(null)}
+        >
+          <p className="text-[#4ecca3] text-xs uppercase tracking-widest mb-3 font-mono">Your Shield — Eyes Only</p>
+          <div style={{ transform: 'scale(1.6)', transformOrigin: 'center' }}>
+            <CardComponent card={CARDS[peekShieldCardId]!} />
+          </div>
+          <p className="text-[#555] text-[10px] mt-8 font-mono">tap anywhere to close</p>
         </div>
       )}
 
