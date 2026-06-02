@@ -263,8 +263,29 @@ const BLANK_CARD: CardDef = {
   color: '#e94560',
 };
 
-function CardCreator() {
+function CardCreator({ onCardSaved }: { onCardSaved: () => void }) {
   const [card, setCard] = useState<CardDef>(BLANK_CARD);
+  const [saveStatus, setSaveStatus] = useState('');
+
+  async function saveToFile() {
+    setSaveStatus('Saving…');
+    try {
+      const result = await fetch('/dev-api/cards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(card),
+      }).then(r => r.json());
+      if (result.ok) {
+        setSaveStatus('Saved!');
+        onCardSaved();
+      } else {
+        setSaveStatus(`Error: ${result.error}`);
+      }
+    } catch (e: any) {
+      setSaveStatus(`Error: ${e.message}`);
+    }
+    setTimeout(() => setSaveStatus(''), 3000);
+  }
 
   function set<K extends keyof CardDef>(k: K, v: CardDef[K]) {
     setCard(prev => ({ ...prev, [k]: v }));
@@ -442,12 +463,23 @@ function CardCreator() {
         </Section>
 
         <Section title="TypeScript Output">
-          <p style={{ color: '#555', fontSize: 11, fontFamily: 'monospace', margin: '0 0 10px' }}>
-            Paste into the <code style={{ color: '#00d9ff' }}>CARDS</code> object in <code style={{ color: '#00d9ff' }}>src/data/cards.ts</code>
+          <p style={{ color: '#999', fontSize: 11, fontFamily: 'monospace', margin: '0 0 10px' }}>
+            Use <strong>Save to File</strong> to write directly to <code style={{ color: '#00d9ff' }}>src/data/cards.ts</code>, or copy and paste manually.
           </p>
           <TsOutput code={ts} />
-          <div style={{ marginTop: 10 }}>
+          <div style={{ marginTop: 10, display: 'flex', gap: 10, alignItems: 'center' }}>
             <CopyButton getText={() => ts} />
+            <button
+              onClick={saveToFile}
+              style={{ ...btnSt, background: '#0a2a1e', borderColor: '#4ecca3', color: '#4ecca3' }}
+            >
+              Save to File
+            </button>
+            {saveStatus && (
+              <span style={{ color: saveStatus.startsWith('Error') ? '#e94560' : '#4ecca3', fontSize: 11, fontFamily: 'monospace' }}>
+                {saveStatus}
+              </span>
+            )}
           </div>
         </Section>
       </div>
@@ -481,7 +513,7 @@ const BLANK_ENC: EncounterConfig = {
   dialogue: { onVulnerable: [], onResistant: [] },
 };
 
-function EncounterCreator() {
+function EncounterCreator({ cardIds }: { cardIds: string[] }) {
   const [enc, setEnc] = useState<EncounterConfig>(BLANK_ENC);
   const [encounterList, setEncounterList] = useState<{ id: string; name: string }[]>([]);
   const [loadId, setLoadId] = useState('');
@@ -584,7 +616,7 @@ function EncounterCreator() {
             id="shieldLinks"
             tags={enc.shieldLinks}
             onChange={v => set('shieldLinks', v)}
-            suggestions={ALL_CARD_IDS}
+            suggestions={cardIds}
             placeholder="Card ID (press Enter)"
           />
           {enc.shieldLinks.length !== enc.oppShields && enc.oppShields > 0 && (
@@ -597,10 +629,10 @@ function EncounterCreator() {
 
       <Section title="Decks">
         <Field label="worldDeck — relevance list (Information cards; others become Ponder)">
-          <TagInput id="wdeck" tags={enc.worldDeck} onChange={v => set('worldDeck', v)} suggestions={ALL_CARD_IDS} />
+          <TagInput id="wdeck" tags={enc.worldDeck} onChange={v => set('worldDeck', v)} suggestions={cardIds} />
         </Field>
         <Field label="oppDeck — opponent's deck">
-          <TagInput id="odeck" tags={enc.oppDeck} onChange={v => set('oppDeck', v)} suggestions={ALL_CARD_IDS} />
+          <TagInput id="odeck" tags={enc.oppDeck} onChange={v => set('oppDeck', v)} suggestions={cardIds} />
         </Field>
       </Section>
 
@@ -610,17 +642,17 @@ function EncounterCreator() {
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <Field label="vulnerable — card IDs">
-            <TagInput id="vuln" tags={enc.disposition.vulnerable} onChange={v => set('disposition', { ...enc.disposition, vulnerable: v })} suggestions={ALL_CARD_IDS} />
+            <TagInput id="vuln" tags={enc.disposition.vulnerable} onChange={v => set('disposition', { ...enc.disposition, vulnerable: v })} suggestions={cardIds} />
           </Field>
           <Field label="resistant — card IDs">
-            <TagInput id="resist" tags={enc.disposition.resistant} onChange={v => set('disposition', { ...enc.disposition, resistant: v })} suggestions={ALL_CARD_IDS} />
+            <TagInput id="resist" tags={enc.disposition.resistant} onChange={v => set('disposition', { ...enc.disposition, resistant: v })} suggestions={cardIds} />
           </Field>
         </div>
       </Section>
 
       <Section title="Valuable Shields">
         <Field label="valuableShields — World card IDs the NPC cares about keeping hidden">
-          <TagInput id="vals" tags={enc.valuableShields} onChange={v => set('valuableShields', v)} suggestions={ALL_CARD_IDS} />
+          <TagInput id="vals" tags={enc.valuableShields} onChange={v => set('valuableShields', v)} suggestions={cardIds} />
         </Field>
       </Section>
 
@@ -663,6 +695,14 @@ function EncounterCreator() {
 
 export default function DevTools() {
   const [tab, setTab] = useState<Tab>('card');
+  const [cardIds, setCardIds] = useState<string[]>(Object.keys(CARDS));
+
+  async function refreshCards() {
+    try {
+      const data: Record<string, unknown> = await fetch('/dev-api/cards').then(r => r.json());
+      setCardIds(Object.keys(data));
+    } catch { /* dev tool — fail silently */ }
+  }
 
   const tabStyle = (active: boolean): React.CSSProperties => ({
     background: active ? '#16213e' : 'transparent',
@@ -700,7 +740,7 @@ export default function DevTools() {
 
       {/* Content */}
       <div style={{ padding: '28px' }}>
-        {tab === 'card' ? <CardCreator /> : <EncounterCreator />}
+        {tab === 'card' ? <CardCreator onCardSaved={refreshCards} /> : <EncounterCreator cardIds={cardIds} />}
       </div>
     </div>
   );

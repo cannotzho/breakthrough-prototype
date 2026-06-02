@@ -87,6 +87,40 @@ function devApiPlugin() {
         return `import type { EncounterConfig } from '../combat/types';\n\nexport const ENCOUNTERS: Record<string, EncounterConfig> = {\n${entries}\n};\n`;
       }
 
+      // ── Card TypeScript generator ────────────────────────────────────────────
+
+      function cardEntryTs(card: any): string {
+        const fxLines = Object.entries(card.effects as Record<string, unknown>)
+          .filter(([, v]) => v !== undefined && v !== null && v !== false)
+          .map(([k, v]) => `      ${k}: ${JSON.stringify(v)},`)
+          .join('\n');
+        const fxBody = fxLines ? `\n${fxLines}\n    ` : '';
+        return [
+          `  ${card.id}: {`,
+          `    id: '${card.id}',`,
+          `    name: ${JSON.stringify(card.name)},`,
+          `    supertype: '${card.supertype}',`,
+          `    type: '${card.type}',`,
+          `    cost: ${card.cost},`,
+          `    effectText: ${JSON.stringify(card.effectText)},`,
+          `    effects: {${fxBody}},`,
+          `    color: '${card.color}',`,
+          `  },`,
+        ].join('\n');
+      }
+
+      // Insert a new card entry or replace an existing one in the cards.ts source.
+      function upsertCard(content: string, card: any): string {
+        const ts = cardEntryTs(card);
+        const safeId = card.id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const existing = new RegExp(`  ${safeId}: \\{[\\s\\S]*?\\n  \\},`);
+        if (existing.test(content)) return content.replace(existing, ts);
+        // Append before the `\n};` that closes the CARDS object
+        const closingIdx = content.indexOf('\n};');
+        if (closingIdx === -1) throw new Error('Cannot find CARDS closing bracket in cards.ts');
+        return `${content.slice(0, closingIdx)}\n\n${ts}${content.slice(closingIdx)}`;
+      }
+
       // ── Middleware ──────────────────────────────────────────────────────────
 
       server.middlewares.use(async (req: any, res: any, next: any) => {
@@ -109,6 +143,27 @@ function devApiPlugin() {
                 generateEncountersTs(encounters),
                 'utf8',
               );
+              send(res, { ok: true });
+            } catch (e) { send(res, { error: String(e) }, 500); }
+            return;
+          }
+        }
+
+        if (req.url === '/dev-api/cards') {
+          if (req.method === 'GET') {
+            try {
+              const mod = loadTs(path.join(srcDir(), 'data/cards.ts'));
+              send(res, mod.CARDS ?? {});
+            } catch (e) { send(res, { error: String(e) }, 500); }
+            return;
+          }
+          if (req.method === 'POST') {
+            try {
+              const body = await readBody(req);
+              const card = JSON.parse(body);
+              const filePath = path.join(srcDir(), 'data/cards.ts');
+              const content = fs.readFileSync(filePath, 'utf8');
+              fs.writeFileSync(filePath, upsertCard(content, card), 'utf8');
               send(res, { ok: true });
             } catch (e) { send(res, { error: String(e) }, 500); }
             return;
