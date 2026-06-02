@@ -5,8 +5,6 @@ import type { CardDef, CardEffects, EncounterConfig, CardSupertype, CardType } f
 
 type Tab = 'card' | 'encounter';
 
-const ALL_CARD_IDS = Object.keys(CARDS);
-
 const COLOR_PRESETS = [
   { label: 'Red',    value: '#e94560' },
   { label: 'Blue',   value: '#00d9ff' },
@@ -150,7 +148,7 @@ function TagInput({ tags, onChange, suggestions, placeholder = 'Type ID and pres
             >×</button>
           </span>
         ))}
-        {tags.length === 0 && <span style={{ color: '#555', fontSize: 11, fontFamily: 'monospace' }}>none</span>}
+        {tags.length === 0 && <span style={{ color: '#888', fontSize: 11, fontFamily: 'monospace' }}>none</span>}
       </div>
       <div style={{ display: 'flex', gap: 6 }}>
         <input
@@ -231,7 +229,7 @@ const btnSt: React.CSSProperties = {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div style={{ marginBottom: 14 }}>
-      <label style={{ display: 'block', color: '#888', fontSize: 11, fontFamily: 'monospace', marginBottom: 5, letterSpacing: 0.5, textTransform: 'uppercase' }}>
+      <label style={{ display: 'block', color: '#bbb', fontSize: 11, fontFamily: 'monospace', marginBottom: 5, letterSpacing: 0.5, textTransform: 'uppercase' }}>
         {label}
       </label>
       {children}
@@ -357,7 +355,7 @@ function CardCreator({ onCardSaved }: { onCardSaved: () => void }) {
                 style={{ width: 36, height: 28, border: '1px solid #1e2a40', borderRadius: 4, cursor: 'pointer', background: 'none', padding: 2 }}
                 title="Custom color"
               />
-              <span style={{ color: '#666', fontSize: 11, fontFamily: 'monospace' }}>{card.color}</span>
+              <span style={{ color: '#aaa', fontSize: 11, fontFamily: 'monospace' }}>{card.color}</span>
             </div>
           </Field>
           <Field label="Effect Text">
@@ -486,7 +484,7 @@ function CardCreator({ onCardSaved }: { onCardSaved: () => void }) {
 
       {/* Live preview */}
       <div style={{ position: 'sticky', top: 24 }}>
-        <p style={{ color: '#888', fontSize: 11, fontFamily: 'monospace', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+        <p style={{ color: '#bbb', fontSize: 11, fontFamily: 'monospace', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>
           Live Preview
         </p>
         <div style={{ display: 'flex', justifyContent: 'center', padding: '24px 0', background: '#09090f', border: '1px solid #1e2a40', borderRadius: 8 }}>
@@ -637,7 +635,7 @@ function EncounterCreator({ cardIds }: { cardIds: string[] }) {
       </Section>
 
       <Section title="Disposition">
-        <p style={{ color: '#666', fontSize: 11, fontFamily: 'monospace', margin: '0 0 12px' }}>
+        <p style={{ color: '#aaa', fontSize: 11, fontFamily: 'monospace', margin: '0 0 12px' }}>
           vulnerable cards deal double patience drain +1 priority · resistant cards deal half drain −1 priority
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
@@ -708,7 +706,7 @@ export default function DevTools() {
     background: active ? '#16213e' : 'transparent',
     border: `1px solid ${active ? '#0f3460' : 'transparent'}`,
     borderBottom: active ? '1px solid #16213e' : '1px solid #1e2a40',
-    color: active ? '#e94560' : '#666',
+    color: active ? '#e94560' : '#aaa',
     padding: '8px 22px', borderRadius: '6px 6px 0 0',
     fontFamily: 'monospace', fontSize: 13, cursor: 'pointer',
     marginBottom: -1,
@@ -720,15 +718,15 @@ export default function DevTools() {
       <div style={{ background: '#0a0a18', borderBottom: '1px solid #1e2a40', padding: '12px 28px', display: 'flex', alignItems: 'center', gap: 24 }}>
         <a
           href="./"
-          style={{ color: '#555', fontSize: 12, textDecoration: 'none', letterSpacing: 0.5 }}
-          onMouseEnter={e => (e.currentTarget.style.color = '#ccc')}
-          onMouseLeave={e => (e.currentTarget.style.color = '#555')}
+          style={{ color: '#aaa', fontSize: 12, textDecoration: 'none', letterSpacing: 0.5 }}
+          onMouseEnter={e => (e.currentTarget.style.color = '#fff')}
+          onMouseLeave={e => (e.currentTarget.style.color = '#aaa')}
         >
           ← Back to Game
         </a>
         <div>
           <span style={{ color: '#e94560', fontWeight: 'bold', fontSize: 15, letterSpacing: 1 }}>DEV TOOLS</span>
-          <span style={{ color: '#333', fontSize: 11, marginLeft: 12 }}>Card & Encounter Authoring · dev build only</span>
+          <span style={{ color: '#777', fontSize: 11, marginLeft: 12 }}>Card & Encounter Authoring · dev build only</span>
         </div>
       </div>
 
