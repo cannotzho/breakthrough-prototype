@@ -65,6 +65,7 @@ export interface CombatState {
   valuableShields: string[];     // card IDs the NPC cares about keeping hidden
   activeDialogue: string | null; // NPC line triggered by a disposition hit; null when idle
   encounterDialogue: { onVulnerable: string[]; onResistant: string[] };
+  revealedShieldCard: string | null; // card ID shown in dramatic reveal dialog when player breaks opponent shield
 }
 
 /**

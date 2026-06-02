@@ -130,6 +130,7 @@ function initCombat({ encounter, chosenWorldDeck, preShields = [] }: InitArg): C
     valuableShields: encounter.valuableShields,
     activeDialogue: null,
     encounterDialogue: encounter.dialogue,
+    revealedShieldCard: null,
   };
 
   // Opening hands: 4 card pairs for player, 3 cards for opponent
@@ -154,6 +155,7 @@ type CombatAction =
   | { type: 'OPPONENT_ACT'; specificCardId?: string }
   | { type: 'OPPONENT_END_TURN' }
   | { type: 'DISMISS_DIALOGUE' }
+  | { type: 'DISMISS_REVEAL' }
   | { type: 'RESET'; encounter: EncounterConfig; chosenWorldDeck: string[]; preShields?: string[] };
 
 function combatReducer(state: CombatState, action: CombatAction): CombatState {
@@ -207,6 +209,13 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
       s = resolvePlayerEffect(s, card);
       const shieldWasBroken = card.effects.breakShield &&
         s.oppShields.filter(sh => !sh.broken).length < intactBefore;
+
+      // When a shield is broken, queue the dramatic reveal dialog for its linked info card.
+      if (shieldWasBroken) {
+        const newlyBrokenIdx = s.oppShields.findIndex((sh, i) => sh.broken && !state.oppShields[i].broken);
+        const linkedId = newlyBrokenIdx !== -1 ? s.oppShields[newlyBrokenIdx].linkedCardId : undefined;
+        if (linkedId) s = { ...s, revealedShieldCard: linkedId };
+      }
 
       // Place enchantments on field; Information shield-breakers are consumed entirely;
       // Personal shield-breakers (for minor characters) return to discard as normal.
@@ -416,6 +425,15 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
     case 'DISMISS_DIALOGUE': {
       return { ...state, activeDialogue: null };
     }
+
+    case 'DISMISS_REVEAL': {
+      let s: CombatState = { ...state, revealedShieldCard: null };
+      // Re-trigger opponent action if combat should resume in defense phase.
+      if (!s.gameOver && s.phase === 'defense' && !s.awaitingShieldChoice) {
+        s = triggerOpponentAction(s);
+      }
+      return s;
+    }
   }
 }
 
@@ -424,10 +442,12 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
 export function useCombat(encounter: EncounterConfig, chosenWorldDeck: string[], preShields: string[] = [], playtestMode = false) {
   const [state, dispatch] = useReducer(combatReducer, { encounter, chosenWorldDeck, preShields }, initCombat);
 
-  // Schedule opponent action whenever the trigger counter changes (disabled in playtest mode)
+  // Schedule opponent action whenever the trigger counter changes (disabled in playtest mode).
+  // Also paused while the shield reveal dialog is open.
   useEffect(() => {
     if (playtestMode) return;
     if (state.gameOver || state.awaitingShieldChoice || state.phase !== 'defense') return;
+    if (state.revealedShieldCard) return;
     const timer = setTimeout(() => dispatch({ type: 'OPPONENT_ACT' }), 800);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -439,6 +459,7 @@ export function useCombat(encounter: EncounterConfig, chosenWorldDeck: string[],
   const endTurn = useCallback(() => dispatch({ type: 'END_TURN' }), []);
   const chooseShieldToBreak = useCallback((index: number) => dispatch({ type: 'CHOOSE_SHIELD_TO_BREAK', index }), []);
   const dismissDialogue = useCallback(() => dispatch({ type: 'DISMISS_DIALOGUE' }), []);
+  const dismissReveal = useCallback(() => dispatch({ type: 'DISMISS_REVEAL' }), []);
   const resetCombat = useCallback(
     () => dispatch({ type: 'RESET', encounter, chosenWorldDeck, preShields }),
     [encounter, chosenWorldDeck, preShields],
@@ -452,5 +473,5 @@ export function useCombat(encounter: EncounterConfig, chosenWorldDeck: string[],
     [],
   );
 
-  return { state, selectCard, playCard, placeShield, endTurn, chooseShieldToBreak, dismissDialogue, resetCombat, opponentAct, opponentEndTurn };
+  return { state, selectCard, playCard, placeShield, endTurn, chooseShieldToBreak, dismissDialogue, dismissReveal, resetCombat, opponentAct, opponentEndTurn };
 }

@@ -21,7 +21,7 @@ interface Props {
 
 export default function CombatScreen({ encounterId, chosenWorldDeck, preShields = [], addToCompendium, onEnd }: Props) {
   const encounter = ENCOUNTERS[encounterId];
-  const { state, selectCard, playCard, placeShield, endTurn, chooseShieldToBreak, dismissDialogue, resetCombat } = useCombat(encounter, chosenWorldDeck, preShields);
+  const { state, selectCard, playCard, placeShield, endTurn, chooseShieldToBreak, dismissDialogue, dismissReveal, resetCombat } = useCombat(encounter, chosenWorldDeck, preShields);
   const { active: tutorialStep, dismiss: dismissTutorial } = useTutorial(encounterId, state);
 
   // Add newly revealed info cards to the player's compendium
@@ -229,6 +229,46 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
           </div>
         </div>
       )}
+
+      {/* Shield reveal modal — shown when the player breaks an opponent shield */}
+      {state.revealedShieldCard && CARDS[state.revealedShieldCard] && (() => {
+        const revealed = CARDS[state.revealedShieldCard!]!;
+        return (
+          <div className="absolute inset-0 z-[60] bg-black/92 flex flex-col items-center justify-center p-6">
+            <div
+              className="flex flex-col items-center text-center w-full max-w-xs"
+              onClick={e => e.stopPropagation()}
+            >
+              <p className="text-[#e94560] text-[10px] uppercase tracking-[0.25em] mb-1 font-mono">Shield Broken</p>
+              <h2 className="text-[#4ecca3] text-lg font-bold mb-6 font-mono">Evidence Revealed</h2>
+
+              {/* Card at 2× scale — transformOrigin top so extra height flows downward */}
+              <div style={{ transform: 'scale(2)', transformOrigin: 'center top', marginBottom: 140 }}>
+                <CardComponent card={revealed} />
+              </div>
+
+              {/* Detail panel */}
+              <div className="bg-[#0d1625] border border-[#1e2a40] rounded-lg p-4 text-left w-full">
+                <p className="text-[#4ecca3] text-xs font-bold font-mono mb-2">{revealed.name}</p>
+                <p className="text-[#bbb] text-xs leading-relaxed">{revealed.effectText}</p>
+                {revealed.flavorText && (
+                  <>
+                    <div className="border-t border-[#1e2a40] my-2.5" />
+                    <p className="text-[#666] text-xs italic leading-relaxed">{revealed.flavorText}</p>
+                  </>
+                )}
+              </div>
+
+              <button
+                onClick={dismissReveal}
+                className="mt-5 px-8 py-2.5 bg-[#4ecca3] text-black rounded font-bold font-mono text-sm hover:bg-[#3db892] transition-colors"
+              >
+                Understood
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Tutorial tooltip — one step at a time, Gutterfang only */}
       {tutorialStep && !state.gameOver && !peekShieldCardId && (
