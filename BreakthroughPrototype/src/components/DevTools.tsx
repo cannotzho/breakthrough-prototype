@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CARDS } from '../data/cards';
 import CardComponent from './CardComponent';
 import type { CardDef, CardEffects, EncounterConfig, CardSupertype, CardType } from '../combat/types';
@@ -483,6 +483,43 @@ const BLANK_ENC: EncounterConfig = {
 
 function EncounterCreator() {
   const [enc, setEnc] = useState<EncounterConfig>(BLANK_ENC);
+  const [encounterList, setEncounterList] = useState<{ id: string; name: string }[]>([]);
+  const [loadId, setLoadId] = useState('');
+  const [saveStatus, setSaveStatus] = useState('');
+
+  useEffect(() => {
+    fetch('/dev-api/encounters')
+      .then(r => r.json())
+      .then((data: Record<string, EncounterConfig>) => {
+        setEncounterList(Object.values(data).map(e => ({ id: e.id, name: e.name })));
+      })
+      .catch(() => {});
+  }, []);
+
+  async function loadEncounter() {
+    if (!loadId) return;
+    try {
+      const data: Record<string, EncounterConfig> = await fetch('/dev-api/encounters').then(r => r.json());
+      if (data[loadId]) setEnc(data[loadId]);
+    } catch { /* dev tool — fail silently */ }
+  }
+
+  async function saveToFile() {
+    setSaveStatus('Saving…');
+    try {
+      const existing: Record<string, EncounterConfig> = await fetch('/dev-api/encounters').then(r => r.json());
+      const updated = { ...existing, [enc.id]: enc };
+      const result = await fetch('/dev-api/encounters', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated),
+      }).then(r => r.json());
+      setSaveStatus(result.ok ? 'Saved!' : `Error: ${result.error}`);
+    } catch (e: any) {
+      setSaveStatus(`Error: ${e.message}`);
+    }
+    setTimeout(() => setSaveStatus(''), 3000);
+  }
 
   function set<K extends keyof EncounterConfig>(k: K, v: EncounterConfig[K]) {
     setEnc(prev => ({ ...prev, [k]: v }));
@@ -492,6 +529,33 @@ function EncounterCreator() {
 
   return (
     <div style={{ maxWidth: 820 }}>
+      {/* Load / Save panel */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24, padding: '10px 14px', background: '#0a0a18', border: '1px solid #1e2a40', borderRadius: 6 }}>
+        <span style={{ color: '#bbb', fontSize: 11, fontFamily: 'monospace', flexShrink: 0 }}>Load:</span>
+        <select
+          value={loadId}
+          onChange={e => setLoadId(e.target.value)}
+          style={{ ...selectSt, flex: 1, maxWidth: 320 }}
+        >
+          <option value="">— select encounter —</option>
+          {encounterList.map(e => (
+            <option key={e.id} value={e.id}>{e.name} ({e.id})</option>
+          ))}
+        </select>
+        <button onClick={loadEncounter} disabled={!loadId} style={{ ...btnSt, opacity: loadId ? 1 : 0.4 }}>Load</button>
+        <div style={{ flex: 1 }} />
+        <button
+          onClick={saveToFile}
+          style={{ ...btnSt, background: '#0a2a1e', borderColor: '#4ecca3', color: '#4ecca3' }}
+        >
+          Save to File
+        </button>
+        {saveStatus && (
+          <span style={{ color: saveStatus.startsWith('Error') ? '#e94560' : '#4ecca3', fontSize: 11, fontFamily: 'monospace' }}>
+            {saveStatus}
+          </span>
+        )}
+      </div>
       <Section title="Identity">
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <Field label="ID">
@@ -572,12 +636,23 @@ function EncounterCreator() {
       </Section>
 
       <Section title="TypeScript Output">
-        <p style={{ color: '#555', fontSize: 11, fontFamily: 'monospace', margin: '0 0 10px' }}>
-          Paste into the <code style={{ color: '#00d9ff' }}>ENCOUNTERS</code> object in <code style={{ color: '#00d9ff' }}>src/data/encounters.ts</code>
+        <p style={{ color: '#999', fontSize: 11, fontFamily: 'monospace', margin: '0 0 10px' }}>
+          Use <strong>Save to File</strong> to write directly to <code style={{ color: '#00d9ff' }}>src/data/encounters.ts</code>, or copy and paste manually.
         </p>
         <TsOutput code={ts} />
-        <div style={{ marginTop: 10 }}>
+        <div style={{ marginTop: 10, display: 'flex', gap: 10, alignItems: 'center' }}>
           <CopyButton getText={() => ts} />
+          <button
+            onClick={saveToFile}
+            style={{ ...btnSt, background: '#0a2a1e', borderColor: '#4ecca3', color: '#4ecca3' }}
+          >
+            Save to File
+          </button>
+          {saveStatus && (
+            <span style={{ color: saveStatus.startsWith('Error') ? '#e94560' : '#4ecca3', fontSize: 11, fontFamily: 'monospace' }}>
+              {saveStatus}
+            </span>
+          )}
         </div>
       </Section>
     </div>
