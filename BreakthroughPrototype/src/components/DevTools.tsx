@@ -22,7 +22,7 @@ function cardToTs(card: CardDef): string {
     .map(([k, v]) => `      ${k}: ${JSON.stringify(v)},`)
     .join('\n');
   const fxBody = fxLines ? `\n${fxLines}\n    ` : '';
-  return [
+  const lines: string[] = [
     `  ${card.id}: {`,
     `    id: '${card.id}',`,
     `    name: ${JSON.stringify(card.name)},`,
@@ -30,10 +30,14 @@ function cardToTs(card: CardDef): string {
     `    type: '${card.type}',`,
     `    cost: ${card.cost},`,
     `    effectText: ${JSON.stringify(card.effectText)},`,
+  ];
+  if (card.flavorText) lines.push(`    flavorText: ${JSON.stringify(card.flavorText)},`);
+  lines.push(
     `    effects: {${fxBody}},`,
     `    color: '${card.color}',`,
     `  },`,
-  ].join('\n');
+  );
+  return lines.join('\n');
 }
 
 function arr(items: string[]): string {
@@ -365,6 +369,15 @@ function CardCreator({ onCardSaved }: { onCardSaved: () => void }) {
               onChange={e => set('effectText', e.target.value)}
               rows={3}
               style={{ ...inputSt, resize: 'vertical' }}
+            />
+          </Field>
+          <Field label="Flavor Text (optional — shown in tooltip &amp; inspect, not on card face)">
+            <textarea
+              value={card.flavorText ?? ''}
+              onChange={e => set('flavorText', e.target.value || undefined)}
+              rows={2}
+              placeholder="Short evocative line in the game's noir/detective tone…"
+              style={{ ...inputSt, resize: 'vertical', fontStyle: 'italic' }}
             />
           </Field>
         </Section>

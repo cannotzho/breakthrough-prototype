@@ -24,6 +24,7 @@ export interface CardDef {
   type: CardType;
   cost: number;
   effectText: string;
+  flavorText?: string;
   effects: CardEffects;
   color: string;
 }

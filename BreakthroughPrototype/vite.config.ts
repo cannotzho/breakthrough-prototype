@@ -90,7 +90,7 @@ function devApiPlugin() {
           .map(([k, v]) => `      ${k}: ${JSON.stringify(v)},`)
           .join('\n');
         const fxBody = fxLines ? `\n${fxLines}\n    ` : '';
-        return [
+        const lines: string[] = [
           `  ${card.id}: {`,
           `    id: '${card.id}',`,
           `    name: ${JSON.stringify(card.name)},`,
@@ -98,10 +98,14 @@ function devApiPlugin() {
           `    type: '${card.type}',`,
           `    cost: ${card.cost},`,
           `    effectText: ${JSON.stringify(card.effectText)},`,
+        ];
+        if (card.flavorText) lines.push(`    flavorText: ${JSON.stringify(card.flavorText)},`);
+        lines.push(
           `    effects: {${fxBody}},`,
           `    color: '${card.color}',`,
           `  },`,
-        ].join('\n');
+        );
+        return lines.join('\n');
       }
 
       // Insert a new card entry or replace an existing one in the cards.ts source.

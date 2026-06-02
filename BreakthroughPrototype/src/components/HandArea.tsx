@@ -290,11 +290,31 @@ export default function HandArea({ state, onSelectCard: _onSelectCard, onPlayCar
           onClick={() => setInspectCardId(null)}
         >
           <div
-            className="flex flex-col items-center gap-4"
+            className="flex flex-col items-center"
             onClick={e => e.stopPropagation()}
-            style={{ transform: 'scale(1.6)', transformOrigin: 'center' }}
           >
-            <CardComponent card={{ ...CARDS[inspectCardId]!, cost: getActualCost(inspectCardId) }} />
+            {/* Card scaled up — transformOrigin top keeps it anchored above the text panel */}
+            <div style={{ transform: 'scale(1.8)', transformOrigin: 'center top', marginBottom: 106 }}>
+              <CardComponent card={{ ...CARDS[inspectCardId]!, cost: getActualCost(inspectCardId) }} />
+            </div>
+            {/* Detail panel: effectText first, flavorText below a separator */}
+            <div
+              className="bg-[#0d1625] border border-[#1e2a40] rounded-lg p-3 text-left"
+              style={{ maxWidth: 240 }}
+            >
+              <p className="text-[#ccc] text-[11px] leading-relaxed">
+                {CARDS[inspectCardId]!.effectText}
+              </p>
+              {CARDS[inspectCardId]!.flavorText && (
+                <>
+                  <hr className="border-[#1e2a40] my-2.5" />
+                  <p className="text-[#666] text-[11px] italic leading-relaxed">
+                    {CARDS[inspectCardId]!.flavorText}
+                  </p>
+                </>
+              )}
+            </div>
+            <p className="text-[#444] text-[9px] mt-3 font-mono">tap anywhere to close</p>
           </div>
         </div>
       )}
