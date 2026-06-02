@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { CARDS } from '../data/cards';
 import CardComponent from './CardComponent';
+import PlaytestCombat from './PlaytestCombat';
 import type { CardDef, CardEffects, EncounterConfig, CardSupertype, CardType } from '../combat/types';
 
-type Tab = 'card' | 'encounter';
+type Tab = 'card' | 'encounter' | 'playtest';
 
 const COLOR_PRESETS = [
   { label: 'Red',    value: '#e94560' },
@@ -268,7 +269,7 @@ function CardCreator({ onCardSaved }: { onCardSaved: () => void }) {
   async function saveToFile() {
     setSaveStatus('Saving…');
     try {
-      const result = await fetch('/dev-api/cards', {
+      const result = await fetch(`${import.meta.env.BASE_URL}dev-api/cards`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(card),
@@ -518,7 +519,7 @@ function EncounterCreator({ cardIds }: { cardIds: string[] }) {
   const [saveStatus, setSaveStatus] = useState('');
 
   useEffect(() => {
-    fetch('/dev-api/encounters')
+    fetch(`${import.meta.env.BASE_URL}dev-api/encounters`)
       .then(r => r.json())
       .then((data: Record<string, EncounterConfig>) => {
         setEncounterList(Object.values(data).map(e => ({ id: e.id, name: e.name })));
@@ -529,7 +530,7 @@ function EncounterCreator({ cardIds }: { cardIds: string[] }) {
   async function loadEncounter() {
     if (!loadId) return;
     try {
-      const data: Record<string, EncounterConfig> = await fetch('/dev-api/encounters').then(r => r.json());
+      const data: Record<string, EncounterConfig> = await fetch(`${import.meta.env.BASE_URL}dev-api/encounters`).then(r => r.json());
       if (data[loadId]) setEnc(data[loadId]);
     } catch { /* dev tool — fail silently */ }
   }
@@ -537,7 +538,7 @@ function EncounterCreator({ cardIds }: { cardIds: string[] }) {
   async function saveToFile() {
     setSaveStatus('Saving…');
     try {
-      const existing: Record<string, EncounterConfig> = await fetch('/dev-api/encounters').then(r => r.json());
+      const existing: Record<string, EncounterConfig> = await fetch(`${import.meta.env.BASE_URL}dev-api/encounters`).then(r => r.json());
       const updated = { ...existing, [enc.id]: enc };
       const result = await fetch('/dev-api/encounters', {
         method: 'POST',
@@ -697,7 +698,7 @@ export default function DevTools() {
 
   async function refreshCards() {
     try {
-      const data: Record<string, unknown> = await fetch('/dev-api/cards').then(r => r.json());
+      const data: Record<string, unknown> = await fetch(`${import.meta.env.BASE_URL}dev-api/cards`).then(r => r.json());
       setCardIds(Object.keys(data));
     } catch { /* dev tool — fail silently */ }
   }
@@ -734,11 +735,14 @@ export default function DevTools() {
       <div style={{ padding: '0 28px', borderBottom: '1px solid #1e2a40', display: 'flex', alignItems: 'flex-end', gap: 4, marginTop: 16 }}>
         <button style={tabStyle(tab === 'card')} onClick={() => setTab('card')}>Card Creator</button>
         <button style={tabStyle(tab === 'encounter')} onClick={() => setTab('encounter')}>Encounter Creator</button>
+        <button style={tabStyle(tab === 'playtest')} onClick={() => setTab('playtest')}>Playtest</button>
       </div>
 
       {/* Content */}
       <div style={{ padding: '28px' }}>
-        {tab === 'card' ? <CardCreator onCardSaved={refreshCards} /> : <EncounterCreator cardIds={cardIds} />}
+        {tab === 'card' && <CardCreator onCardSaved={refreshCards} />}
+        {tab === 'encounter' && <EncounterCreator cardIds={cardIds} />}
+        {tab === 'playtest' && <PlaytestCombat />}
       </div>
     </div>
   );

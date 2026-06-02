@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 import fs from 'fs'
-import { transformSync } from 'esbuild'
+import { createJiti } from 'jiti'
 
 // ── Dev-only API plugin ────────────────────────────────────────────────────────
 // Exposes /dev-api/encounters (GET/POST) so the DevTools Encounter Creator can
@@ -34,16 +34,11 @@ function devApiPlugin() {
         res.end(JSON.stringify(data));
       }
 
-      // Evaluate a TypeScript source file by transpiling with esbuild and running
-      // in a sandboxed Function. Type-only imports are stripped by esbuild so no
-      // real require() calls happen for our data files.
+      // Evaluate a TypeScript data file using jiti (Vite 8 compatible).
+      // Cache is disabled so edits to data files are reflected immediately.
       function loadTs(filePath: string): Record<string, unknown> {
-        const code = fs.readFileSync(filePath, 'utf8');
-        const js = transformSync(code, { loader: 'ts', format: 'cjs', target: 'node18' }).code;
-        const exports: Record<string, unknown> = {};
-        // eslint-disable-next-line no-new-func
-        new Function('exports', 'require', js)(exports, () => ({}));
-        return exports;
+        const j = createJiti(import.meta.url, { cache: false, interopDefault: true });
+        return j(filePath) as Record<string, unknown>;
       }
 
       // ── Encounter TypeScript generator ──────────────────────────────────────
@@ -124,9 +119,15 @@ function devApiPlugin() {
       // ── Middleware ──────────────────────────────────────────────────────────
 
       server.middlewares.use(async (req: any, res: any, next: any) => {
-        if (!req.url?.startsWith('/dev-api/')) return next();
+        // Vite 8 no longer rewrites req.url before custom middleware, so the
+        // base URL prefix (/breakthrough-prototype/) is still present. Strip it
+        // with a regex so this works with any base URL configuration.
+        const rawUrl = req.url ?? '';
+        const apiMatch = rawUrl.match(/\/dev-api(\/.*)/);
+        if (!apiMatch) return next();
+        const apiPath = '/dev-api' + apiMatch[1].split('?')[0]; // strip query string
 
-        if (req.url === '/dev-api/encounters') {
+        if (apiPath === '/dev-api/encounters') {
           if (req.method === 'GET') {
             try {
               const mod = loadTs(path.join(srcDir(), 'data/encounters.ts'));
@@ -149,7 +150,7 @@ function devApiPlugin() {
           }
         }
 
-        if (req.url === '/dev-api/cards') {
+        if (apiPath === '/dev-api/cards') {
           if (req.method === 'GET') {
             try {
               const mod = loadTs(path.join(srcDir(), 'data/cards.ts'));

@@ -151,7 +151,8 @@ type CombatAction =
   | { type: 'PLACE_SHIELD' }
   | { type: 'END_TURN' }
   | { type: 'CHOOSE_SHIELD_TO_BREAK'; index: number }
-  | { type: 'OPPONENT_ACT' }
+  | { type: 'OPPONENT_ACT'; specificCardId?: string }
+  | { type: 'OPPONENT_END_TURN' }
   | { type: 'DISMISS_DIALOGUE' }
   | { type: 'RESET'; encounter: EncounterConfig; chosenWorldDeck: string[]; preShields?: string[] };
 
@@ -328,7 +329,8 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
       let s = state;
 
       // Refill opponent hand from deck, reshuffling discard pile if needed
-      if (s.oppHand.length === 0) {
+      // Only refill from deck if no specific card is being requested
+      if (!action.specificCardId && s.oppHand.length === 0) {
         const [drawn, newDeck] = drawFromDeck(s.oppDeck);
         if (drawn) {
           s = { ...s, oppHand: [drawn], oppDeck: newDeck };
@@ -348,7 +350,16 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
         return s;
       }
 
-      const [playedId, ...restHand] = s.oppHand;
+      // Playtest: a specific card from the hand can be chosen; otherwise play from front
+      let playedId: string;
+      let restHand: string[];
+      if (action.specificCardId && s.oppHand.includes(action.specificCardId)) {
+        playedId = action.specificCardId;
+        const idx = s.oppHand.indexOf(action.specificCardId);
+        restHand = [...s.oppHand.slice(0, idx), ...s.oppHand.slice(idx + 1)];
+      } else {
+        [playedId, ...restHand] = s.oppHand;
+      }
       s = { ...s, oppHand: restHand };
       const playedCard = CARDS[playedId];
 
@@ -393,6 +404,15 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
       return s;
     }
 
+    case 'OPPONENT_END_TURN': {
+      if (state.gameOver || state.phase !== 'defense') return state;
+      let s = addLog(state, 'Opponent passes their turn.');
+      s = { ...s, priority: clamp(s.priority + 1) };
+      s = checkEndCondition(s);
+      if (!s.gameOver) s = updatePhase(s);
+      return s;
+    }
+
     case 'DISMISS_DIALOGUE': {
       return { ...state, activeDialogue: null };
     }
@@ -401,16 +421,17 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
 
 // ── Public hook ────────────────────────────────────────────────────────────────
 
-export function useCombat(encounter: EncounterConfig, chosenWorldDeck: string[], preShields: string[] = []) {
+export function useCombat(encounter: EncounterConfig, chosenWorldDeck: string[], preShields: string[] = [], playtestMode = false) {
   const [state, dispatch] = useReducer(combatReducer, { encounter, chosenWorldDeck, preShields }, initCombat);
 
-  // Schedule opponent action whenever the trigger counter changes
+  // Schedule opponent action whenever the trigger counter changes (disabled in playtest mode)
   useEffect(() => {
+    if (playtestMode) return;
     if (state.gameOver || state.awaitingShieldChoice || state.phase !== 'defense') return;
     const timer = setTimeout(() => dispatch({ type: 'OPPONENT_ACT' }), 800);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.opponentActionTrigger]);
+  }, [state.opponentActionTrigger, playtestMode]);
 
   const selectCard = useCallback((cardId: string) => dispatch({ type: 'SELECT_CARD', cardId }), []);
   const playCard = useCallback((cardId: string) => dispatch({ type: 'PLAY_CARD', cardId }), []);
@@ -422,6 +443,14 @@ export function useCombat(encounter: EncounterConfig, chosenWorldDeck: string[],
     () => dispatch({ type: 'RESET', encounter, chosenWorldDeck, preShields }),
     [encounter, chosenWorldDeck, preShields],
   );
+  const opponentAct = useCallback(
+    (specificCardId?: string) => dispatch({ type: 'OPPONENT_ACT', specificCardId }),
+    [],
+  );
+  const opponentEndTurn = useCallback(
+    () => dispatch({ type: 'OPPONENT_END_TURN' }),
+    [],
+  );
 
-  return { state, selectCard, playCard, placeShield, endTurn, chooseShieldToBreak, dismissDialogue, resetCombat };
+  return { state, selectCard, playCard, placeShield, endTurn, chooseShieldToBreak, dismissDialogue, resetCombat, opponentAct, opponentEndTurn };
 }
