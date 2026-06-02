@@ -412,3 +412,9 @@ export const STARTER_COMPENDIUM: string[] = [
   'redMoonDescends',
   'mariposafamily',
 ];
+
+/** Personal cards the detective always has available, regardless of encounter. */
+export const DETECTIVE_PERSONAL_DECK: string[] = [
+  'intimidate', 'streetSmarts', 'persuade', 'logicalAppeal',
+  'empathy', 'threaten', 'offerHelp', 'composure', 'probe',
+];

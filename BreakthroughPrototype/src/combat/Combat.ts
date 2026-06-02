@@ -1,6 +1,6 @@
 import { useReducer, useEffect, useCallback } from 'react';
 import type { CombatState, EncounterConfig } from './types';
-import { CARDS } from '../data/cards';
+import { CARDS, DETECTIVE_PERSONAL_DECK } from '../data/cards';
 import {
   shuffle,
   addLog,
@@ -112,7 +112,7 @@ function initCombat({ encounter, chosenWorldDeck, preShields = [] }: InitArg): C
     })),
     hand: [],
     oppHand: [],
-    personalDeck: { cards: shuffle([...encounter.personalDeck]), discard: [] },
+    personalDeck: { cards: shuffle([...DETECTIVE_PERSONAL_DECK]), discard: [] },
     worldDeck: { cards: shuffle([...convertedWorldDeck]), discard: [] },
     oppDeck: { cards: shuffle([...encounter.oppDeck]), discard: [] },
     field: [],

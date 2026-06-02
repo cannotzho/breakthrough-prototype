@@ -85,7 +85,6 @@ export interface EncounterConfig {
   oppShields: number;
   isMinorCharacter?: boolean;
   shieldLinks: string[];   // card IDs linked to each opponent shield slot, in order
-  personalDeck: string[];  // card IDs
   // Relevance list: Information cards narratively relevant to this encounter. Cards not on this list are converted to Ponder at combat init.
   worldDeck: string[];
   oppDeck: string[];       // card IDs

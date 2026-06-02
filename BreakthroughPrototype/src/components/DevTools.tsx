@@ -56,7 +56,6 @@ function encToTs(enc: EncounterConfig): string {
     `    playerShields: ${enc.playerShields},`,
     `    oppShields: ${enc.oppShields},`,
     `    shieldLinks: ${arr(enc.shieldLinks)},`,
-    `    personalDeck: ${arr(enc.personalDeck)},`,
     `    worldDeck: ${arr(enc.worldDeck)},`,
     `    oppDeck: ${arr(enc.oppDeck)},`,
     `    disposition: {`,
@@ -475,7 +474,6 @@ const BLANK_ENC: EncounterConfig = {
   playerShields: 3,
   oppShields: 3,
   shieldLinks: [],
-  personalDeck: [],
   worldDeck: [],
   oppDeck: [],
   disposition: { vulnerable: [], resistant: [] },
@@ -534,9 +532,6 @@ function EncounterCreator() {
       </Section>
 
       <Section title="Decks">
-        <Field label="personalDeck — player's Personal card pool">
-          <TagInput id="pdeck" tags={enc.personalDeck} onChange={v => set('personalDeck', v)} suggestions={ALL_CARD_IDS} />
-        </Field>
         <Field label="worldDeck — relevance list (Information cards; others become Ponder)">
           <TagInput id="wdeck" tags={enc.worldDeck} onChange={v => set('worldDeck', v)} suggestions={ALL_CARD_IDS} />
         </Field>

@@ -20,7 +20,6 @@ export const ENCOUNTERS: Record<string, EncounterConfig> = {
     playerShields: 3,
     oppShields: 3,
     shieldLinks: ['gutterfangSource', 'nobleIdentity', 'illegalVials'],
-    personalDeck: ['intimidate', 'streetSmarts', 'persuade', 'probe', 'composure'],
     worldDeck: [
       'streetInfo', 'bloodTrail', 'vampireNetwork', // TODO: designer review — vampireNetwork is a strategic utility; fits The Rusty Tap underworld but is not street-level narrative evidence
       'nobleConnection', // TODO: designer review — noble connections as leverage vs a gutter criminal is narratively thin
@@ -56,10 +55,6 @@ export const ENCOUNTERS: Record<string, EncounterConfig> = {
     playerShields: 3,
     oppShields: 3,
     shieldLinks: ['maryannNotebook', 'maryannVials', 'maryannMastermind'],
-    personalDeck: [
-      'logicalAppeal', 'empathy', 'threaten', 'offerHelp',
-      'probe', 'composure', 'persuade',
-    ],
     worldDeck: [
       'collegeRecords', 'bloodAnalysis', 'loanLedger', 'distributionNet',
       'collegeRecords', 'bloodAnalysis', 'ponder', 'ponder',
