@@ -15,6 +15,17 @@ export interface CardEffects {
   peekShield?: boolean;       // secretly view a random intact opponent shield
   reduceInfoCost?: number;    // (enchantment) reduce cost of Information cards by N
   drawEachTurn?: number;      // (enchantment) draw N extra personal cards each turn
+  // #57 — probabilistic shield break (chance increases on failure, resets on success)
+  breakShieldChance?: number;
+  breakShieldChanceIncrement?: number;
+  // #58 — patience-cost shield break (costs opponent patience; no effect on fearless opponents)
+  shieldBreakPatience?: number;
+  // #59 — priority surrender + shield immunity
+  surrenderPriority?: boolean;
+  shieldImmunityUntilPriority?: boolean;
+  playerPatience?: number;    // restore N broken player shields
+  // #60 — auto-break after N cumulative plays of this card
+  autoBreakAfterPlays?: number;
 }
 
 export interface CardDef {
@@ -27,6 +38,7 @@ export interface CardDef {
   flavorText?: string;
   effects: CardEffects;
   color: string;
+  combinesFrom?: [string, string]; // #61 — IDs of two source cards that combine into this card
 }
 
 export interface ShieldSlot {
@@ -66,6 +78,11 @@ export interface CombatState {
   activeDialogue: string | null; // NPC line triggered by a disposition hit; null when idle
   encounterDialogue: { onVulnerable: string[]; onResistant: string[] };
   revealedShieldCard: string | null; // card ID shown in dramatic reveal dialog when player breaks opponent shield
+  cardBreakChances: Record<string, number>;  // #57 — current break chance per card ID this encounter
+  fearless: boolean;                          // #58 — opponent immune to patience-cost shield breaks
+  playerShieldImmune: boolean;                // #59 — opponent cannot break player shields
+  cardPlayCounts: Record<string, number>;     // #60 — cumulative play count per card ID this encounter
+  availableCombinations: string[];            // #61 — combination card IDs whose sources are both in hand
 }
 
 /**
@@ -93,6 +110,7 @@ export interface EncounterConfig {
   disposition: Disposition;
   valuableShields: string[]; // World card IDs especially meaningful to this NPC
   dialogue: { onVulnerable: string[]; onResistant: string[] };
+  fearless?: boolean; // #58 — patience-cost shield break cards have no effect against this opponent
 }
 
 export type AppScreen = 'overworld' | 'combat';

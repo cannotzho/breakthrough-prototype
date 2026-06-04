@@ -21,7 +21,7 @@ interface Props {
 
 export default function CombatScreen({ encounterId, chosenWorldDeck, preShields = [], addToCompendium, onEnd }: Props) {
   const encounter = ENCOUNTERS[encounterId];
-  const { state, selectCard, playCard, placeShield, endTurn, chooseShieldToBreak, dismissDialogue, dismissReveal, resetCombat } = useCombat(encounter, chosenWorldDeck, preShields);
+  const { state, selectCard, playCard, placeShield, endTurn, chooseShieldToBreak, dismissDialogue, dismissReveal, resetCombat, combineCards } = useCombat(encounter, chosenWorldDeck, preShields);
   const { active: tutorialStep, dismiss: dismissTutorial } = useTutorial(encounterId, state);
 
   // Add newly revealed info cards to the player's compendium
@@ -185,6 +185,7 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
         onGhostMove={(x, y) => setGhostPos({ x, y })}
         draggingCardId={draggingCardId}
         stagedCardId={stagedCardId}
+        onCombineCards={combineCards}
       />
 
       {/* Ghost card — follows cursor/finger during drag */}

@@ -14,6 +14,7 @@ interface Props {
   onGhostMove: (x: number, y: number) => void;
   draggingCardId: string | null;
   stagedCardId: string | null;
+  onCombineCards: (comboId: string) => void; // #61
 }
 
 function PileModal({ title, cardIds, onClose }: { title: string; cardIds: string[]; onClose: () => void }) {
@@ -46,7 +47,7 @@ function PileModal({ title, cardIds, onClose }: { title: string; cardIds: string
   );
 }
 
-export default function HandArea({ state, onSelectCard: _onSelectCard, onPlayCard, onPlaceShield, onEndTurn, onDragStart, onDragEnd, onGhostMove, draggingCardId, stagedCardId }: Props) {
+export default function HandArea({ state, onSelectCard: _onSelectCard, onPlayCard, onPlaceShield, onEndTurn, onDragStart, onDragEnd, onGhostMove, draggingCardId, stagedCardId, onCombineCards }: Props) {
   const { hand, phase, awaitingShieldChoice, priority, field } = state;
 
   const [contextMenu, setContextMenu] = useState<{ cardId: string; x: number; y: number } | null>(null);
@@ -128,6 +129,13 @@ export default function HandArea({ state, onSelectCard: _onSelectCard, onPlayCar
 
   const contextCard = contextMenu ? CARDS[contextMenu.cardId] : null;
   const canShield = phase === 'attack' && !awaitingShieldChoice;
+
+  // #61 — find combination cards whose sources include the context menu card
+  const availableCombos = contextMenu
+    ? state.availableCombinations
+        .map(id => CARDS[id])
+        .filter((c): c is typeof CARDS[string] => !!c?.combinesFrom?.includes(contextMenu.cardId))
+    : [];
   const intactShields = state.playerShields.filter(s => !s.broken).length;
   const totalShields = state.playerShields.length;
 
@@ -273,6 +281,15 @@ export default function HandArea({ state, onSelectCard: _onSelectCard, onPlayCar
                 Place as Shield
               </button>
             )}
+            {availableCombos.map(combo => (
+              <button
+                key={combo.id}
+                className="w-full text-left px-3 py-2.5 text-[13px] text-[#c084fc] hover:bg-[#0f3460] transition-colors cursor-pointer border-b border-[#0f3460]"
+                onClick={() => { onCombineCards(combo.id); setContextMenu(null); }}
+              >
+                Combine → {combo.name}
+              </button>
+            ))}
             <button
               className="w-full text-left px-3 py-2.5 text-[13px] text-[#888] hover:bg-[#0f3460] transition-colors cursor-pointer"
               onClick={() => { setInspectCardId(contextMenu.cardId); setContextMenu(null); }}

@@ -38,11 +38,10 @@ export const CARDS: Record<string, CardDef> = {
     supertype: 'Personal',
     type: 'sorcery',
     cost: 0,
-    effectText: "Attempt to forcibly break an opponent's shield at great cost to patience",
+    effectText: "Cost 3 opponent patience to force open a shield. No effect on fearless opponents.",
     flavorText: "Fear is a door. Push hard enough and it swings open.",
     effects: {
-      opponentPatience: -1,
-      breakShield: true,
+      shieldBreakPatience: 3,
     },
     color: '#e94560',
   },
@@ -65,9 +64,9 @@ export const CARDS: Record<string, CardDef> = {
     supertype: 'Personal',
     type: 'sorcery',
     cost: 4,
-    effectText: 'Opponent Patience −3, Priority +2',
+    effectText: 'Opponent Patience −3, Priority +2. 25% chance to break a shield (+5% per failed attempt).',
     flavorText: "Everyone has a reason to help. You just have to find the right angle.",
-    effects: { opponentPatience: -3, priority: 2 },
+    effects: { opponentPatience: -3, priority: 2, breakShieldChance: 0.25, breakShieldChanceIncrement: 0.05 },
     color: '#4ecca3',
   },
 
@@ -141,6 +140,43 @@ export const CARDS: Record<string, CardDef> = {
     flavorText: "There's always a crack in the facade. You just have to know where to look.",
     effects: { peekShield: true },
     color: '#f4d03f',
+  },
+
+  empathize: {
+    id: 'empathize',
+    name: 'Empathize',
+    supertype: 'Personal',
+    type: 'sorcery',
+    cost: 2,
+    effectText: 'Restore 2 Shields. Surrender priority. Your shields are immune until your next turn.',
+    flavorText: "Sometimes slowing down is the fastest way to break through.",
+    effects: { playerPatience: 2, surrenderPriority: true, shieldImmunityUntilPriority: true },
+    color: '#4ecca3',
+  },
+
+  maryannInsight: {
+    id: 'maryannInsight',
+    name: "Insight: Mary-Ann",
+    supertype: 'Personal',
+    type: 'sorcery',
+    cost: 1,
+    effectText: 'Draw a card. After 3 plays this encounter: automatically break a shield.',
+    flavorText: "She keeps turning away. But every time you ask, she hesitates a little longer.",
+    effects: { drawCards: 1, autoBreakAfterPlays: 3 },
+    color: '#f4d03f',
+  },
+
+  promiseCard: {
+    id: 'promiseCard',
+    name: 'The Promise',
+    supertype: 'Personal',
+    type: 'sorcery',
+    cost: 0,
+    effectText: 'Break a shield. (Combination: Insight + Persuade)',
+    flavorText: "You put everything on the line. She believes you.",
+    effects: { breakShield: true },
+    combinesFrom: ['maryannInsight', 'persuade'],
+    color: '#4ecca3',
   },
 
   // ── World / Information Cards (clues, resources, investigative methods) ──────
@@ -453,5 +489,6 @@ export const STARTER_COMPENDIUM: string[] = [
 /** Personal cards the detective always has available, regardless of encounter. */
 export const DETECTIVE_PERSONAL_DECK: string[] = [
   'intimidate', 'streetSmarts', 'persuade', 'logicalAppeal',
-  'empathy', 'threaten', 'offerHelp', 'composure', 'probe',
+  'empathy', 'empathize', 'threaten', 'offerHelp', 'composure', 'probe',
+  'maryannInsight',
 ];

@@ -9,6 +9,7 @@ import {
   drawOnePersonalCard,
   resolvePlayerEffect,
   resolveOpponentEffect,
+  breakLowestOppShield,
 } from './effects';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -43,6 +44,7 @@ function checkEndCondition(state: CombatState): CombatState {
 /**
  * Recalculate the phase from priority. When entering defense, increment
  * opponentActionTrigger so the useEffect fires and schedules the opponent's move.
+ * When entering attack, clear any active shield immunity (#59).
  */
 function updatePhase(state: CombatState): CombatState {
   const phase: 'attack' | 'defense' = state.priority > 0 ? 'attack' : 'defense';
@@ -52,7 +54,24 @@ function updatePhase(state: CombatState): CombatState {
   if (phase === 'defense' && !s.awaitingShieldChoice && !s.gameOver) {
     s = { ...s, opponentActionTrigger: s.opponentActionTrigger + 1 };
   }
+  if (phase === 'attack' && s.playerShieldImmune) {
+    s = { ...s, playerShieldImmune: false };
+  }
   return s;
+}
+
+/** Recompute which combination cards have both source cards in the player's hand (#61). */
+function recomputeCombinations(state: CombatState): CombatState {
+  const handSet = new Set(state.hand);
+  const available: string[] = [];
+  for (const id of Object.keys(CARDS)) {
+    const card = CARDS[id];
+    if (card.combinesFrom) {
+      const [a, b] = card.combinesFrom;
+      if (handSet.has(a) && handSet.has(b)) available.push(id);
+    }
+  }
+  return { ...state, availableCombinations: available };
 }
 
 /** Force a re-trigger of the opponent action without changing phase. */
@@ -131,6 +150,11 @@ function initCombat({ encounter, chosenWorldDeck, preShields = [] }: InitArg): C
     activeDialogue: null,
     encounterDialogue: encounter.dialogue,
     revealedShieldCard: null,
+    cardBreakChances: {},
+    fearless: encounter.fearless ?? false,
+    playerShieldImmune: false,
+    cardPlayCounts: {},
+    availableCombinations: [],
   };
 
   // Opening hands: 4 card pairs for player, 3 cards for opponent
@@ -141,7 +165,7 @@ function initCombat({ encounter, chosenWorldDeck, preShields = [] }: InitArg): C
     if (card) state = { ...state, oppHand: [...state.oppHand, card], oppDeck: deck };
   }
 
-  return state;
+  return recomputeCombinations(state);
 }
 
 // ── Reducer ────────────────────────────────────────────────────────────────────
@@ -156,6 +180,7 @@ type CombatAction =
   | { type: 'OPPONENT_END_TURN' }
   | { type: 'DISMISS_DIALOGUE' }
   | { type: 'DISMISS_REVEAL' }
+  | { type: 'COMBINE_CARDS'; cardId: string } // #61
   | { type: 'RESET'; encounter: EncounterConfig; chosenWorldDeck: string[]; preShields?: string[] };
 
 function combatReducer(state: CombatState, action: CombatAction): CombatState {
@@ -206,9 +231,11 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
 
       s = addLog(s, `You played [${card.name}]`);
       const intactBefore = s.oppShields.filter(sh => !sh.broken).length;
+      // Increment play count before resolvePlayerEffect so autoBreakAfterPlays can check it (#60)
+      s = { ...s, cardPlayCounts: { ...s.cardPlayCounts, [action.cardId]: (s.cardPlayCounts[action.cardId] ?? 0) + 1 } };
       s = resolvePlayerEffect(s, card);
-      const shieldWasBroken = card.effects.breakShield &&
-        s.oppShields.filter(sh => !sh.broken).length < intactBefore;
+      // Detect any shield break (breakShield, breakShieldChance, shieldBreakPatience, autoBreakAfterPlays)
+      const shieldWasBroken = s.oppShields.filter(sh => !sh.broken).length < intactBefore;
 
       // When a shield is broken, queue the dramatic reveal dialog for its linked info card.
       if (shieldWasBroken) {
@@ -246,6 +273,7 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
         s = triggerOpponentAction(s);
       }
 
+      s = recomputeCombinations(s);
       return s;
     }
 
@@ -256,6 +284,7 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
       s = drawOneCardPair(s);
       s = checkEndCondition(s);
       if (!s.gameOver) s = updatePhase(s);
+      s = recomputeCombinations(s);
       return s;
     }
 
@@ -288,6 +317,7 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
       s = drawOneCardPair(s);
       s = checkEndCondition(s);
       if (!s.gameOver) s = updatePhase(s);
+      s = recomputeCombinations(s);
       return s;
     }
 
@@ -386,12 +416,15 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
 
       // Shield-break requires player to choose which shield to sacrifice
       if (playedCard.effects.breakShield) {
-        const hasIntact = s.playerShields.some(sh => !sh.broken);
-        if (hasIntact) {
-          return { ...s, awaitingShieldChoice: true, pendingOppCardId: playedId };
+        if (s.playerShieldImmune) {
+          s = addLog(s, 'Opponent cannot break your shields right now.');
+        } else {
+          const hasIntact = s.playerShields.some(sh => !sh.broken);
+          if (hasIntact) {
+            return { ...s, awaitingShieldChoice: true, pendingOppCardId: playedId };
+          }
+          s = addLog(s, 'No shields to break.');
         }
-        // No intact shields — still log and continue
-        s = addLog(s, 'No shields to break.');
       }
 
       // Apply other opponent card effects
@@ -420,6 +453,22 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
       s = checkEndCondition(s);
       if (!s.gameOver) s = updatePhase(s);
       return s;
+    }
+
+    case 'COMBINE_CARDS': {
+      const combCard = CARDS[action.cardId];
+      if (!combCard?.combinesFrom) return state;
+      const [src1, src2] = combCard.combinesFrom;
+      if (!state.hand.includes(src1) || !state.hand.includes(src2)) return state;
+
+      const newHand = [...state.hand];
+      newHand.splice(newHand.indexOf(src1), 1);
+      newHand.splice(newHand.indexOf(src2), 1);
+      newHand.push(action.cardId);
+
+      let s = addLog(state, `Combined [${CARDS[src1]?.name ?? src1}] + [${CARDS[src2]?.name ?? src2}] → [${combCard.name}]`);
+      s = { ...s, hand: newHand };
+      return recomputeCombinations(s);
     }
 
     case 'DISMISS_DIALOGUE': {
@@ -473,5 +522,10 @@ export function useCombat(encounter: EncounterConfig, chosenWorldDeck: string[],
     [],
   );
 
-  return { state, selectCard, playCard, placeShield, endTurn, chooseShieldToBreak, dismissDialogue, dismissReveal, resetCombat, opponentAct, opponentEndTurn };
+  const combineCards = useCallback(
+    (cardId: string) => dispatch({ type: 'COMBINE_CARDS', cardId }),
+    [],
+  );
+
+  return { state, selectCard, playCard, placeShield, endTurn, chooseShieldToBreak, dismissDialogue, dismissReveal, resetCombat, opponentAct, opponentEndTurn, combineCards };
 }

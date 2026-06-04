@@ -55,6 +55,27 @@ export function drawOnePersonalCard(state: CombatState): CombatState {
 
 const clamp = (v: number) => Math.max(-10, Math.min(10, v));
 
+/** Break the first intact opponent shield and log the result. `prefix` is prepended to the log message. */
+export function breakLowestOppShield(state: CombatState, prefix: string): CombatState {
+  let s = state;
+  const targetIdx = s.oppShields.findIndex(sh => !sh.broken);
+  if (targetIdx === -1) {
+    return addLog(s, 'No shields left to break.');
+  }
+  const target = s.oppShields[targetIdx];
+  const newShields = [...s.oppShields];
+  newShields[targetIdx] = { ...target, broken: true };
+  s = { ...s, oppShields: newShields };
+  if (target.linkedCardId) {
+    const info = CARDS[target.linkedCardId];
+    s = addLog(s, `${prefix}Shield broken! Reveals: ${info?.name ?? target.linkedCardId}`);
+    s = { ...s, collectedInfo: [...s.collectedInfo, target.linkedCardId] };
+  } else {
+    s = addLog(s, `${prefix}Shield broken!`);
+  }
+  return s;
+}
+
 /**
  * Apply a card's effects from the player's perspective.
  * breakShield targets opponent shields; restoreShield targets player shields.
@@ -83,21 +104,31 @@ export function resolvePlayerEffect(state: CombatState, card: CardDef): CombatSt
   }
 
   if (eff.breakShield) {
-    const targetIdx = s.oppShields.findIndex(sh => !sh.broken);
-    if (targetIdx !== -1) {
-      const target = s.oppShields[targetIdx];
-      const newShields = [...s.oppShields];
-      newShields[targetIdx] = { ...target, broken: true };
-      s = { ...s, oppShields: newShields };
-      if (target.linkedCardId) {
-        const info = CARDS[target.linkedCardId];
-        s = addLog(s, `Shield broken! Reveals: ${info?.name ?? target.linkedCardId}`);
-        s = { ...s, collectedInfo: [...s.collectedInfo, target.linkedCardId] };
-      } else {
-        s = addLog(s, 'Shield broken!');
-      }
+    s = breakLowestOppShield(s, '');
+  }
+
+  // #57 — probabilistic shield break
+  if (eff.breakShieldChance !== undefined) {
+    const currentChance = s.cardBreakChances[card.id] ?? eff.breakShieldChance;
+    if (Math.random() < currentChance) {
+      s = breakLowestOppShield(s, 'Persuasion lands! ');
+      s = { ...s, cardBreakChances: { ...s.cardBreakChances, [card.id]: eff.breakShieldChance } };
     } else {
-      s = addLog(s, 'No shields left to break.');
+      const newChance = currentChance + (eff.breakShieldChanceIncrement ?? 0);
+      s = { ...s, cardBreakChances: { ...s.cardBreakChances, [card.id]: newChance } };
+      s = addLog(s, `Didn't land (${Math.round(currentChance * 100)}% chance). Next: ${Math.round(newChance * 100)}%`);
+    }
+  }
+
+  // #58 — patience-cost shield break
+  if (eff.shieldBreakPatience !== undefined) {
+    if (s.fearless) {
+      s = addLog(s, 'No effect on this opponent.');
+    } else {
+      const newPat = Math.max(0, s.oppPatience - eff.shieldBreakPatience);
+      s = { ...s, oppPatience: newPat };
+      s = addLog(s, `Opponent Patience −${eff.shieldBreakPatience} (${newPat} remaining)`);
+      s = breakLowestOppShield(s, 'Intimidation forces it open! ');
     }
   }
 
@@ -132,6 +163,41 @@ export function resolvePlayerEffect(state: CombatState, card: CardDef): CombatSt
       s = addLog(s, 'Restored 1 Shield.');
     } else {
       s = addLog(s, 'No broken shields to restore.');
+    }
+  }
+
+  // #59 — restore N player shields (player patience)
+  if (eff.playerPatience !== undefined && eff.playerPatience > 0) {
+    const newShields = [...s.playerShields];
+    let restored = 0;
+    for (let i = 0; i < newShields.length && restored < eff.playerPatience; i++) {
+      if (newShields[i].broken) {
+        newShields[i] = { ...newShields[i], broken: false };
+        restored++;
+      }
+    }
+    s = { ...s, playerShields: newShields };
+    s = addLog(s, restored > 0 ? `Restored ${restored} Shield${restored !== 1 ? 's' : ''}.` : 'No broken shields to restore.');
+  }
+
+  // #59 — grant shield immunity until player regains positive priority
+  if (eff.shieldImmunityUntilPriority) {
+    s = { ...s, playerShieldImmune: true };
+    s = addLog(s, 'Shield immunity active until your next turn.');
+  }
+
+  // #59 — surrender priority (set to 0 after all other effects)
+  if (eff.surrenderPriority) {
+    s = { ...s, priority: 0 };
+    s = addLog(s, 'You surrender the initiative.');
+  }
+
+  // #60 — auto-break shield after N cumulative plays (count already incremented in reducer)
+  if (eff.autoBreakAfterPlays !== undefined) {
+    const count = s.cardPlayCounts[card.id] ?? 0;
+    if (count >= eff.autoBreakAfterPlays) {
+      s = breakLowestOppShield(s, 'Repeated appeals finally break through! ');
+      s = { ...s, cardPlayCounts: { ...s.cardPlayCounts, [card.id]: 0 } };
     }
   }
 
