@@ -147,6 +147,7 @@ export default function App() {
       onResetGame={resetGame}
       collectedCards={collectedCards}
       compendium={compendium}
+      onCollectItem={addToCompendium}
     />
   );
 }

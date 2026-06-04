@@ -9,6 +9,7 @@ interface Props {
   onResetGame: () => void;
   collectedCards: string[];
   compendium: string[];
+  onCollectItem: (cardId: string) => void;
 }
 
 /* ── World constants ─────────────────────────────────────────── */
@@ -40,6 +41,17 @@ const NPCS: NpcDef[] = [
   { id: 'gutterfang', x: 500, y: 430, color: '#8B4513', name: 'Gutterfang',       encounterId: 'gutterfang' },
   { id: 'maryann',   x: 800, y: 500, color: '#9b30d0', name: 'Mary-Ann Mariposa', encounterId: 'maryann',   lockedUntil: 'gutterfang' },
 ];
+
+/* ── Items ───────────────────────────────────────────────────── */
+interface ItemDef {
+  id: string; label: string;
+  x: number; y: number; radius: number;
+  cardReward: string;
+}
+const ITEMS: ItemDef[] = [
+  { id: 'crumpledNote', label: 'Crumpled Note', x: 460, y: 510, radius: 48, cardReward: 'bloodTrail' },
+];
+const LS_COLLECTED_ITEMS = 'bt_collected_items';
 
 /* ── Dialog text ─────────────────────────────────────────────── */
 const DIALOG_TEXT: Record<string, string> = {
@@ -86,7 +98,7 @@ function btnStyle(bg: string): React.CSSProperties {
 }
 
 /* ── Component ───────────────────────────────────────────────── */
-export default function Overworld({ completedEncounters, onStartCombat, onResetGame, collectedCards, compendium }: Props) {
+export default function Overworld({ completedEncounters, onStartCombat, onResetGame, collectedCards, compendium, onCollectItem }: Props) {
   const canvasRef   = useRef<HTMLCanvasElement>(null);
   const keysRef     = useRef(new Set<string>());
   const playerRef   = useRef({ x: 576, y: 600 });
@@ -106,8 +118,42 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
   const [showCollection,  setShowCollection]  = useState(false);
   const [showNotes,       setShowNotes]       = useState(false);
 
+  const [collectedItems, setCollectedItems] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem(LS_COLLECTED_ITEMS);
+      return saved ? new Set(JSON.parse(saved) as string[]) : new Set<string>();
+    } catch { return new Set<string>(); }
+  });
+  const collectedItemsRef = useRef(collectedItems);
+  collectedItemsRef.current = collectedItems;
+
+  const nearItemRef      = useRef<ItemDef | null>(null);
+  const prevNearItemId   = useRef<string | null>(null);
+  const [nearItem,       setNearItem]        = useState<ItemDef | null>(null);
+  const [pickupNotif,    setPickupNotif]     = useState<{ text: string; key: number } | null>(null);
+  const onCollectItemRef = useRef(onCollectItem);
+  onCollectItemRef.current = onCollectItem;
+
+  useEffect(() => {
+    localStorage.setItem(LS_COLLECTED_ITEMS, JSON.stringify([...collectedItems]));
+  }, [collectedItems]);
+
+  useEffect(() => {
+    if (!pickupNotif) return;
+    const t = setTimeout(() => setPickupNotif(null), 2000);
+    return () => clearTimeout(t);
+  }, [pickupNotif]);
+
   /* ── Interact ─────────────────────────────────────────────── */
   const interact = useCallback(() => {
+    const item = nearItemRef.current;
+    if (item && !collectedItemsRef.current.has(item.id)) {
+      setCollectedItems(prev => new Set([...prev, item.id]));
+      onCollectItemRef.current(item.cardReward);
+      const cardName = CARDS[item.cardReward]?.name ?? item.cardReward;
+      setPickupNotif({ text: `+ ${cardName} added to compendium`, key: Date.now() });
+      return;
+    }
     const npc = nearNpcRef.current;
     if (!npc) return;
     const locked = !!npc.lockedUntil && !completedRef.current.has(npc.lockedUntil);
@@ -233,6 +279,52 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
       }
     }
 
+    // Items
+    const now = Date.now();
+    for (const item of ITEMS) {
+      if (collectedItemsRef.current.has(item.id)) continue;
+      const idx = px - item.x, idy = py - item.y;
+      const inRange = Math.sqrt(idx * idx + idy * idy) < item.radius;
+      const pulse = 0.5 + 0.5 * Math.sin(now / 500);
+
+      // Ambient glow
+      const ig = ctx.createRadialGradient(item.x, item.y, 0, item.x, item.y, 26);
+      ig.addColorStop(0, `rgba(200, 140, 50, ${0.45 + 0.3 * pulse})`);
+      ig.addColorStop(1, 'transparent');
+      ctx.fillStyle = ig;
+      ctx.beginPath(); ctx.arc(item.x, item.y, 26, 0, Math.PI * 2); ctx.fill();
+
+      // Orb
+      ctx.fillStyle = `rgba(255, 190, 80, ${0.75 + 0.25 * pulse})`;
+      ctx.shadowColor = '#ffaa20';
+      ctx.shadowBlur = 8 + 6 * pulse;
+      ctx.beginPath(); ctx.arc(item.x, item.y, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Label
+      ctx.font = '11px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#c8a96e';
+      ctx.shadowColor = '#c8a96e';
+      ctx.shadowBlur = 6;
+      ctx.fillText(item.label, item.x, item.y - 16);
+      ctx.shadowBlur = 0;
+
+      if (inRange) {
+        ctx.strokeStyle = '#c8a96e88';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 4]);
+        ctx.globalAlpha = 0.5;
+        ctx.beginPath(); ctx.arc(item.x, item.y, item.radius, 0, Math.PI * 2); ctx.stroke();
+        ctx.setLineDash([]); ctx.globalAlpha = 1;
+
+        ctx.font = '10px monospace';
+        ctx.fillStyle = '#ffffffcc';
+        ctx.textAlign = 'center';
+        ctx.fillText('[E] Examine', item.x, item.y + 22);
+      }
+    }
+
     // Player (detective in dark coat)
     drawPerson(ctx, px, py, '#1e2030', '#f5c5a0', '#0a0a0a');
     // White shirt collar
@@ -285,6 +377,20 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
     if (nearId !== prevNearId.current) {
       prevNearId.current = nearId;
       setNearNpc(near);
+    }
+
+    // Near-item check
+    let nearFoundItem: ItemDef | null = null;
+    for (const item of ITEMS) {
+      if (collectedItemsRef.current.has(item.id)) continue;
+      const ddx = p.x - item.x, ddy = p.y - item.y;
+      if (Math.sqrt(ddx * ddx + ddy * ddy) < item.radius) { nearFoundItem = item; break; }
+    }
+    nearItemRef.current = nearFoundItem;
+    const nearItemId = nearFoundItem?.id ?? null;
+    if (nearItemId !== prevNearItemId.current) {
+      prevNearItemId.current = nearItemId;
+      setNearItem(nearFoundItem);
     }
 
     render(ctx, canvas.width, canvas.height);
@@ -380,6 +486,13 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
 
   return (
     <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden', background: '#090912' }}>
+      <style>{`
+        @keyframes itemPickupFade {
+          0%   { opacity: 1; transform: translateX(-50%) translateY(0); }
+          80%  { opacity: 0.9; transform: translateX(-50%) translateY(-12px); }
+          100% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+        }
+      `}</style>
       <canvas
         ref={canvasRef}
         style={{ display: 'block', width: '100%', height: '100%' }}
@@ -409,8 +522,21 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
         {isTouchDevice ? 'Joystick · Tap to talk' : 'WASD / Arrows to move · E to talk'}
       </div>
 
+      {/* Near-item hint (keyboard devices only, takes priority over NPC hint) */}
+      {nearItem && !isTouchDevice && !dialog && (
+        <div style={{
+          position: 'absolute', bottom: 60, left: '50%', transform: 'translateX(-50%)',
+          background: '#000000cc', border: '1px solid #c8a96e',
+          padding: '6px 16px', borderRadius: 20,
+          fontFamily: 'monospace', fontSize: 13, color: '#c8a96e',
+          pointerEvents: 'none',
+        }}>
+          Press E to examine {nearItem.label}
+        </div>
+      )}
+
       {/* Near-NPC hint (keyboard devices only) */}
-      {nearNpc && !isTouchDevice && !dialog && (
+      {!nearItem && nearNpc && !isTouchDevice && !dialog && (
         <div style={{
           position: 'absolute', bottom: 60, left: '50%', transform: 'translateX(-50%)',
           background: '#000000cc', border: '1px solid #555',
@@ -419,6 +545,21 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
           pointerEvents: 'none',
         }}>
           Press E to talk to {nearNpc.name}
+        </div>
+      )}
+
+      {/* Item pickup notification */}
+      {pickupNotif && (
+        <div key={pickupNotif.key} style={{
+          position: 'absolute', bottom: 96, left: '50%',
+          background: '#000000cc', border: '1px solid #c8a96e55',
+          padding: '6px 18px', borderRadius: 20,
+          fontFamily: 'monospace', fontSize: 13, color: '#c8a96e',
+          animation: 'itemPickupFade 2s ease-out forwards',
+          pointerEvents: 'none',
+          whiteSpace: 'nowrap',
+        }}>
+          {pickupNotif.text}
         </div>
       )}
 
