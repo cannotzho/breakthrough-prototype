@@ -166,18 +166,45 @@ export const CARDS: Record<string, CardDef> = {
     color: '#f4d03f',
   },
 
+  // ── Mary-Ann encounter-specific Personal cards ───────────────────────────────
+
+  maryannInsightReluctance: {
+    id: 'maryannInsightReluctance',
+    name: "She Doesn't Want This",
+    supertype: 'Personal',
+    type: 'sorcery',
+    cost: 1,
+    effectText: 'Draw a card. After 3 plays this encounter: automatically break a shield.',
+    flavorText: "Every time you push, she looks away faster. But you're getting through.",
+    effects: { drawCards: 1, autoBreakAfterPlays: 3 },
+    color: '#f4d03f',
+  },
+
+  maryannInsightObligation: {
+    id: 'maryannInsightObligation',
+    name: "Tied to Her House",
+    supertype: 'Personal',
+    type: 'sorcery',
+    cost: 1,
+    effectText: 'Draw a card. Opponent Patience −1.',
+    flavorText: "She didn't choose this life. But she stayed in it anyway. That's the crack.",
+    effects: { drawCards: 1, opponentPatience: -1 },
+    color: '#f4d03f',
+  },
+
   promiseCard: {
     id: 'promiseCard',
-    name: 'The Promise',
+    name: 'A Better Way Out',
     supertype: 'Personal',
     type: 'sorcery',
     cost: 0,
-    effectText: 'Break a shield. (Combination: Insight + Persuade)',
+    effectText: 'Break a shield. (Combination: She Doesn\'t Want This + Persuade)',
     flavorText: "You put everything on the line. She believes you.",
     effects: { breakShield: true },
-    combinesFrom: ['maryannInsight', 'persuade'],
+    combinesFrom: ['maryannInsightReluctance', 'persuade'],
     color: '#4ecca3',
   },
+  // TODO (#64): add promiseCardObligation combining ['maryannInsightObligation', 'persuade'] once the Shield-2 locked mechanic is implemented
 
   // ── World / Information Cards (clues, resources, investigative methods) ──────
 
@@ -275,6 +302,18 @@ export const CARDS: Record<string, CardDef> = {
     flavorText: "Follow the supply chain far enough and eventually you find a face.",
     effects: { breakShield: true },
     color: '#e94560',
+  },
+
+  beastManSponsors: {
+    id: 'beastManSponsors',
+    name: 'Hired by the Sponsors',
+    supertype: 'Information',
+    type: 'sorcery',
+    cost: 2,
+    effectText: 'Opponent Patience −1, Priority +1.',
+    flavorText: "You know who brought her here. So does she. The silence between you says everything.",
+    effects: { opponentPatience: -1, priority: 1 },
+    color: '#f4d03f',
   },
 
   ponder: {
@@ -450,6 +489,18 @@ export const CARDS: Record<string, CardDef> = {
     color: '#e94560',
   },
 
+  maryannConfession: {
+    id: 'maryannConfession',
+    name: 'The Blood Vials',
+    supertype: 'Information',
+    type: 'sorcery',
+    cost: 0,
+    effectText: 'OBTAINED: She confesses — the vials were hers all along.',
+    flavorText: "She finally shows you. Her hands barely shake. That's the worst part.",
+    effects: {},
+    color: '#e94560',
+  },
+
   maryannVials: {
     id: 'maryannVials',
     name: 'Blood Vials on Person',
@@ -490,5 +541,7 @@ export const STARTER_COMPENDIUM: string[] = [
 export const DETECTIVE_PERSONAL_DECK: string[] = [
   'intimidate', 'streetSmarts', 'persuade', 'logicalAppeal',
   'empathy', 'empathize', 'threaten', 'offerHelp', 'composure', 'probe',
-  'maryannInsight',
+  'maryannInsightReluctance',
+  // TODO (#64): maryannInsightObligation should only enter the deck after Shield 1 breaks (locked mechanic not yet implemented)
+  'maryannInsightObligation',
 ];

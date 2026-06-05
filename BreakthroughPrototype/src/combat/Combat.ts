@@ -125,10 +125,10 @@ function initCombat({ encounter, chosenWorldDeck, preShields = [] }: InitArg): C
     phase: 'attack',
     priority: 5,
     playerShields: playerShieldsInit,
-    oppShields: encounter.shieldLinks.slice(0, encounter.oppShields).map(link => ({
-      broken: false,
-      linkedCardId: link,
-    })),
+    oppShields: encounter.shieldLinks.slice(0, encounter.oppShields).map((link, i) => {
+      const req = encounter.shieldRequirements?.[i];
+      return { broken: false, linkedCardId: link, ...(req ? { requiresCardId: req } : {}) };
+    }),
     hand: [],
     oppHand: [],
     personalDeck: { cards: shuffle([...DETECTIVE_PERSONAL_DECK]), discard: [] },

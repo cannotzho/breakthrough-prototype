@@ -43,8 +43,9 @@ export interface CardDef {
 
 export interface ShieldSlot {
   broken: boolean;
-  linkedCardId?: string; // info card revealed when this shield breaks (opponent shields)
-  usedCardId?: string;   // World card ID consumed when this player shield was placed
+  linkedCardId?: string;  // info card revealed when this shield breaks (opponent shields)
+  usedCardId?: string;    // World card ID consumed when this player shield was placed
+  requiresCardId?: string; // if set, only a card with this ID can break this shield
 }
 
 export interface DeckState {
@@ -103,7 +104,8 @@ export interface EncounterConfig {
   playerShields: number;
   oppShields: number;
   isMinorCharacter?: boolean;
-  shieldLinks: string[];   // card IDs linked to each opponent shield slot, in order
+  shieldLinks: string[];         // card IDs linked to each opponent shield slot, in order
+  shieldRequirements?: string[]; // parallel to shieldLinks — card ID required to break each slot (empty string = no requirement)
   // Relevance list: Information cards narratively relevant to this encounter. Cards not on this list are converted to Ponder at combat init.
   worldDeck: string[];
   oppDeck: string[];       // card IDs

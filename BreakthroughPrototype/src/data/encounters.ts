@@ -54,22 +54,29 @@ export const ENCOUNTERS: Record<string, EncounterConfig> = {
     patience: 8,
     playerShields: 3,
     oppShields: 3,
-    shieldLinks: ['maryannNotebook', 'maryannVials', 'maryannMastermind'],
+    // Shield 1: auto-breaks after maryannInsightReluctance played 3×, or break normally
+    // Shield 2: TODO (#64) — should unlock only after Shield 1 breaks (locked mechanic not yet implemented)
+    // Shield 3: breaks ONLY via the promiseCard combination
+    shieldLinks: ['maryannInsightReluctance', 'maryannInsightObligation', 'maryannConfession'],
+    shieldRequirements: ['', '', 'promiseCard'],
+    fearless: true,
     worldDeck: [
-      'collegeRecords', 'bloodAnalysis', 'loanLedger', 'distributionNet',
-      'collegeRecords', 'bloodAnalysis', 'ponder', 'ponder',
+      'loanLedger', 'distributionNet', 'bloodAnalysis', 'collegeRecords',
+      'loanLedger', 'distributionNet', 'bloodAnalysis', 'collegeRecords',
+      'beastManSponsors', 'beastManSponsors',
+      'ponder', 'ponder',
       'mariposafamily', 'redMoonDescends', 'nobleVampireHouses', 'beastManAssault', 'bloodTradeSuspicion',
     ],
     oppDeck: [
       'bloodTrail', 'loanLedger', 'bloodTrail',
       'distributionNet', 'collegeRecords', 'bloodAnalysis',
     ],
-    // Calculating businesswoman — responds to reason and empathy, not brute intimidation
+    // Calculating businesswoman — responds to reason and empathy, immune to intimidation (fearless)
     disposition: {
       vulnerable: ['persuade', 'logicalAppeal', 'empathy', 'offerHelp'],
       resistant: ['intimidate', 'threaten'],
     },
-    valuableShields: ['loanLedger', 'distributionNet', 'bloodAnalysis'],
+    valuableShields: ['loanLedger', 'distributionNet', 'bloodAnalysis', 'beastManSponsors'],
     dialogue: {
       onVulnerable: [
         '…I suppose you make a fair point.',

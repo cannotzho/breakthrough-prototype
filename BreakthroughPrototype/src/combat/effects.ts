@@ -55,10 +55,15 @@ export function drawOnePersonalCard(state: CombatState): CombatState {
 
 const clamp = (v: number) => Math.max(-10, Math.min(10, v));
 
-/** Break the first intact opponent shield and log the result. `prefix` is prepended to the log message. */
-export function breakLowestOppShield(state: CombatState, prefix: string): CombatState {
+/**
+ * Break the first intact opponent shield and log the result. `prefix` is prepended to the log message.
+ * If a shield has `requiresCardId` set, only a card with that ID may break it — others skip it.
+ */
+export function breakLowestOppShield(state: CombatState, prefix: string, breakingCardId?: string): CombatState {
   let s = state;
-  const targetIdx = s.oppShields.findIndex(sh => !sh.broken);
+  const targetIdx = s.oppShields.findIndex(sh =>
+    !sh.broken && (!sh.requiresCardId || sh.requiresCardId === breakingCardId)
+  );
   if (targetIdx === -1) {
     return addLog(s, 'No shields left to break.');
   }
@@ -104,14 +109,14 @@ export function resolvePlayerEffect(state: CombatState, card: CardDef): CombatSt
   }
 
   if (eff.breakShield) {
-    s = breakLowestOppShield(s, '');
+    s = breakLowestOppShield(s, '', card.id);
   }
 
   // #57 — probabilistic shield break
   if (eff.breakShieldChance !== undefined) {
     const currentChance = s.cardBreakChances[card.id] ?? eff.breakShieldChance;
     if (Math.random() < currentChance) {
-      s = breakLowestOppShield(s, 'Persuasion lands! ');
+      s = breakLowestOppShield(s, 'Persuasion lands! ', card.id);
       s = { ...s, cardBreakChances: { ...s.cardBreakChances, [card.id]: eff.breakShieldChance } };
     } else {
       const newChance = currentChance + (eff.breakShieldChanceIncrement ?? 0);
@@ -128,7 +133,7 @@ export function resolvePlayerEffect(state: CombatState, card: CardDef): CombatSt
       const newPat = Math.max(0, s.oppPatience - eff.shieldBreakPatience);
       s = { ...s, oppPatience: newPat };
       s = addLog(s, `Opponent Patience −${eff.shieldBreakPatience} (${newPat} remaining)`);
-      s = breakLowestOppShield(s, 'Intimidation forces it open! ');
+      s = breakLowestOppShield(s, 'Intimidation forces it open! ', card.id);
     }
   }
 
@@ -196,7 +201,7 @@ export function resolvePlayerEffect(state: CombatState, card: CardDef): CombatSt
   if (eff.autoBreakAfterPlays !== undefined) {
     const count = s.cardPlayCounts[card.id] ?? 0;
     if (count >= eff.autoBreakAfterPlays) {
-      s = breakLowestOppShield(s, 'Repeated appeals finally break through! ');
+      s = breakLowestOppShield(s, 'Repeated appeals finally break through! ', card.id);
       s = { ...s, cardPlayCounts: { ...s.cardPlayCounts, [card.id]: 0 } };
     }
   }
