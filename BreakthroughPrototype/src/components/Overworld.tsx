@@ -35,11 +35,11 @@ const BUILDINGS: Bldg[] = [
 interface NpcDef {
   id: string; x: number; y: number;
   color: string; name: string;
-  encounterId: string; lockedUntil?: string;
+  encounterId: string; lockedUntil?: string; lockedUntilCompendium?: string;
 }
 const NPCS: NpcDef[] = [
   { id: 'gutterfang', x: 500, y: 430, color: '#8B4513', name: 'Gutterfang',       encounterId: 'gutterfang' },
-  { id: 'maryann',   x: 800, y: 500, color: '#9b30d0', name: 'Mary-Ann Mariposa', encounterId: 'maryann',   lockedUntil: 'gutterfang' },
+  { id: 'maryann',   x: 800, y: 500, color: '#9b30d0', name: 'Mary-Ann Mariposa', encounterId: 'maryann',   lockedUntil: 'gutterfang', lockedUntilCompendium: 'bloodAnalysis' },
 ];
 
 /* ── Items / Interaction points ──────────────────────────────── */
@@ -74,6 +74,13 @@ const ITEMS: ItemDef[] = [
     lockedUntilCompendium: 'distributionNet',
     panelTitle: 'The Rusty Tap — Overheard Again',
     panelText: 'Same corner, different night. A woman two stools down is talking too freely. "Victor Mariposa was in here last week — throwing silver around, jumpy as a cat in a dog kennel." Her companion nods. "The sister\'s worse. Kara. She was Red Moon, you know. Got out before it collapsed, but mud sticks." A pause, then quieter: "Word is the one to find is the other one. College girl. Larkgrove. Goes by Mary-Ann."',
+  },
+  {
+    id: 'larkgroveObservation', label: 'Forensics Workshop', x: 1060, y: 508, radius: 52,
+    cardRewards: ['bloodAnalysis', 'collegeRecords'],
+    lockedUntilCompendium: 'larkgroveLead',
+    panelTitle: "Larkgrove Women's College — Forensics Workshop",
+    panelText: "The contact from White Deer PD runs forensics workshops at the college — keeps his hand in, he says. You ask to sit in. The room is a converted lab: twenty students, half of them watching the clock. One isn't. She works near the back, away from the clusters — each sample laid out in sequence, each result noted before the next is opened. You recognise the technique: magical blood analysis, advanced enough that most licensed practitioners don't bother with it. She doesn't look like someone doing homework. She looks like someone who already knows the answers. You ask your contact her name on the way out. Mary-Ann Mariposa. Specially recommended, he says. Best he's ever seen.",
   },
 ];
 const LS_COLLECTED_ITEMS = 'bt_collected_items';
@@ -138,7 +145,7 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
   const [joyKnob, setJoyKnob] = useState({ x: 0, y: 0 });
 
   const [nearNpc,         setNearNpc]         = useState<NpcDef | null>(null);
-  const [dialog,          setDialog]          = useState<{ npc: NpcDef; locked: boolean; done: boolean } | null>(null);
+  const [dialog,          setDialog]          = useState<{ npc: NpcDef; locked: boolean; done: boolean; lockHint?: string } | null>(null);
   const [isTouchDevice,   setIsTouchDevice]   = useState(false);
   const [showCollection,  setShowCollection]  = useState(false);
   const [showNotes,       setShowNotes]       = useState(false);
@@ -192,9 +199,16 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
     }
     const npc = nearNpcRef.current;
     if (!npc) return;
-    const locked = !!npc.lockedUntil && !completedRef.current.has(npc.lockedUntil);
+    const encounterLock  = !!npc.lockedUntil && !completedRef.current.has(npc.lockedUntil);
+    const compendiumLock = !!npc.lockedUntilCompendium && !compendiumRef.current.includes(npc.lockedUntilCompendium);
+    const locked  = encounterLock || compendiumLock;
+    const lockHint = encounterLock
+      ? 'Find Gutterfang first.'
+      : compendiumLock
+      ? "Visit Larkgrove Women's College first."
+      : undefined;
     const done   = completedRef.current.has(npc.encounterId);
-    setDialog({ npc, locked, done });
+    setDialog({ npc, locked, done, lockHint });
   }, []);
 
   /* ── Render ───────────────────────────────────────────────── */
@@ -270,7 +284,14 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
     // NPCs
     const completed = completedRef.current;
     for (const npc of NPCS) {
-      const locked  = !!npc.lockedUntil && !completed.has(npc.lockedUntil);
+      const encounterLock  = !!npc.lockedUntil && !completed.has(npc.lockedUntil);
+      const compendiumLock = !!npc.lockedUntilCompendium && !compendiumRef.current.includes(npc.lockedUntilCompendium);
+      const locked  = encounterLock || compendiumLock;
+      const npcLockHint = encounterLock
+        ? 'Find Gutterfang first'
+        : compendiumLock
+        ? 'Visit Larkgrove College first'
+        : '';
       const done    = completed.has(npc.encounterId);
       const ddx     = px - npc.x, ddy = py - npc.y;
       const inRange = Math.sqrt(ddx * ddx + ddy * ddy) < I_R;
@@ -311,7 +332,7 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
       } else if (inRange && locked) {
         ctx.font = '10px monospace';
         ctx.fillStyle = '#666';
-        ctx.fillText('Find Gutterfang first', npc.x, npc.y + 32);
+        ctx.fillText(npcLockHint, npc.x, npc.y + 32);
       }
     }
 
@@ -518,9 +539,11 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
   /* ── Objective text ───────────────────────────────────────── */
   const gDone = completedEncounters.has('gutterfang');
   const mDone = completedEncounters.has('maryann');
-  const hasLoanLedger = compendium.includes('loanLedger');
+  const hasLoanLedger      = compendium.includes('loanLedger');
   const hasDistributionNet = compendium.includes('distributionNet');
-  const objective = gDone && mDone
+  const hasLarkgroveLead   = compendium.includes('larkgroveLead');
+  const hasCollegeVisit    = compendium.includes('bloodAnalysis');
+  const objective = mDone
     ? 'Case closed.'
     : !gDone
     ? 'Find Gutterfang — The Alley.'
@@ -528,7 +551,11 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
     ? 'Eavesdrop at The Rusty Tap.'
     : !hasDistributionNet
     ? "Search The Moneylender's Office."
-    : 'Investigate the Mariposa family.';
+    : !hasLarkgroveLead
+    ? 'Investigate the Mariposa family.'
+    : !hasCollegeVisit
+    ? "Visit Larkgrove Women's College."
+    : 'Confront Mary-Ann.';
 
   return (
     <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden', background: '#090912' }}>
@@ -940,7 +967,7 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
                 <p style={{ color: '#888', fontSize: 13, lineHeight: 1.6, margin: '0 0 20px' }}>
                   "You're not ready yet."
                   <br />
-                  <span style={{ color: '#555' }}>Find Gutterfang first.</span>
+                  <span style={{ color: '#555' }}>{dialog.lockHint ?? 'Come back later.'}</span>
                 </p>
                 <button onClick={() => setDialog(null)} style={btnStyle('#0f3460')}>Dismiss</button>
               </>
