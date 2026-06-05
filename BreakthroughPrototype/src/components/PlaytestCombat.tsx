@@ -85,6 +85,7 @@ function PlaytestActive({ encounter }: { encounter: EncounterConfig }) {
     resetCombat,
     opponentAct,
     opponentEndTurn,
+    combineCards,
   } = useCombat(encounter, encounter.worldDeck, [], true);
 
   const [draggingCardId, setDraggingCardId] = useState<string | null>(null);
@@ -336,6 +337,7 @@ function PlaytestActive({ encounter }: { encounter: EncounterConfig }) {
             onGhostMove={(x, y) => setGhostPos({ x, y })}
             draggingCardId={draggingCardId}
             stagedCardId={stagedCardId}
+            onCombineCards={combineCards}
           />
         </div>
 

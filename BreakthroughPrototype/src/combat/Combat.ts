@@ -9,7 +9,6 @@ import {
   drawOnePersonalCard,
   resolvePlayerEffect,
   resolveOpponentEffect,
-  breakLowestOppShield,
 } from './effects';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -266,6 +265,8 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
       }
 
       s = checkEndCondition(s);
+      // Win screen takes priority over the reveal dialog on the final shield break.
+      if (s.gameOver) s = { ...s, revealedShieldCard: null };
       if (!s.gameOver) s = updatePhase(s);
 
       // If still in defense phase after player plays, re-trigger opponent
