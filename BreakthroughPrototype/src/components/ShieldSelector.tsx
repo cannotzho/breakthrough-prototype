@@ -28,7 +28,7 @@ export default function ShieldSelector({ chosenWorldDeck, encounterId, onConfirm
   }
 
   return (
-    <div className="flex flex-col h-screen bg-[#0a0a1a] text-white overflow-hidden">
+    <div className="flex flex-col h-full bg-[#0a0a1a] text-white overflow-hidden">
 
       {/* Header */}
       <div className="flex-shrink-0 px-4 pt-4 pb-2 border-b border-[#0f3460]">

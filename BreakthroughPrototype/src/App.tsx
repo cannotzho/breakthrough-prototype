@@ -101,7 +101,7 @@ export default function App() {
 
   if (screen === 'deckbuilder' && encounterId) {
     return (
-      <div className="h-screen w-screen overflow-hidden">
+      <div style={{ maxWidth: 1280, margin: '0 auto', height: '100vh', overflow: 'hidden' }}>
         <DeckBuilder
           compendium={compendium}
           encounterId={encounterId}
@@ -114,7 +114,7 @@ export default function App() {
 
   if (screen === 'shieldselector' && encounterId) {
     return (
-      <div className="h-screen w-screen overflow-hidden">
+      <div style={{ maxWidth: 1280, margin: '0 auto', height: '100vh', overflow: 'hidden' }}>
         <ShieldSelector
           chosenWorldDeck={chosenWorldDeck}
           encounterId={encounterId}
@@ -127,7 +127,7 @@ export default function App() {
 
   if (screen === 'combat' && encounterId) {
     return (
-      <div className="h-screen w-screen overflow-hidden">
+      <div style={{ maxWidth: 1280, margin: '0 auto', height: '100vh', overflow: 'hidden' }}>
         <CombatScreen
           encounterId={encounterId}
           chosenWorldDeck={chosenWorldDeck}
@@ -141,13 +141,15 @@ export default function App() {
   }
 
   return (
-    <Overworld
-      completedEncounters={completedEncounters}
-      onStartCombat={openDeckBuilder}
-      onResetGame={resetGame}
-      collectedCards={collectedCards}
-      compendium={compendium}
-      onCollectItem={addToCompendium}
-    />
+    <div style={{ maxWidth: 1280, margin: '0 auto', height: '100vh', overflow: 'hidden' }}>
+      <Overworld
+        completedEncounters={completedEncounters}
+        onStartCombat={openDeckBuilder}
+        onResetGame={resetGame}
+        collectedCards={collectedCards}
+        compendium={compendium}
+        onCollectItem={addToCompendium}
+      />
+    </div>
   );
 }

@@ -728,34 +728,36 @@ export default function DevTools() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#090912', color: '#ddd', fontFamily: 'monospace' }}>
-      {/* Header */}
-      <div style={{ background: '#0a0a18', borderBottom: '1px solid #1e2a40', padding: '12px 28px', display: 'flex', alignItems: 'center', gap: 24 }}>
-        <a
-          href="./"
-          style={{ color: '#aaa', fontSize: 12, textDecoration: 'none', letterSpacing: 0.5 }}
-          onMouseEnter={e => (e.currentTarget.style.color = '#fff')}
-          onMouseLeave={e => (e.currentTarget.style.color = '#aaa')}
-        >
-          ← Back to Game
-        </a>
-        <div>
-          <span style={{ color: '#e94560', fontWeight: 'bold', fontSize: 15, letterSpacing: 1 }}>DEV TOOLS</span>
-          <span style={{ color: '#777', fontSize: 11, marginLeft: 12 }}>Card & Encounter Authoring · dev build only</span>
+      <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+        {/* Header */}
+        <div style={{ background: '#0a0a18', borderBottom: '1px solid #1e2a40', padding: '12px 28px', display: 'flex', alignItems: 'center', gap: 24 }}>
+          <a
+            href="./"
+            style={{ color: '#aaa', fontSize: 12, textDecoration: 'none', letterSpacing: 0.5 }}
+            onMouseEnter={e => (e.currentTarget.style.color = '#fff')}
+            onMouseLeave={e => (e.currentTarget.style.color = '#aaa')}
+          >
+            ← Back to Game
+          </a>
+          <div>
+            <span style={{ color: '#e94560', fontWeight: 'bold', fontSize: 15, letterSpacing: 1 }}>DEV TOOLS</span>
+            <span style={{ color: '#777', fontSize: 11, marginLeft: 12 }}>Card & Encounter Authoring · dev build only</span>
+          </div>
         </div>
-      </div>
 
-      {/* Tabs */}
-      <div style={{ padding: '0 28px', borderBottom: '1px solid #1e2a40', display: 'flex', alignItems: 'flex-end', gap: 4, marginTop: 16 }}>
-        <button style={tabStyle(tab === 'card')} onClick={() => setTab('card')}>Card Creator</button>
-        <button style={tabStyle(tab === 'encounter')} onClick={() => setTab('encounter')}>Encounter Creator</button>
-        <button style={tabStyle(tab === 'playtest')} onClick={() => setTab('playtest')}>Playtest</button>
-      </div>
+        {/* Tabs */}
+        <div style={{ padding: '0 28px', borderBottom: '1px solid #1e2a40', display: 'flex', alignItems: 'flex-end', gap: 4, marginTop: 16 }}>
+          <button style={tabStyle(tab === 'card')} onClick={() => setTab('card')}>Card Creator</button>
+          <button style={tabStyle(tab === 'encounter')} onClick={() => setTab('encounter')}>Encounter Creator</button>
+          <button style={tabStyle(tab === 'playtest')} onClick={() => setTab('playtest')}>Playtest</button>
+        </div>
 
-      {/* Content */}
-      <div style={{ padding: '28px' }}>
-        {tab === 'card' && <CardCreator onCardSaved={refreshCards} />}
-        {tab === 'encounter' && <EncounterCreator cardIds={cardIds} />}
-        {tab === 'playtest' && <PlaytestCombat />}
+        {/* Content */}
+        <div style={{ padding: '28px' }}>
+          {tab === 'card' && <CardCreator onCardSaved={refreshCards} />}
+          {tab === 'encounter' && <EncounterCreator cardIds={cardIds} />}
+          {tab === 'playtest' && <PlaytestCombat />}
+        </div>
       </div>
     </div>
   );

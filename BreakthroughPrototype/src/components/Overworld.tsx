@@ -558,7 +558,7 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
     : 'Confront Mary-Ann.';
 
   return (
-    <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden', background: '#090912' }}>
+    <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden', background: '#090912' }}>
       <style>{`
         @keyframes itemPickupFade {
           0%   { opacity: 1; transform: translateX(-50%) translateY(0); }
