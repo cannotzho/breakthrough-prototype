@@ -84,6 +84,18 @@ const ITEMS: ItemDef[] = [
   },
 ];
 const LS_COLLECTED_ITEMS = 'bt_collected_items';
+const LS_INTRO_SEEN = 'bt_intro_seen';
+
+const INTRO_PANELS = [
+  {
+    title: 'The Commission',
+    text: `They find you on the same block as the body — two men in good coats, the kind wealth wears when it's trying not to be seen. Their man, a prize fighter by the name of Harlan Voss, was found in a drainage culvert off the dockside two nights prior: no wounds, no weapon, not a drop of blood left anywhere inside him. The sponsors are worried — Voss had a name, and a name means questions. They want it handled quietly, before the papers or the White Deer PD decide they're curious. You take the job.`,
+  },
+  {
+    title: 'The Witness',
+    text: `You're still on the same stretch of pavement when you spot him — a thin figure wedged into the alley mouth, collar pulled up past his ears, pupils blown wide and black as ink. Blood-addled, clearly, riding whatever he'd scored off something that still had a pulse. His head keeps twitching, eyes darting to a point somewhere behind you, all the nerves of a man who saw something he hasn't been able to unsee. He hasn't clocked you yet. Your gut says he knows something. Your gut is usually right.`,
+  },
+] as const;
 
 /* ── Dialog text ─────────────────────────────────────────────── */
 const DIALOG_TEXT: Record<string, string> = {
@@ -149,6 +161,21 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
   const [isTouchDevice,   setIsTouchDevice]   = useState(false);
   const [showCollection,  setShowCollection]  = useState(false);
   const [showNotes,       setShowNotes]       = useState(false);
+
+  const [introPanel, setIntroPanel] = useState<1 | 2 | null>(() =>
+    localStorage.getItem(LS_INTRO_SEEN) ? null : 1
+  );
+  const introPanelRef = useRef(introPanel);
+  introPanelRef.current = introPanel;
+
+  function dismissIntro() {
+    localStorage.setItem(LS_INTRO_SEEN, '1');
+    setIntroPanel(null);
+  }
+  function replayIntro() {
+    setShowNotes(false);
+    setIntroPanel(1);
+  }
 
   const [collectedItems, setCollectedItems] = useState<Set<string>>(() => {
     try {
@@ -406,15 +433,17 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
       canvas.width = cw; canvas.height = ch;
     }
 
-    // Input: keyboard + joystick
+    // Input: keyboard + joystick (frozen during intro cutscene)
     const k = keysRef.current;
     const j = joyRef.current;
     let dx = 0, dy = 0;
-    if (k.has('ArrowLeft')  || k.has('a') || k.has('A')) dx -= 1;
-    if (k.has('ArrowRight') || k.has('d') || k.has('D')) dx += 1;
-    if (k.has('ArrowUp')    || k.has('w') || k.has('W')) dy -= 1;
-    if (k.has('ArrowDown')  || k.has('s') || k.has('S')) dy += 1;
-    if (j.active) { dx += j.dx; dy += j.dy; }
+    if (!introPanelRef.current) {
+      if (k.has('ArrowLeft')  || k.has('a') || k.has('A')) dx -= 1;
+      if (k.has('ArrowRight') || k.has('d') || k.has('D')) dx += 1;
+      if (k.has('ArrowUp')    || k.has('w') || k.has('W')) dy -= 1;
+      if (k.has('ArrowDown')  || k.has('s') || k.has('S')) dy += 1;
+      if (j.active) { dx += j.dx; dy += j.dy; }
+    }
 
     const len = Math.sqrt(dx * dx + dy * dy);
     if (len > 1) { dx /= len; dy /= len; }
@@ -899,9 +928,23 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
               </ul>
             </div>
 
-            <p style={{ color: '#3a2a10', fontSize: 10, textAlign: 'center', marginTop: 8, fontFamily: 'monospace' }}>
-              Press N to close
-            </p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+              <button
+                onClick={replayIntro}
+                style={{
+                  background: 'none', border: 'none', padding: 0,
+                  fontFamily: 'monospace', fontSize: 10, color: '#6a5840',
+                  cursor: 'pointer', textDecoration: 'underline', textDecorationColor: '#4a3820',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#c8a96e'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = '#6a5840'; }}
+              >
+                Replay intro
+              </button>
+              <p style={{ color: '#3a2a10', fontSize: 10, margin: 0, fontFamily: 'monospace' }}>
+                Press N to close
+              </p>
+            </div>
           </div>
         </div>
       )}
@@ -996,6 +1039,42 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Opening cutscene overlay — highest z-index, blocks all interaction */}
+      {introPanel !== null && (
+        <div style={{
+          position: 'absolute', inset: 0, background: '#000000cc',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+          zIndex: 9999,
+        }}>
+          <div style={{
+            background: '#16213e', border: '2px solid #0f3460',
+            borderRadius: 12, padding: 32, maxWidth: 520, width: '100%',
+            fontFamily: 'monospace', color: '#ddd',
+          }}>
+            <p style={{ color: '#e94560', fontWeight: 'bold', fontSize: 11, letterSpacing: 2, margin: '0 0 6px', textTransform: 'uppercase' }}>
+              {introPanel === 1 ? '1 / 2' : '2 / 2'}
+            </p>
+            <p style={{ color: '#c8a96e', fontWeight: 'bold', fontSize: 16, margin: '0 0 16px', letterSpacing: 1 }}>
+              {INTRO_PANELS[introPanel - 1].title}
+            </p>
+            <p style={{ fontSize: 13, lineHeight: 1.85, margin: '0 0 24px', color: '#aaa' }}>
+              {INTRO_PANELS[introPanel - 1].text}
+            </p>
+            <div style={{ borderTop: '1px solid #1e3060', paddingTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
+              {introPanel === 1 ? (
+                <button onClick={() => setIntroPanel(2)} style={btnStyle('#0f3460')}>
+                  Next →
+                </button>
+              ) : (
+                <button onClick={dismissIntro} style={btnStyle('#e94560')}>
+                  Begin Investigation
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
