@@ -206,6 +206,18 @@ export const CARDS: Record<string, CardDef> = {
   },
   // TODO (#64): add promiseCardObligation combining ['maryannInsightObligation', 'persuade'] once the Shield-2 locked mechanic is implemented
 
+  promiseKept: {
+    id: 'promiseKept',
+    name: 'A Promise Kept',
+    supertype: 'Personal',
+    type: 'sorcery',
+    cost: 2,
+    effectText: 'Break a shield. Priority +3.',
+    flavorText: "You put your word on the line for her. She believed you. That changes something — in her, and in you.",
+    effects: { breakShield: true, priority: 3 },
+    color: '#4ecca3',
+  },
+
   // ── World / Information Cards (clues, resources, investigative methods) ──────
 
   streetInfo: {

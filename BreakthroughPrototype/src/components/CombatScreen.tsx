@@ -66,6 +66,9 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
   const [showPriorityToast, setShowPriorityToast] = useState(false);
   const priorityToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Mary-Ann ending choice — null until game won, then 'pending' → 'completeJob' | 'letHerGo'
+  const [endingChoice, setEndingChoice] = useState<null | 'completeJob' | 'letHerGo'>(null);
+
   // Drag state — shared between HandArea (source) and Battlefield/ShieldRow (targets)
   const [draggingCardId, setDraggingCardId] = useState<string | null>(null);
 
@@ -123,6 +126,7 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
     prevCollectedRef.current = [];
     handleCancelStaged();
     resetCombat();
+    setEndingChoice(null);
   }
 
   const hiddenShields = state.oppShields.filter(s => !s.broken);
@@ -280,26 +284,106 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
       {state.gameOver && (
         <div className="absolute inset-0 bg-[rgba(0,0,0,0.9)] flex flex-col items-center justify-center z-10 p-6">
           {state.winner === 'player' ? (
-            <>
-              <h2 className="text-4xl font-bold mb-4 text-[#4ecca3]">Breakthrough!</h2>
-              <p className="text-[#bbb] text-center max-w-sm mb-4">
-                You extracted the key information.
-              </p>
-              {state.collectedInfo.length > 0 && (
-                <div className="mb-6 text-center">
-                  <p className="text-[#4ecca3] text-sm font-semibold mb-1">Intel collected:</p>
-                  {state.collectedInfo.map((id, i) => (
-                    <p key={i} className="text-[#bbb] text-sm">{CARDS[id]?.name ?? id}</p>
-                  ))}
-                </div>
-              )}
-              <button
-                onClick={() => onEnd(true, state.collectedInfo)}
-                className="px-6 py-2 bg-[#4ecca3] text-black rounded font-bold hover:bg-[#3db892] transition-colors"
-              >
-                Leave
-              </button>
-            </>
+            encounterId === 'maryann' ? (
+              /* ── Mary-Ann ending choice ── */
+              endingChoice === null ? (
+                <>
+                  <h2 className="text-3xl font-bold mb-3 text-[#4ecca3] font-mono">Breakthrough</h2>
+                  <p className="text-[#bbb] text-center max-w-sm mb-6 text-sm leading-relaxed">
+                    Mary-Ann's confession is out. You have everything your sponsors want —
+                    and a promise you made her that it would stay between the two of you.
+                    What happens next is yours to decide.
+                  </p>
+                  <div className="flex flex-col gap-3 w-full max-w-xs">
+                    <div className="border border-[#2a2a3a] rounded-lg p-4 bg-[#0d1625]">
+                      <p className="text-[#e94560] font-mono text-sm font-bold mb-1">Complete the Job</p>
+                      <p className="text-[#777] text-xs leading-relaxed mb-3">
+                        Turn her over to the beast-man's sponsors. The fee is paid. A promise broken.
+                      </p>
+                      <button
+                        onClick={() => setEndingChoice('completeJob')}
+                        className="w-full px-4 py-2 bg-[#e94560] text-white rounded font-bold font-mono text-sm hover:bg-[#d03550] transition-colors"
+                      >
+                        Complete the Job
+                      </button>
+                    </div>
+                    <div className="border border-[#4ecca3] rounded-lg p-4 bg-[#0a1f18]">
+                      <p className="text-[#4ecca3] font-mono text-sm font-bold mb-1">Let Her Go</p>
+                      <p className="text-[#777] text-xs leading-relaxed mb-3">
+                        Break the deal with the sponsors. Call in a favour at White Deer. Adds{' '}
+                        <span className="text-[#4ecca3]">A Promise Kept</span> to your compendium.
+                      </p>
+                      <button
+                        onClick={() => { addToCompendium('promiseKept'); setEndingChoice('letHerGo'); }}
+                        className="w-full px-4 py-2 bg-[#4ecca3] text-black rounded font-bold font-mono text-sm hover:bg-[#3db892] transition-colors"
+                      >
+                        Let Her Go
+                      </button>
+                    </div>
+                  </div>
+                </>
+              ) : endingChoice === 'completeJob' ? (
+                <>
+                  <h2 className="text-3xl font-bold mb-4 text-[#e94560] font-mono">Case Closed</h2>
+                  <p className="text-[#bbb] text-center max-w-sm mb-2 text-sm leading-relaxed">
+                    You hand the confession over to the sponsors. They're satisfied.
+                    The fee clears by morning.
+                  </p>
+                  <p className="text-[#555] text-center max-w-sm mb-8 text-xs leading-relaxed italic">
+                    You don't think about her much after that. That's the job.
+                  </p>
+                  <button
+                    onClick={() => onEnd(true, state.collectedInfo)}
+                    className="px-6 py-2 bg-[#0f3460] text-white rounded font-bold font-mono hover:bg-[#1a4580] transition-colors"
+                  >
+                    Leave
+                  </button>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-3xl font-bold mb-4 text-[#4ecca3] font-mono">A Promise Kept</h2>
+                  <p className="text-[#bbb] text-center max-w-sm mb-2 text-sm leading-relaxed">
+                    You let her go. The sponsors won't be pleased — but you call in a favour
+                    at White Deer and bury the debt. A promise is a promise.
+                  </p>
+                  <p className="text-[#4ecca3] text-center max-w-sm mb-2 text-xs leading-relaxed">
+                    New card added to your compendium:{' '}
+                    <span className="font-bold">A Promise Kept</span>.
+                  </p>
+                  <p className="text-[#555] text-center max-w-sm mb-8 text-xs italic">
+                    Some things matter more than the fee.
+                  </p>
+                  <button
+                    onClick={() => onEnd(true, [...state.collectedInfo, 'promiseKept'])}
+                    className="px-6 py-2 bg-[#4ecca3] text-black rounded font-bold font-mono hover:bg-[#3db892] transition-colors"
+                  >
+                    Leave
+                  </button>
+                </>
+              )
+            ) : (
+              /* ── Normal win screen (all other encounters) ── */
+              <>
+                <h2 className="text-4xl font-bold mb-4 text-[#4ecca3]">Breakthrough!</h2>
+                <p className="text-[#bbb] text-center max-w-sm mb-4">
+                  You extracted the key information.
+                </p>
+                {state.collectedInfo.length > 0 && (
+                  <div className="mb-6 text-center">
+                    <p className="text-[#4ecca3] text-sm font-semibold mb-1">Intel collected:</p>
+                    {state.collectedInfo.map((id, i) => (
+                      <p key={i} className="text-[#bbb] text-sm">{CARDS[id]?.name ?? id}</p>
+                    ))}
+                  </div>
+                )}
+                <button
+                  onClick={() => onEnd(true, state.collectedInfo)}
+                  className="px-6 py-2 bg-[#4ecca3] text-black rounded font-bold hover:bg-[#3db892] transition-colors"
+                >
+                  Leave
+                </button>
+              </>
+            )
           ) : (
             <>
               <h2 className="text-4xl font-bold mb-4 text-[#e94560]">Case Stalled</h2>
