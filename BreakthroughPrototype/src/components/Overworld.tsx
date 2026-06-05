@@ -42,14 +42,39 @@ const NPCS: NpcDef[] = [
   { id: 'maryann',   x: 800, y: 500, color: '#9b30d0', name: 'Mary-Ann Mariposa', encounterId: 'maryann',   lockedUntil: 'gutterfang' },
 ];
 
-/* ── Items ───────────────────────────────────────────────────── */
+/* ── Items / Interaction points ──────────────────────────────── */
 interface ItemDef {
   id: string; label: string;
   x: number; y: number; radius: number;
-  cardReward: string;
+  cardRewards: string[];
+  lockedUntilEncounter?: string;
+  lockedUntilCompendium?: string;
+  panelTitle?: string;
+  panelText?: string;
 }
 const ITEMS: ItemDef[] = [
-  { id: 'crumpledNote', label: 'Crumpled Note', x: 460, y: 510, radius: 48, cardReward: 'bloodTrail' },
+  { id: 'crumpledNote', label: 'Crumpled Note', x: 460, y: 510, radius: 48, cardRewards: ['bloodTrail'] },
+  {
+    id: 'rustytapEavesdrop1', label: 'Overheard', x: 200, y: 492, radius: 52,
+    cardRewards: ['loanLedger'],
+    lockedUntilEncounter: 'gutterfang',
+    panelTitle: 'The Rusty Tap — Overheard',
+    panelText: 'You lean against the bar, nursing a glass you\'re not drinking. Two men in the corner lower their voices — but not enough. "Mariposa lot borrowed heavy from the Fellas on Mill Street. Word is repayments started early. Too early for a family that broke." The other man shrugs. "None of my business." You set down your glass. It is.',
+  },
+  {
+    id: 'moneylendingOffice', label: 'The Ledger', x: 984, y: 1052, radius: 52,
+    cardRewards: ['distributionNet'],
+    lockedUntilCompendium: 'loanLedger',
+    panelTitle: "The Moneylender's Office — The Ledger",
+    panelText: 'The side door off the alley is unlocked — sloppy work. You slip inside. The ledger\'s open on the desk. You work through the columns quickly. The Mariposas borrowed heavily. But the repayment schedule is wrong: accelerating well above the interest rate, consistent, monthly — more than a family paying down old debt would manage. That pattern has a name. Active income, running very hot.',
+  },
+  {
+    id: 'rustytapEavesdrop2', label: 'Overheard', x: 200, y: 492, radius: 52,
+    cardRewards: ['larkgroveLead'],
+    lockedUntilCompendium: 'distributionNet',
+    panelTitle: 'The Rusty Tap — Overheard Again',
+    panelText: 'Same corner, different night. A woman two stools down is talking too freely. "Victor Mariposa was in here last week — throwing silver around, jumpy as a cat in a dog kennel." Her companion nods. "The sister\'s worse. Kara. She was Red Moon, you know. Got out before it collapsed, but mud sticks." A pause, then quieter: "Word is the one to find is the other one. College girl. Larkgrove. Goes by Mary-Ann."',
+  },
 ];
 const LS_COLLECTED_ITEMS = 'bt_collected_items';
 
@@ -127,10 +152,14 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
   const collectedItemsRef = useRef(collectedItems);
   collectedItemsRef.current = collectedItems;
 
+  const compendiumRef = useRef(compendium);
+  compendiumRef.current = compendium;
+
   const nearItemRef      = useRef<ItemDef | null>(null);
   const prevNearItemId   = useRef<string | null>(null);
   const [nearItem,       setNearItem]        = useState<ItemDef | null>(null);
   const [pickupNotif,    setPickupNotif]     = useState<{ text: string; key: number } | null>(null);
+  const [interactionPanel, setInteractionPanel] = useState<ItemDef | null>(null);
   const onCollectItemRef = useRef(onCollectItem);
   onCollectItemRef.current = onCollectItem;
 
@@ -148,9 +177,16 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
   const interact = useCallback(() => {
     const item = nearItemRef.current;
     if (item && !collectedItemsRef.current.has(item.id)) {
+      if (item.panelText) {
+        setInteractionPanel(item);
+        return;
+      }
+      // Immediate pickup (no narrative panel)
       setCollectedItems(prev => new Set([...prev, item.id]));
-      onCollectItemRef.current(item.cardReward);
-      const cardName = CARDS[item.cardReward]?.name ?? item.cardReward;
+      for (const cardId of item.cardRewards) {
+        onCollectItemRef.current(cardId);
+      }
+      const cardName = item.cardRewards.map(id => CARDS[id]?.name ?? id).join(', ');
       setPickupNotif({ text: `+ ${cardName} added to compendium`, key: Date.now() });
       return;
     }
@@ -283,6 +319,8 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
     const now = Date.now();
     for (const item of ITEMS) {
       if (collectedItemsRef.current.has(item.id)) continue;
+      if (item.lockedUntilEncounter && !completedRef.current.has(item.lockedUntilEncounter)) continue;
+      if (item.lockedUntilCompendium && !compendiumRef.current.includes(item.lockedUntilCompendium)) continue;
       const idx = px - item.x, idy = py - item.y;
       const inRange = Math.sqrt(idx * idx + idy * idy) < item.radius;
       const pulse = 0.5 + 0.5 * Math.sin(now / 500);
@@ -383,6 +421,8 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
     let nearFoundItem: ItemDef | null = null;
     for (const item of ITEMS) {
       if (collectedItemsRef.current.has(item.id)) continue;
+      if (item.lockedUntilEncounter && !completedRef.current.has(item.lockedUntilEncounter)) continue;
+      if (item.lockedUntilCompendium && !compendiumRef.current.includes(item.lockedUntilCompendium)) continue;
       const ddx = p.x - item.x, ddy = p.y - item.y;
       if (Math.sqrt(ddx * ddx + ddy * ddy) < item.radius) { nearFoundItem = item; break; }
     }
@@ -478,11 +518,17 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
   /* ── Objective text ───────────────────────────────────────── */
   const gDone = completedEncounters.has('gutterfang');
   const mDone = completedEncounters.has('maryann');
+  const hasLoanLedger = compendium.includes('loanLedger');
+  const hasDistributionNet = compendium.includes('distributionNet');
   const objective = gDone && mDone
     ? 'Case closed.'
     : !gDone
     ? 'Find Gutterfang — The Alley.'
-    : 'Find Mary-Ann — Larkgrove College.';
+    : !hasLoanLedger
+    ? 'Eavesdrop at The Rusty Tap.'
+    : !hasDistributionNet
+    ? "Search The Moneylender's Office."
+    : 'Investigate the Mariposa family.';
 
   return (
     <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden', background: '#090912' }}>
@@ -829,6 +875,47 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
             <p style={{ color: '#3a2a10', fontSize: 10, textAlign: 'center', marginTop: 8, fontFamily: 'monospace' }}>
               Press N to close
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Interaction panel overlay */}
+      {interactionPanel && (
+        <div style={{
+          position: 'absolute', inset: 0, background: '#000000aa',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+        }}>
+          <div style={{
+            background: '#16213e', border: '2px solid #0f3460',
+            borderRadius: 12, padding: 28, maxWidth: 440, width: '100%',
+            fontFamily: 'monospace', color: '#ddd',
+          }}>
+            <p style={{ color: '#c8a96e', fontWeight: 'bold', fontSize: 15, margin: '0 0 14px', letterSpacing: 1 }}>
+              {interactionPanel.panelTitle}
+            </p>
+            <p style={{ fontSize: 13, lineHeight: 1.75, margin: '0 0 20px', color: '#aaa' }}>
+              {interactionPanel.panelText}
+            </p>
+            <div style={{ borderTop: '1px solid #1e3060', paddingTop: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+              <span style={{ fontSize: 11, color: '#4ecca3' }}>
+                + {interactionPanel.cardRewards.map(id => CARDS[id]?.name ?? id).join(', ')} added to compendium
+              </span>
+              <button
+                onClick={() => {
+                  const item = interactionPanel;
+                  setCollectedItems(prev => new Set([...prev, item.id]));
+                  for (const cardId of item.cardRewards) {
+                    onCollectItemRef.current(cardId);
+                  }
+                  const cardName = item.cardRewards.map(id => CARDS[id]?.name ?? id).join(', ');
+                  setPickupNotif({ text: `+ ${cardName} added to compendium`, key: Date.now() });
+                  setInteractionPanel(null);
+                }}
+                style={btnStyle('#0f3460')}
+              >
+                Got it
+              </button>
+            </div>
           </div>
         </div>
       )}

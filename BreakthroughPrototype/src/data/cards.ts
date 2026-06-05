@@ -287,7 +287,7 @@ export const CARDS: Record<string, CardDef> = {
     type: 'sorcery',
     cost: 3,
     effectText: 'Break a Shield',
-    flavorText: "Money always talks. You just have to know how to read the accent.",
+    flavorText: "Rumours that the Mariposa noble family has taken a large loan from The Moneylending Fellas.",
     effects: { breakShield: true },
     color: '#e94560',
   },
@@ -299,9 +299,21 @@ export const CARDS: Record<string, CardDef> = {
     type: 'sorcery',
     cost: 4,
     effectText: 'Break a Shield',
-    flavorText: "Follow the supply chain far enough and eventually you find a face.",
+    flavorText: "Confirms the Mariposas are in debt and repayments are accelerating rapidly. The math points to an active income source.",
     effects: { breakShield: true },
     color: '#e94560',
+  },
+
+  larkgroveLead: {
+    id: 'larkgroveLead',
+    name: 'Larkgrove College Lead',
+    supertype: 'Information',
+    type: 'sorcery',
+    cost: 2,
+    effectText: 'Priority +2',
+    flavorText: "A name overheard at the bar: someone at Larkgrove Women's College, moving quietly. The name Mariposa came up twice.",
+    effects: { priority: 2 },
+    color: '#4070e0',
   },
 
   beastManSponsors: {
