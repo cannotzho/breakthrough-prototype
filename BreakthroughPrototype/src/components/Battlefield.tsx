@@ -7,7 +7,6 @@ import CardComponent from './CardComponent';
 interface Props {
   state: CombatState;
   onChooseShield: (index: number) => void;
-  onPeekShield?: (cardId: string) => void;
   isDragging: boolean;
   onDropPlay: (cardId: string) => void;
   onDropShield: () => void;
@@ -18,7 +17,7 @@ interface Props {
   portraitUrl?: string;
 }
 
-export default function Battlefield({ state, onChooseShield, onPeekShield, isDragging, onDropPlay, onDropShield, stagedCardId, onCancelStaged, justBrokenPlayerShieldIdx, encounterName, portraitUrl }: Props) {
+export default function Battlefield({ state, onChooseShield, isDragging, onDropPlay, onDropShield, stagedCardId, onCancelStaged, justBrokenPlayerShieldIdx, encounterName, portraitUrl }: Props) {
   const [playZoneOver, setPlayZoneOver] = useState(false);
   const [shieldZoneOver, setShieldZoneOver] = useState(false);
 
@@ -163,7 +162,6 @@ export default function Battlefield({ state, onChooseShield, onPeekShield, isDra
             owner="player"
             awaitingChoice={state.awaitingShieldChoice}
             onChoose={onChooseShield}
-            onPeek={onPeekShield}
             justBrokenIdx={justBrokenPlayerShieldIdx}
           />
         </div>

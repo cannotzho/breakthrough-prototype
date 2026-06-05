@@ -59,9 +59,6 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
     prevPlayerShieldsRef.current = curr;
   }, [state.playerShields]);
 
-  // Shield peek — player clicked a face-down shield to inspect it
-  const [peekShieldCardId, setPeekShieldCardId] = useState<string | null>(null);
-
   // Priority toast — shown briefly when player tries to play an unaffordable card
   const [showPriorityToast, setShowPriorityToast] = useState(false);
   const priorityToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -143,7 +140,6 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
         <Battlefield
           state={state}
           onChooseShield={chooseShieldToBreak}
-          onPeekShield={(cardId) => setPeekShieldCardId(cardId)}
           isDragging={draggingCardId !== null}
           onDropPlay={(cardId) => { setDraggingCardId(null); handlePlayCard(cardId); }}
           onDropShield={() => { setDraggingCardId(null); placeShield(); }}
@@ -211,20 +207,6 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
         </div>
       )}
 
-      {/* Shield peek overlay — only visible to player, no game state change */}
-      {peekShieldCardId && CARDS[peekShieldCardId] && (
-        <div
-          className="absolute inset-0 z-50 bg-black/70 flex flex-col items-center justify-center p-4"
-          onClick={() => setPeekShieldCardId(null)}
-        >
-          <p className="text-[#4ecca3] text-xs uppercase tracking-widest mb-3 font-mono">Your Shield — Eyes Only</p>
-          <div style={{ transform: 'scale(1.6)', transformOrigin: 'center' }}>
-            <CardComponent card={CARDS[peekShieldCardId]!} />
-          </div>
-          <p className="text-[#555] text-[10px] mt-8 font-mono">tap anywhere to close</p>
-        </div>
-      )}
-
       {/* NPC dialogue bubble */}
       {state.activeDialogue && !state.gameOver && (
         <div className="absolute top-16 left-1/2 -translate-x-1/2 z-20 max-w-xs w-full px-4 pointer-events-none">
@@ -276,7 +258,7 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
       })()}
 
       {/* Tutorial tooltip — one step at a time, Gutterfang only */}
-      {tutorialStep && !state.gameOver && !peekShieldCardId && (
+      {tutorialStep && !state.gameOver && (
         <TutorialTooltip step={tutorialStep} onDismiss={dismissTutorial} />
       )}
 

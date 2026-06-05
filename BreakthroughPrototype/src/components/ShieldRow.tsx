@@ -6,16 +6,14 @@ interface Props {
   owner: 'player' | 'opponent';
   awaitingChoice?: boolean;
   onChoose?: (index: number) => void;
-  onPeek?: (cardId: string) => void;
   justBrokenIdx?: number | null;
 }
 
-export default function ShieldRow({ shields, owner, awaitingChoice, onChoose, onPeek, justBrokenIdx }: Props) {
+export default function ShieldRow({ shields, owner, awaitingChoice, onChoose, justBrokenIdx }: Props) {
   return (
     <div className="flex gap-3 justify-center flex-wrap">
       {shields.map((shield, i) => {
         const isAwaitingClick = owner === 'player' && awaitingChoice && !shield.broken;
-        const isPeekable = owner === 'player' && !shield.broken && !awaitingChoice && !!shield.usedCardId;
         const isFaceDown = owner === 'player' && !shield.broken && !!shield.usedCardId;
         const isJustBroken = owner === 'player' && justBrokenIdx === i && shield.broken;
         const revealedName = shield.broken && shield.linkedCardId
@@ -23,11 +21,10 @@ export default function ShieldRow({ shields, owner, awaitingChoice, onChoose, on
           : null;
 
         function handleClick() {
-          if (isAwaitingClick) { onChoose?.(i); return; }
-          if (isPeekable) { onPeek?.(shield.usedCardId!); }
+          if (isAwaitingClick) { onChoose?.(i); }
         }
 
-        const isInteractive = isAwaitingClick || isPeekable;
+        const isInteractive = isAwaitingClick;
 
         return (
           <button
@@ -42,15 +39,11 @@ export default function ShieldRow({ shields, owner, awaitingChoice, onChoose, on
                 : isAwaitingClick
                   ? 'border-[#e94560] bg-[#2a2a4e] text-[#e94560] cursor-pointer animate-pulse'
                   : isFaceDown
-                    ? 'border-[#1a3a6e] bg-[#0d1e3d] cursor-pointer hover:border-[#4ecca3] hover:scale-105 transition-transform'
+                    ? 'border-[#1a3a6e] bg-[#0d1e3d] cursor-default'
                     : 'border-dashed border-[#555] bg-[#2a2a4e] text-[#888] cursor-default',
               isJustBroken ? 'scale-110' : '',
             ].join(' ')}
-            title={
-              isAwaitingClick ? 'Click to sacrifice this shield'
-              : isPeekable ? 'Click to peek at this shield'
-              : undefined
-            }
+            title={isAwaitingClick ? 'Click to sacrifice this shield' : undefined}
           >
             {shield.broken ? (
               <span className="px-1">{revealedName ?? 'Broken'}</span>
