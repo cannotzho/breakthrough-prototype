@@ -57,13 +57,23 @@ const clamp = (v: number) => Math.max(-10, Math.min(10, v));
 
 /**
  * Break the first intact opponent shield and log the result. `prefix` is prepended to the log message.
- * If a shield has `requiresCardId` set, only a card with that ID may break it — others skip it.
+ * If a shield has `requiresCardId` set, only a card with that ID may break it.
+ * Priority: shields that specifically require `breakingCardId` are targeted first; unrestricted
+ * shields are broken only if no specifically-targeted shield is found.
  */
 export function breakLowestOppShield(state: CombatState, prefix: string, breakingCardId?: string): CombatState {
   let s = state;
-  const targetIdx = s.oppShields.findIndex(sh =>
-    !sh.broken && (!sh.requiresCardId || sh.requiresCardId === breakingCardId)
-  );
+
+  // Prefer a shield that specifically requires this card (e.g. promiseCard → locked shield)
+  let targetIdx = breakingCardId !== undefined
+    ? s.oppShields.findIndex(sh => !sh.broken && sh.requiresCardId === breakingCardId)
+    : -1;
+
+  // Fall back to the first intact shield with no card requirement
+  if (targetIdx === -1) {
+    targetIdx = s.oppShields.findIndex(sh => !sh.broken && !sh.requiresCardId);
+  }
+
   if (targetIdx === -1) {
     return addLog(s, 'No shields left to break.');
   }

@@ -469,7 +469,9 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
 
       let s = addLog(state, `Combined [${CARDS[src1]?.name ?? src1}] + [${CARDS[src2]?.name ?? src2}] → [${combCard.name}]`);
       s = { ...s, hand: newHand };
-      return recomputeCombinations(s);
+      s = recomputeCombinations(s);
+      s = checkEndCondition(s);
+      return s;
     }
 
     case 'DISMISS_DIALOGUE': {
