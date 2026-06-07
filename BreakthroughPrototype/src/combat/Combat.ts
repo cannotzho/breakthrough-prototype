@@ -201,7 +201,7 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
       const card = CARDS[action.cardId];
       if (!card || !state.hand.includes(action.cardId)) return state;
 
-      if (state.phase === 'defense' && card.type !== 'instant') {
+      if (state.phase === 'defense' && card.type !== 'instant' && !card.effects.isInstant) {
         return addLog(state, 'Only Instant cards can be played in Defense Phase!');
       }
 
@@ -211,7 +211,8 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
         ? (CARDS['vampireNetwork']?.effects.reduceInfoCost ?? 0) : 0;
       const actualCost = Math.max(0, card.cost - reduction);
 
-      if (state.priority < actualCost) {
+      // Instant cards bypass the priority cost requirement and are played for free
+      if (!card.effects.isInstant && state.priority < actualCost) {
         return addLog(state, 'Not enough Priority to play this card!');
       }
 
@@ -223,7 +224,7 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
       let s: CombatState = {
         ...state,
         hand: handAfterPlay,
-        priority: clamp(state.priority - actualCost),
+        priority: card.effects.isInstant ? state.priority : clamp(state.priority - actualCost),
         selectedCardId: null,
         activeDialogue: null,
       };

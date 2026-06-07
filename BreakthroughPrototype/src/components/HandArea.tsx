@@ -72,6 +72,7 @@ export default function HandArea({ state, onSelectCard: _onSelectCard, onPlayCar
     if (awaitingShieldChoice) return false;
     const card = CARDS[cardId];
     if (!card) return false;
+    if (card.effects.isInstant) return true;
     if (phase === 'defense' && card.type !== 'instant') return false;
     return priority >= getActualCost(cardId);
   }
@@ -200,6 +201,8 @@ export default function HandArea({ state, onSelectCard: _onSelectCard, onPlayCar
           const isBeingDragged = cardId === draggingCardId;
           const isStaged = cardId === stagedCardId;
           const isMenuOpen = contextMenu?.cardId === cardId;
+          const showInstantBadge = phase === 'defense' && !!card.effects.isInstant;
+          const dimInDefense = phase === 'defense' && !card.effects.isInstant && card.type !== 'instant';
           return (
             <div
               key={idx}
@@ -221,10 +224,31 @@ export default function HandArea({ state, onSelectCard: _onSelectCard, onPlayCar
               onTouchEnd={handleTouchEnd}
               style={{
                 cursor: !stagedCardId ? 'grab' : 'pointer',
-                opacity: isBeingDragged || isStaged ? 0.25 : 1,
+                opacity: isBeingDragged || isStaged ? 0.25 : dimInDefense ? 0.4 : 1,
                 transition: 'opacity 0.15s',
+                position: 'relative',
               }}
             >
+              {showInstantBadge && (
+                <div style={{
+                  position: 'absolute',
+                  top: -10,
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  zIndex: 10,
+                  background: '#d97706',
+                  color: '#fff',
+                  fontSize: 8,
+                  fontWeight: 'bold',
+                  letterSpacing: '0.06em',
+                  padding: '2px 5px',
+                  borderRadius: 3,
+                  whiteSpace: 'nowrap',
+                  pointerEvents: 'none',
+                }}>
+                  INSTANT
+                </div>
+              )}
               <CardComponent
                 card={{ ...card, cost: getActualCost(cardId) }}
                 selected={isMenuOpen}
@@ -269,7 +293,9 @@ export default function HandArea({ state, onSelectCard: _onSelectCard, onPlayCar
               Play
               {!isPlayable(contextMenu.cardId) && (
                 <span className="text-[10px] ml-1 text-[#2a2a4a]">
-                  (need {getActualCost(contextMenu.cardId)} priority)
+                  {phase === 'defense' && contextCard.type !== 'instant' && !contextCard.effects.isInstant
+                    ? '(opponent\'s turn)'
+                    : `(need ${getActualCost(contextMenu.cardId)} priority)`}
                 </span>
               )}
             </button>

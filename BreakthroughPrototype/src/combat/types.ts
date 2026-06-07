@@ -26,6 +26,8 @@ export interface CardEffects {
   playerPatience?: number;    // restore N broken player shields
   // #60 — auto-break after N cumulative plays of this card
   autoBreakAfterPlays?: number;
+  // #79 — can be played by the player even during the opponent's phase (negative priority)
+  isInstant?: boolean;
 }
 
 export interface CardDef {

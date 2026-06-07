@@ -114,7 +114,7 @@ export const CARDS: Record<string, CardDef> = {
     cost: 1,
     effectText: 'Opponent Patience −2, Priority +2',
     flavorText: "A hand extended is harder to refuse than a fist. Not easier — just harder.",
-    effects: { opponentPatience: -2, priority: 2 },
+    effects: { opponentPatience: -2, priority: 2, isInstant: true },
     color: '#4ecca3',
   },
 
@@ -126,7 +126,7 @@ export const CARDS: Record<string, CardDef> = {
     cost: 1,
     effectText: 'Priority +2',
     flavorText: "Read the room. Breathe. The advantage is yours if you hold steady.",
-    effects: { priority: 2 },
+    effects: { priority: 2, isInstant: true },
     color: '#00d9ff',
   },
 
@@ -150,7 +150,7 @@ export const CARDS: Record<string, CardDef> = {
     cost: 0,
     effectText: 'Restore 2 Shields. Surrender priority. Your shields are immune until your next turn.',
     flavorText: "Sometimes slowing down is the fastest way to break through.",
-    effects: { playerPatience: 2, surrenderPriority: true, shieldImmunityUntilPriority: true },
+    effects: { playerPatience: 2, surrenderPriority: true, shieldImmunityUntilPriority: true, isInstant: true },
     color: '#4ecca3',
   },
 
