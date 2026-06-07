@@ -500,7 +500,7 @@ export function useCombat(encounter: EncounterConfig, chosenWorldDeck: string[],
     if (playtestMode) return;
     if (state.gameOver || state.awaitingShieldChoice || state.phase !== 'defense') return;
     if (state.revealedShieldCard) return;
-    const timer = setTimeout(() => dispatch({ type: 'OPPONENT_ACT' }), 800);
+    const timer = setTimeout(() => dispatch({ type: 'OPPONENT_ACT' }), 1200);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.opponentActionTrigger, playtestMode]);

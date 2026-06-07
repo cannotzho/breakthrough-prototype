@@ -82,6 +82,27 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
   const [stagedCardId, setStagedCardId] = useState<string | null>(null);
   const stagedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Opponent card staging — show opponent's card for ~1.2 s before OPPONENT_ACT resolves
+  const [oppStagedCardId, setOppStagedCardId] = useState<string | null>(null);
+
+  // Clear staged opponent card when phase returns to attack or choices appear
+  useEffect(() => {
+    if (state.phase === 'attack' || state.gameOver || state.awaitingShieldChoice) {
+      setOppStagedCardId(null);
+    }
+  }, [state.phase, state.gameOver, state.awaitingShieldChoice]);
+
+  // Stage the next opponent card whenever a new action is scheduled
+  useEffect(() => {
+    if (state.oppHand.length === 0) { setOppStagedCardId(null); return; }
+    const cardId = state.oppHand[0];
+    setOppStagedCardId(cardId);
+    const timer = setTimeout(() => setOppStagedCardId(null), 1400);
+    return () => clearTimeout(timer);
+    // only re-run when a new opponent action is triggered — capturing oppHand[0] at that moment
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.opponentActionTrigger]);
+
   useEffect(() => {
     return () => {
       if (stagedTimerRef.current) clearTimeout(stagedTimerRef.current);
@@ -145,6 +166,7 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
           onDropShield={() => { setDraggingCardId(null); placeShield(); }}
           stagedCardId={stagedCardId}
           onCancelStaged={handleCancelStaged}
+          oppStagedCardId={oppStagedCardId}
           justBrokenPlayerShieldIdx={justBrokenShieldIdx}
           encounterName={encounter.name}
           portraitUrl={encounter.portraitUrl}
@@ -157,9 +179,9 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
           {/* Collected info cards */}
           {state.collectedInfo.length > 0 && (
             <div className="mt-2 bg-[rgba(10,15,30,0.92)] border border-[#0f3460] rounded-md p-2">
-              <p className="text-[#4ecca3] text-[10px] uppercase tracking-wider mb-1">Intel Obtained</p>
+              <p className="text-[#4ecca3] text-xs uppercase tracking-wider mb-1">Intel Obtained</p>
               {state.collectedInfo.map((id, i) => (
-                <p key={i} className="text-[#bbb] text-[9px] py-0.5 border-b border-[#1a1a2e] last:border-0">
+                <p key={i} className="text-[#bbb] text-[10px] py-0.5 border-b border-[#1a1a2e] last:border-0">
                   {CARDS[id]?.name ?? id}
                 </p>
               ))}
@@ -211,8 +233,8 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
       {state.activeDialogue && !state.gameOver && (
         <div className="absolute top-16 left-1/2 -translate-x-1/2 z-20 max-w-xs w-full px-4 pointer-events-none">
           <div className="bg-[rgba(15,52,96,0.95)] border border-[#4ecca3] rounded-lg p-3 shadow-lg">
-            <p className="text-[#4ecca3] text-[10px] uppercase tracking-wider mb-1">{encounter.name}</p>
-            <p className="text-[#eee] text-sm italic">"{state.activeDialogue}"</p>
+            <p className="text-[#4ecca3] text-xs uppercase tracking-wider mb-1">{encounter.name}</p>
+            <p className="text-[#eee] text-base italic">"{state.activeDialogue}"</p>
           </div>
         </div>
       )}
@@ -226,8 +248,8 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
               className="flex flex-col items-center text-center w-full max-w-xs"
               onClick={e => e.stopPropagation()}
             >
-              <p className="text-[#e94560] text-[10px] uppercase tracking-[0.25em] mb-1 font-mono">Shield Broken</p>
-              <h2 className="text-[#4ecca3] text-lg font-bold mb-6 font-mono">Evidence Revealed</h2>
+              <p className="text-[#e94560] text-xs uppercase tracking-[0.25em] mb-1 font-mono">Shield Broken</p>
+              <h2 className="text-[#4ecca3] text-xl font-bold mb-6 font-mono">Evidence Revealed</h2>
 
               {/* Card at 2× scale — transformOrigin top so extra height flows downward */}
               <div style={{ transform: 'scale(2)', transformOrigin: 'center top', marginBottom: 140 }}>
@@ -236,19 +258,19 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
 
               {/* Detail panel */}
               <div className="bg-[#0d1625] border border-[#1e2a40] rounded-lg p-4 text-left w-full">
-                <p className="text-[#4ecca3] text-xs font-bold font-mono mb-2">{revealed.name}</p>
-                <p className="text-[#bbb] text-xs leading-relaxed">{revealed.effectText}</p>
+                <p className="text-[#4ecca3] text-sm font-bold font-mono mb-2">{revealed.name}</p>
+                <p className="text-[#bbb] text-sm leading-relaxed">{revealed.effectText}</p>
                 {revealed.flavorText && (
                   <>
                     <div className="border-t border-[#1e2a40] my-2.5" />
-                    <p className="text-[#666] text-xs italic leading-relaxed">{revealed.flavorText}</p>
+                    <p className="text-[#666] text-sm italic leading-relaxed">{revealed.flavorText}</p>
                   </>
                 )}
               </div>
 
               <button
                 onClick={dismissReveal}
-                className="mt-5 px-8 py-2.5 bg-[#4ecca3] text-black rounded font-bold font-mono text-sm hover:bg-[#3db892] transition-colors"
+                className="mt-5 px-8 py-2.5 bg-[#4ecca3] text-black rounded font-bold font-mono text-base hover:bg-[#3db892] transition-colors"
               >
                 Understood
               </button>
