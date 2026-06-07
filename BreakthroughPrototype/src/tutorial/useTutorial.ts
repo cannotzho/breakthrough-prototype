@@ -4,10 +4,13 @@ import { CARDS } from '../data/cards';
 
 const STORAGE_KEY = 'bt_tutorial_seen';
 
+export type TooltipPosition = 'top' | 'bottom' | 'left' | 'right' | 'center';
+
 export interface TutorialStep {
   id: string;
   title: string;
   body: string;
+  position: TooltipPosition;
 }
 
 const STEPS: Record<string, TutorialStep> = {
@@ -15,26 +18,31 @@ const STEPS: Record<string, TutorialStep> = {
     id: 'priority_bar',
     title: 'Priority Bar',
     body: 'The bar between shields shows who controls the conversation. Positive = your turn to act.',
+    position: 'top',
   },
   play_card: {
     id: 'play_card',
     title: 'Playing Cards',
     body: 'Drag a card to the play zone, or tap it for options. After playing a card, a new one is automatically drawn from your deck.',
+    position: 'bottom',
   },
   break_shield: {
     id: 'break_shield',
     title: 'Breaking Shields',
     body: "Some cards can break your opponent's shields — revealing hidden information.",
+    position: 'top',
   },
   player_shields: {
     id: 'player_shields',
     title: 'Your Shields',
     body: "Your shields protect you. Place cards face-down to defend against the opponent's moves.",
+    position: 'bottom',
   },
   patience: {
     id: 'patience',
     title: 'Patience Meter',
     body: "Drain your opponent's patience to zero to win the conversation.",
+    position: 'left',
   },
 };
 
