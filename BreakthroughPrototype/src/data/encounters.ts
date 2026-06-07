@@ -22,9 +22,10 @@ export const ENCOUNTERS: Record<string, EncounterConfig> = {
     shieldLinks: ['gutterfangSource', 'nobleIdentity', 'illegalVials'],
     worldDeck: [
       'streetInfo', 'bloodTrail', 'vampireNetwork', // TODO: designer review — vampireNetwork is a strategic utility; fits The Rusty Tap underworld but is not street-level narrative evidence
-      'nobleConnection', // TODO: designer review — noble connections as leverage vs a gutter criminal is narratively thin
+      'nobleConnection', // TODO: player obtains this FROM this encounter (not a starter card); kept for replay-encounter compatibility, but premature on first play
       'streetInfo', 'bloodTrail', 'ponder',
       'theRustyTap', 'bloodTradeSuspicion', 'beastManAssault', 'whiteDeerDepartment',
+      'nobleVampireHouses', // starter compendium card — background knowledge of noble vampire families
       'redMoonDescends', 'mariposafamily', // cult and noble house behind the blood trade — relevant context when pressing Gutterfang on his supplier
     ],
     oppDeck: ['bloodTrail', 'streetInfo', 'streetInfo', 'bloodTrail', 'streetInfo'],
@@ -66,6 +67,10 @@ export const ENCOUNTERS: Record<string, EncounterConfig> = {
       'beastManSponsors', 'beastManSponsors',
       'ponder', 'ponder',
       'mariposafamily', 'redMoonDescends', 'nobleVampireHouses', 'beastManAssault', 'bloodTradeSuspicion',
+      'whiteDeerDepartment', // starter card — detective's PD connection underwrites the promise to waive the debt
+      'theRustyTap', // starter card — she runs distribution out of The Rusty Tap; directly relevant
+      'nobleConnection', // obtained post-Gutterfang — what led the investigation to noble vampire families
+      'larkgroveLead', // acquired at second Rusty Tap visit — the lead to Larkgrove where she is found
     ],
     oppDeck: [
       'bloodTrail', 'loanLedger', 'bloodTrail',
