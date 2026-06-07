@@ -146,8 +146,8 @@ export default function HandArea({ state, onSelectCard: _onSelectCard, onPlayCar
     >
       {/* Detective status row — condensed single line above hand */}
       <div className="flex items-center gap-3 px-3 py-1.5 border-b border-[#1a2540] flex-wrap">
-        <span className="text-[#4ecca3] text-[10px] font-bold uppercase tracking-widest flex-shrink-0">Detective</span>
-        <span className="text-[#888] text-[10px] flex-shrink-0">
+        <span className="text-[#4ecca3] text-xs font-bold uppercase tracking-widest flex-shrink-0">Detective</span>
+        <span className="text-[#888] text-xs flex-shrink-0">
           Priority <span className={`font-bold ${priority > 0 ? 'text-[#4ecca3]' : priority < 0 ? 'text-[#e94560]' : 'text-[#666]'}`}>
             {priority > 0 ? `+${priority}` : priority}
           </span>
@@ -162,33 +162,33 @@ export default function HandArea({ state, onSelectCard: _onSelectCard, onPlayCar
           )}
           <div className="absolute top-0 left-1/2 -translate-x-px w-px h-full bg-[#4a4a6a]" />
         </div>
-        <span className="text-[#888] text-[10px] flex-shrink-0">
+        <span className="text-[#888] text-xs flex-shrink-0">
           Shields <span className="text-white">{intactShields}/{totalShields}</span>
         </span>
-        <span className="text-[#888] text-[10px] flex-shrink-0">
+        <span className="text-[#888] text-xs flex-shrink-0">
           Hand <span className="text-white">{hand.length}</span>
         </span>
         <button
           onClick={(e) => { e.stopPropagation(); setShowDeck(true); }}
-          className="text-[10px] text-[#4ecca3] underline decoration-dotted bg-transparent border-0 cursor-pointer p-0 hover:text-white flex-shrink-0"
+          className="text-xs text-[#4ecca3] underline decoration-dotted bg-transparent border-0 cursor-pointer p-0 hover:text-white flex-shrink-0"
         >
           Deck: {drawPile.length}
         </button>
         <button
           onClick={(e) => { e.stopPropagation(); setShowDiscard(true); }}
-          className="text-[10px] text-[#888] underline decoration-dotted bg-transparent border-0 cursor-pointer p-0 hover:text-white flex-shrink-0"
+          className="text-xs text-[#888] underline decoration-dotted bg-transparent border-0 cursor-pointer p-0 hover:text-white flex-shrink-0"
         >
           Discard: {discardPile.length}
         </button>
       </div>
 
       {/* Hand */}
-      <div className="flex items-center gap-2 px-3 py-2 overflow-x-auto min-h-[148px]">
+      <div className="flex items-center gap-2 px-3 py-2 overflow-x-auto min-h-[158px]">
         {/* End Turn button — only in attack phase */}
         {phase === 'attack' && !awaitingShieldChoice && (
           <button
             onClick={(e) => { e.stopPropagation(); onEndTurn(); }}
-            className="flex-shrink-0 flex flex-col items-center justify-center w-[72px] h-[100px] sm:w-[80px] sm:h-[106px] rounded-md border-2 border-dashed border-[#4ecca3] bg-[#0a2a1e] text-[#4ecca3] text-[10px] text-center leading-snug cursor-pointer hover:bg-[#0f3d2c] hover:border-[#6ee8c0] transition-colors"
+            className="flex-shrink-0 flex flex-col items-center justify-center w-[76px] h-[106px] sm:w-[84px] sm:h-[114px] rounded-md border-2 border-dashed border-[#4ecca3] bg-[#0a2a1e] text-[#4ecca3] text-xs text-center leading-snug cursor-pointer hover:bg-[#0f3d2c] hover:border-[#6ee8c0] transition-colors"
           >
             End<br />Turn
           </button>
@@ -253,12 +253,12 @@ export default function HandArea({ state, onSelectCard: _onSelectCard, onPlayCar
             onClick={e => e.stopPropagation()}
           >
             <div className="px-3 py-2 border-b border-[#0f3460] bg-[#111d33]">
-              <p className="text-[#4ecca3] text-[11px] font-bold leading-none">{contextCard.name}</p>
-              <p className="text-[#555] text-[9px] mt-0.5">{contextCard.supertype} · cost {getActualCost(contextMenu.cardId)}</p>
+              <p className="text-[#4ecca3] text-xs font-bold leading-none">{contextCard.name}</p>
+              <p className="text-[#555] text-[10px] mt-0.5">{contextCard.supertype} · cost {getActualCost(contextMenu.cardId)}</p>
             </div>
             <button
               className={[
-                'w-full text-left px-3 py-2.5 text-[13px] font-medium border-b border-[#0f3460] transition-colors',
+                'w-full text-left px-3 py-2.5 text-sm font-medium border-b border-[#0f3460] transition-colors',
                 isPlayable(contextMenu.cardId)
                   ? 'text-[#4ecca3] hover:bg-[#0f3460] cursor-pointer'
                   : 'text-[#3a3a5a] cursor-not-allowed',
@@ -275,7 +275,7 @@ export default function HandArea({ state, onSelectCard: _onSelectCard, onPlayCar
             </button>
             {canShield && (
               <button
-                className="w-full text-left px-3 py-2.5 text-[13px] text-[#e6a817] hover:bg-[#0f3460] transition-colors cursor-pointer border-b border-[#0f3460]"
+                className="w-full text-left px-3 py-2.5 text-sm text-[#e6a817] hover:bg-[#0f3460] transition-colors cursor-pointer border-b border-[#0f3460]"
                 onClick={() => { onPlaceShield(); setContextMenu(null); }}
               >
                 Place as Shield
@@ -284,14 +284,14 @@ export default function HandArea({ state, onSelectCard: _onSelectCard, onPlayCar
             {availableCombos.map(combo => (
               <button
                 key={combo.id}
-                className="w-full text-left px-3 py-2.5 text-[13px] text-[#c084fc] hover:bg-[#0f3460] transition-colors cursor-pointer border-b border-[#0f3460]"
+                className="w-full text-left px-3 py-2.5 text-sm text-[#c084fc] hover:bg-[#0f3460] transition-colors cursor-pointer border-b border-[#0f3460]"
                 onClick={() => { onCombineCards(combo.id); setContextMenu(null); }}
               >
                 Combine → {combo.name}
               </button>
             ))}
             <button
-              className="w-full text-left px-3 py-2.5 text-[13px] text-[#888] hover:bg-[#0f3460] transition-colors cursor-pointer"
+              className="w-full text-left px-3 py-2.5 text-sm text-[#888] hover:bg-[#0f3460] transition-colors cursor-pointer"
               onClick={() => { setInspectCardId(contextMenu.cardId); setContextMenu(null); }}
             >
               Inspect
@@ -319,19 +319,19 @@ export default function HandArea({ state, onSelectCard: _onSelectCard, onPlayCar
               className="bg-[#0d1625] border border-[#1e2a40] rounded-lg p-3 text-left"
               style={{ maxWidth: 240 }}
             >
-              <p className="text-[#ccc] text-[11px] leading-relaxed">
+              <p className="text-[#ccc] text-xs leading-relaxed">
                 {CARDS[inspectCardId]!.effectText}
               </p>
               {CARDS[inspectCardId]!.flavorText && (
                 <>
                   <hr className="border-[#1e2a40] my-2.5" />
-                  <p className="text-[#666] text-[11px] italic leading-relaxed">
+                  <p className="text-[#666] text-xs italic leading-relaxed">
                     {CARDS[inspectCardId]!.flavorText}
                   </p>
                 </>
               )}
             </div>
-            <p className="text-[#444] text-[9px] mt-3 font-mono">tap anywhere to close</p>
+            <p className="text-[#444] text-[10px] mt-3 font-mono">tap anywhere to close</p>
           </div>
         </div>
       )}

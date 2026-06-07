@@ -35,8 +35,8 @@ export default function ShieldRow({ shields, owner, awaitingChoice, onChoose, on
             onClick={isInteractive ? handleClick : undefined}
             disabled={!isInteractive}
             className={[
-              'relative flex items-center justify-center rounded-md border-2 text-[10px] font-medium text-center leading-tight',
-              'w-[68px] h-[88px] sm:w-[78px] sm:h-[100px]',
+              'relative flex items-center justify-center rounded-md border-2 text-xs font-medium text-center leading-tight',
+              'w-[72px] h-[92px] sm:w-[82px] sm:h-[106px]',
               shield.broken
                 ? 'border-[#e94560] bg-[#1a0a0a] text-[#e94560]'
                 : isAwaitingClick
@@ -58,7 +58,7 @@ export default function ShieldRow({ shields, owner, awaitingChoice, onChoose, on
               /* Face-down card back */
               <span className="flex flex-col items-center justify-center gap-1 w-full h-full select-none pointer-events-none">
                 <span className="text-[#1e4a8a] text-2xl leading-none">◈</span>
-                <span className="text-[#1a3060] text-[8px] tracking-widest uppercase font-mono">
+                <span className="text-[#1a3060] text-[9px] tracking-widest uppercase font-mono">
                   {isAwaitingClick ? 'Sacrifice?' : '[ hidden ]'}
                 </span>
               </span>

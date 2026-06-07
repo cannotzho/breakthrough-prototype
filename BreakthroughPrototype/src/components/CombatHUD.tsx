@@ -21,9 +21,9 @@ export default function CombatHUD({ state, encounterName }: Props) {
 
       {/* Opponent info */}
       <div className="flex-1 min-w-[140px] bg-[#16213e] rounded p-2 border border-[#0f3460]">
-        <p className="text-[#888] text-[10px] uppercase tracking-wider">Opponent</p>
-        <p className="text-white font-bold text-sm truncate">{encounterName}</p>
-        <p className="text-[#888] text-[10px] mt-1">
+        <p className="text-[#888] text-xs uppercase tracking-wider">Opponent</p>
+        <p className="text-white font-bold text-base truncate">{encounterName}</p>
+        <p className="text-[#888] text-xs mt-1">
           Patience <span className="text-white">{oppPatience}/{oppMaxPatience}</span>
         </p>
         <div className="w-full h-1.5 bg-[#333] rounded-full mt-1 overflow-hidden">
@@ -32,14 +32,14 @@ export default function CombatHUD({ state, encounterName }: Props) {
             style={{ width: `${patiencePct}%` }}
           />
         </div>
-        <p className="text-[#888] text-[10px] mt-1">
+        <p className="text-[#888] text-xs mt-1">
           Shields: {state.oppShields.filter(s => !s.broken).length} / {state.oppShields.length}
         </p>
       </div>
 
       {/* Hint bar — full width below the boxes */}
       <div className="w-full">
-        <p className="text-[#888] text-[10px] text-center italic px-2">{hint}</p>
+        <p className="text-[#888] text-xs text-center italic px-2">{hint}</p>
       </div>
     </div>
   );

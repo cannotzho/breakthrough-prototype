@@ -14,13 +14,13 @@ export default function CombatLog({ logs }: Props) {
 
   return (
     <div className="flex flex-col bg-[rgba(10,15,30,0.92)] border border-[#0f3460] rounded-md overflow-hidden">
-      <p className="text-[#888] text-[10px] uppercase tracking-wider px-2 py-1 border-b border-[#0f3460]">
+      <p className="text-[#888] text-xs uppercase tracking-wider px-2 py-1 border-b border-[#0f3460]">
         Combat Log
       </p>
       <div className="flex flex-col-reverse overflow-y-auto max-h-[240px] sm:max-h-[300px] px-2 py-1 gap-0.5">
         <div ref={bottomRef} />
         {logs.map((entry, i) => (
-          <p key={i} className="text-[#bbb] text-[10px] py-0.5 border-b border-[#1a1a2e] last:border-0">
+          <p key={i} className="text-[#bbb] text-xs py-0.5 border-b border-[#1a1a2e] last:border-0">
             {entry}
           </p>
         ))}
