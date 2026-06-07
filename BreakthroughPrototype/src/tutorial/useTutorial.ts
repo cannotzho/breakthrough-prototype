@@ -19,7 +19,7 @@ const STEPS: Record<string, TutorialStep> = {
   play_card: {
     id: 'play_card',
     title: 'Playing Cards',
-    body: 'Drag a card to the play zone, or tap it for options.',
+    body: 'Drag a card to the play zone, or tap it for options. After playing a card, a new one is automatically drawn from your deck.',
   },
   break_shield: {
     id: 'break_shield',
