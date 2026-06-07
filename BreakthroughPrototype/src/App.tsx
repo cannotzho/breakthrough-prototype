@@ -8,6 +8,11 @@ import { STARTER_COMPENDIUM, CARDS } from './data/cards';
 const MAX_DECK = 15;
 import DevTools from './components/DevTools';
 
+// Clear all persisted game state on every page load — each session starts fresh
+Object.keys(localStorage)
+  .filter(k => k.startsWith('bt_'))
+  .forEach(k => localStorage.removeItem(k));
+
 const LS_COMPENDIUM = 'bt_compendium';
 const LS_COLLECTED = 'bt_collected';
 
