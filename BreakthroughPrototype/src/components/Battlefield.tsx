@@ -20,6 +20,7 @@ interface Props {
 export default function Battlefield({ state, onChooseShield, isDragging, onDropPlay, onDropShield, stagedCardId, onCancelStaged, justBrokenPlayerShieldIdx, encounterName, portraitUrl }: Props) {
   const [playZoneOver, setPlayZoneOver] = useState(false);
   const [shieldZoneOver, setShieldZoneOver] = useState(false);
+  const [inspectCardId, setInspectCardId] = useState<string | null>(null);
 
   const phaseLabel = state.awaitingShieldChoice
     ? 'Choose Shield'
@@ -162,6 +163,7 @@ export default function Battlefield({ state, onChooseShield, isDragging, onDropP
             owner="player"
             awaitingChoice={state.awaitingShieldChoice}
             onChoose={onChooseShield}
+            onInspect={(cardId) => setInspectCardId(cardId)}
             justBrokenIdx={justBrokenPlayerShieldIdx}
           />
         </div>
@@ -180,6 +182,40 @@ export default function Battlefield({ state, onChooseShield, isDragging, onDropP
                 {CARDS[id]?.name ?? id}
               </span>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Shield inspect overlay */}
+      {inspectCardId && CARDS[inspectCardId] && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setInspectCardId(null)}
+        >
+          <div
+            className="flex flex-col items-center"
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ transform: 'scale(1.8)', transformOrigin: 'center top', marginBottom: 106 }}>
+              <CardComponent card={CARDS[inspectCardId]!} />
+            </div>
+            <div
+              className="bg-[#0d1625] border border-[#1e2a40] rounded-lg p-3 text-left"
+              style={{ maxWidth: 240 }}
+            >
+              <p className="text-[#ccc] text-[11px] leading-relaxed">
+                {CARDS[inspectCardId]!.effectText}
+              </p>
+              {CARDS[inspectCardId]!.flavorText && (
+                <>
+                  <hr className="border-[#1e2a40] my-2.5" />
+                  <p className="text-[#666] text-[11px] italic leading-relaxed">
+                    {CARDS[inspectCardId]!.flavorText}
+                  </p>
+                </>
+              )}
+            </div>
+            <p className="text-[#444] text-[9px] mt-3 font-mono">tap anywhere to close</p>
           </div>
         </div>
       )}
