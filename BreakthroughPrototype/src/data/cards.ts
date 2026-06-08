@@ -549,6 +549,18 @@ export const CARDS: Record<string, CardDef> = {
     color: '#e94560',
   },
 
+  smallTalk: {
+    id: 'smallTalk',
+    name: 'Small Talk',
+    supertype: 'Personal',
+    type: 'sorcery',
+    cost: 0,
+    effectText: 'Restored shield (dummy — vanishes when broken)',
+    flavorText: "Just buying time. The silence is less suspicious than the truth.",
+    effects: {},
+    color: '#4a4a6a',
+  },
+
   makeJoke: {
     id: 'makeJoke',
     name: "Make a Joke",

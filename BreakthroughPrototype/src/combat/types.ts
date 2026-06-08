@@ -48,6 +48,7 @@ export interface ShieldSlot {
   linkedCardId?: string;  // info card revealed when this shield breaks (opponent shields)
   usedCardId?: string;    // World card ID consumed when this player shield was placed
   requiresCardId?: string; // if set, only a card with this ID can break this shield
+  isDummyShield?: boolean; // shield created by a restore effect (smallTalk card); not returned to deck on break
 }
 
 export interface DeckState {
@@ -89,6 +90,7 @@ export interface CombatState {
   // EXPERIMENTAL (BotM #84) ─────────────────────────────────────────────────
   backOfMind: string[];              // card IDs kept through priority loss (subset of hand)
   awaitingBackOfMindChoice: boolean; // player must pick ≤3 cards before hand discards
+  awaitingOpponentAck: boolean;      // player must click "Pass" before each opponent action fires
 }
 
 /**

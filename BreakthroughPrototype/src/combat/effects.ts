@@ -31,24 +31,24 @@ export function drawFromDeck(deck: DeckState): [string | null, DeckState] {
   return [drawn, { cards: rest, discard: [] }];
 }
 
-/** Draw one card from the personal deck and one from the world deck into hand. */
+/**
+ * Draw two cards from the combined deck (worldDeck holds both personal and world cards
+ * shuffled together at combat init — see initCombat in Combat.ts).
+ */
 export function drawOneCardPair(state: CombatState): CombatState {
   let s = state;
-
-  const [pCard, pDeck] = drawFromDeck(s.personalDeck);
-  if (pCard) s = { ...s, hand: [...s.hand, pCard], personalDeck: pDeck };
-
-  const [wCard, wDeck] = drawFromDeck(s.worldDeck);
-  if (wCard) s = { ...s, hand: [...s.hand, wCard], worldDeck: wDeck };
-
+  for (let i = 0; i < 2; i++) {
+    const [card, deck] = drawFromDeck(s.worldDeck);
+    if (card) s = { ...s, hand: [...s.hand, card], worldDeck: deck };
+  }
   return s;
 }
 
-/** Draw one card from the personal deck only (used for Street Smarts bonus). */
+/** Draw one card from the combined deck (used for Street Smarts bonus). */
 export function drawOnePersonalCard(state: CombatState): CombatState {
-  const [card, deck] = drawFromDeck(state.personalDeck);
+  const [card, deck] = drawFromDeck(state.worldDeck);
   if (!card) return state;
-  return { ...state, hand: [...state.hand, card], personalDeck: deck };
+  return { ...state, hand: [...state.hand, card], worldDeck: deck };
 }
 
 // ── Effect resolvers ───────────────────────────────────────────────────────────
@@ -148,10 +148,9 @@ export function resolvePlayerEffect(state: CombatState, card: CardDef): CombatSt
   }
 
   if (eff.opponentPatience !== undefined) {
-    // Apply disposition multiplier to patience drain for Personal cards
+    // Vulnerable: no patience multiplier (only +1 priority bonus above); resistant: halved.
     let patDelta = eff.opponentPatience;
-    if (isVulnerable) patDelta = patDelta * 2;
-    else if (isResistant) patDelta = Math.ceil(patDelta * 0.5);
+    if (isResistant) patDelta = Math.ceil(patDelta * 0.5);
 
     const newPat = Math.max(0, s.oppPatience + patDelta);
     s = { ...s, oppPatience: newPat };
@@ -173,26 +172,26 @@ export function resolvePlayerEffect(state: CombatState, card: CardDef): CombatSt
     const brokenIdx = s.playerShields.findIndex(sh => sh.broken);
     if (brokenIdx !== -1) {
       const newShields = [...s.playerShields];
-      newShields[brokenIdx] = { ...newShields[brokenIdx], broken: false };
+      newShields[brokenIdx] = { broken: false, usedCardId: 'smallTalk', isDummyShield: true };
       s = { ...s, playerShields: newShields };
-      s = addLog(s, 'Restored 1 Shield.');
+      s = addLog(s, 'Restored 1 Shield (Small Talk).');
     } else {
       s = addLog(s, 'No broken shields to restore.');
     }
   }
 
-  // #59 — restore N player shields (player patience)
+  // #59 — restore N player shields (player patience) — uses dummy "Small Talk" shields
   if (eff.playerPatience !== undefined && eff.playerPatience > 0) {
     const newShields = [...s.playerShields];
     let restored = 0;
     for (let i = 0; i < newShields.length && restored < eff.playerPatience; i++) {
       if (newShields[i].broken) {
-        newShields[i] = { ...newShields[i], broken: false };
+        newShields[i] = { broken: false, usedCardId: 'smallTalk', isDummyShield: true };
         restored++;
       }
     }
     s = { ...s, playerShields: newShields };
-    s = addLog(s, restored > 0 ? `Restored ${restored} Shield${restored !== 1 ? 's' : ''}.` : 'No broken shields to restore.');
+    s = addLog(s, restored > 0 ? `Restored ${restored} Shield${restored !== 1 ? 's' : ''} (Small Talk).` : 'No broken shields to restore.');
   }
 
   // #59 — grant shield immunity until player regains positive priority

@@ -105,7 +105,7 @@ interface Props {
 
 export default function CombatScreen({ encounterId, chosenWorldDeck, preShields = [], addToCompendium, onEnd }: Props) {
   const encounter = ENCOUNTERS[encounterId];
-  const { state, selectCard, playCard, placeShield, endTurn, chooseShieldToBreak, dismissDialogue, dismissReveal, resetCombat, combineCards, confirmBackOfMind } = useCombat(encounter, chosenWorldDeck, preShields);
+  const { state, selectCard, playCard, placeShield, endTurn, chooseShieldToBreak, dismissDialogue, dismissReveal, resetCombat, combineCards, confirmBackOfMind, acknowledgeOpponent } = useCombat(encounter, chosenWorldDeck, preShields);
   const { active: tutorialStep, dismiss: dismissTutorial } = useTutorial(encounterId, state);
 
   // Add newly revealed info cards to the player's compendium
@@ -169,23 +169,16 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
   // Opponent card staging — show opponent's card for ~1.2 s before OPPONENT_ACT resolves
   const [oppStagedCardId, setOppStagedCardId] = useState<string | null>(null);
 
-  // Clear staged opponent card when phase returns to attack or choices appear
+  // Show the staged opponent card while the player is deciding whether to play an instant.
+  // Clears when: ack is cleared (player passed or priority returned to attack).
   useEffect(() => {
-    if (state.phase === 'attack' || state.gameOver || state.awaitingShieldChoice) {
+    if (!state.awaitingOpponentAck || state.phase !== 'defense' || state.gameOver) {
       setOppStagedCardId(null);
+      return;
     }
-  }, [state.phase, state.gameOver, state.awaitingShieldChoice]);
-
-  // Stage the next opponent card whenever a new action is scheduled
-  useEffect(() => {
-    if (state.oppHand.length === 0) { setOppStagedCardId(null); return; }
-    const cardId = state.oppHand[0];
-    setOppStagedCardId(cardId);
-    const timer = setTimeout(() => setOppStagedCardId(null), 1400);
-    return () => clearTimeout(timer);
-    // only re-run when a new opponent action is triggered — capturing oppHand[0] at that moment
+    setOppStagedCardId(state.oppHand[0] ?? null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.opponentActionTrigger]);
+  }, [state.opponentActionTrigger, state.awaitingOpponentAck, state.phase, state.gameOver]);
 
   useEffect(() => {
     return () => {
@@ -197,6 +190,8 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
   function canAfford(cardId: string): boolean {
     const card = CARDS[cardId];
     if (!card) return false;
+    // Instant cards bypass the priority gate — cost is only a delta, not a prerequisite
+    if (card.type === 'instant' || card.effects.isInstant) return true;
     const vnActive = state.field.includes('vampireNetwork');
     const reduction = vnActive && card.supertype === 'Information'
       ? (CARDS['vampireNetwork']?.effects.reduceInfoCost ?? 0) : 0;
@@ -363,7 +358,20 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
         );
       })()}
 
-      {/* EXPERIMENTAL (BotM #84): Back of Mind picker — shown when player loses priority */}
+      {/* Opponent-action acknowledgment — player must click "Pass" before each opponent action fires */}
+      {state.awaitingOpponentAck && !state.gameOver && !state.awaitingBackOfMindChoice && !state.awaitingShieldChoice && (
+        <div className="absolute bottom-[180px] left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-2 pointer-events-auto">
+          <button
+            onClick={acknowledgeOpponent}
+            className="px-6 py-2.5 bg-[#0f3460] border border-[#4ecca3] text-[#4ecca3] rounded-lg font-bold font-mono text-sm hover:bg-[#1a4580] transition-colors shadow-lg"
+          >
+            Nothing to play — Pass
+          </button>
+          <p className="text-[#555] text-[10px] font-mono">or play a Back of Mind instant above</p>
+        </div>
+      )}
+
+      {/* Back of Mind picker — shown when player loses priority */}
       {state.awaitingBackOfMindChoice && !state.gameOver && (
         <BackOfMindPicker
           hand={state.hand}

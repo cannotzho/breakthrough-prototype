@@ -47,8 +47,14 @@ const STEPS: Record<string, TutorialStep> = {
   card_combination: {
     id: 'card_combination',
     title: 'Card Combinations',
-    body: 'Some cards in your hand can be combined to form a more powerful card. Click (or right-click) a card and look for a "Combine →" option in the menu.',
+    body: 'Two of your cards can be combined into something more powerful. Look for the purple COMBO badge — tap a card and choose "Combine →" from the menu.',
     position: 'bottom',
+  },
+  back_of_mind: {
+    id: 'back_of_mind',
+    title: 'Back of Mind',
+    body: "When the opponent takes the floor, choose up to 3 cards to keep in the back of your mind. The rest are discarded. Instant cards can still be played from here. You'll draw 5 fresh cards when you regain priority.",
+    position: 'center',
   },
 };
 
@@ -69,19 +75,19 @@ function saveSeen(seen: Set<string>): void {
 
 export function useTutorial(encounterId: string, state: CombatState) {
   const isGutterfang = encounterId === 'gutterfang';
+  const isMaryann = encounterId === 'maryann';
   const seenRef = useRef<Set<string>>(loadSeen());
   const [queue, setQueue] = useState<TutorialStep[]>([]);
   const enqueuedRef = useRef<Set<string>>(new Set());
 
   const enqueue = useCallback((id: string) => {
-    if (!isGutterfang) return;
     if (seenRef.current.has(id)) return;
     if (enqueuedRef.current.has(id)) return;
     const step = STEPS[id];
     if (!step) return;
     enqueuedRef.current.add(id);
     setQueue(q => [...q, step]);
-  }, [isGutterfang]);
+  }, []);
 
   const dismiss = useCallback(() => {
     setQueue(q => {
@@ -93,11 +99,12 @@ export function useTutorial(encounterId: string, state: CombatState) {
     });
   }, []);
 
+  // Gutterfang steps 1–5 ──────────────────────────────────────────────────
+
   // Step 1: priority bar — fires once on Gutterfang encounter start
   useEffect(() => {
     if (!isGutterfang || state.gameOver) return;
     enqueue('priority_bar');
-  // Only run once on mount; isGutterfang is stable for the lifetime of the encounter
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isGutterfang]);
 
@@ -135,11 +142,21 @@ export function useTutorial(encounterId: string, state: CombatState) {
     }
   }, [state.oppPatience, state.oppMaxPatience, isGutterfang, state.gameOver, enqueue]);
 
-  // Step 6: card combination — first time the player has played at least one card
+  // Any-encounter steps ────────────────────────────────────────────────────
+
+  // BotM step — first time the player needs to choose Back of Mind cards (any fight)
   useEffect(() => {
-    if (!isGutterfang || state.gameOver) return;
-    if (Object.keys(state.cardPlayCounts).length >= 1) enqueue('card_combination');
-  }, [state.cardPlayCounts, isGutterfang, state.gameOver, enqueue]);
+    if (state.gameOver) return;
+    if (state.awaitingBackOfMindChoice) enqueue('back_of_mind');
+  }, [state.awaitingBackOfMindChoice, state.gameOver, enqueue]);
+
+  // Mary-Ann steps ─────────────────────────────────────────────────────────
+
+  // Card combination step — fires in Mary-Ann the first time a combo becomes available
+  useEffect(() => {
+    if (!isMaryann || state.gameOver) return;
+    if (state.availableCombinations.length > 0) enqueue('card_combination');
+  }, [state.availableCombinations, isMaryann, state.gameOver, enqueue]);
 
   return { active: queue[0] ?? null, dismiss };
 }

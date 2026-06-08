@@ -40,11 +40,10 @@ function checkEndCondition(state: CombatState): CombatState {
   return state;
 }
 
-// EXPERIMENTAL (BotM #84): Draw 5 cards (3 personal + 2 world) when regaining priority.
+// Draw 5 cards from the combined deck when regaining priority (BotM #84).
 function drawFiveNewCards(state: CombatState): CombatState {
   let s = state;
-  for (let i = 0; i < 3; i++) s = drawOnePersonalCard(s);
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < 5; i++) {
     const [card, deck] = drawFromDeck(s.worldDeck);
     if (card) s = { ...s, hand: [...s.hand, card], worldDeck: deck };
   }
@@ -68,9 +67,9 @@ function updatePhase(state: CombatState): CombatState {
 
   if (phase === 'defense' && !s.awaitingShieldChoice && !s.gameOver) {
     if (s.hand.length === 0) {
-      // Nothing to keep — skip picker and trigger opponent immediately
+      // Nothing to keep — skip picker and trigger opponent (player must still ack)
       s = addLog(s, 'No cards in hand — opponent takes the floor.');
-      s = { ...s, opponentActionTrigger: s.opponentActionTrigger + 1 };
+      s = { ...s, opponentActionTrigger: s.opponentActionTrigger + 1, awaitingOpponentAck: true };
     } else {
       // EXPERIMENTAL (BotM #84): pause for player to pick ≤3 cards to retain
       s = { ...s, awaitingBackOfMindChoice: true };
@@ -80,8 +79,10 @@ function updatePhase(state: CombatState): CombatState {
 
   if (phase === 'attack') {
     if (s.playerShieldImmune) s = { ...s, playerShieldImmune: false };
+    // Clear the opponent-ack flag whenever priority returns to the player
+    s = { ...s, awaitingOpponentAck: false };
     if (!s.gameOver) {
-      // EXPERIMENTAL (BotM #84): regaining priority → draw 5 new cards, clear BotM
+      // Regaining priority → draw 5 new cards, clear BotM (BotM #84)
       s = { ...s, backOfMind: [] };
       s = drawFiveNewCards(s);
       s = addLog(s, 'You regain the initiative — drew 5 new cards.');
@@ -115,11 +116,10 @@ function recomputeCombinations(state: CombatState): CombatState {
   return { ...state, availableCombinations: available };
 }
 
-/** Force a re-trigger of the opponent action without changing phase. */
+/** Force a re-trigger of the opponent action without changing phase. Requires player ack before timer fires. */
 function triggerOpponentAction(state: CombatState): CombatState {
-  // EXPERIMENTAL (BotM #84): also gate on awaitingBackOfMindChoice
   if (state.phase === 'defense' && !state.awaitingShieldChoice && !state.awaitingBackOfMindChoice && !state.gameOver) {
-    return { ...state, opponentActionTrigger: state.opponentActionTrigger + 1 };
+    return { ...state, opponentActionTrigger: state.opponentActionTrigger + 1, awaitingOpponentAck: true };
   }
   return state;
 }
@@ -163,6 +163,13 @@ function initCombat({ encounter, chosenWorldDeck, preShields = [] }: InitArg): C
     }
   }
 
+  // Merge personal + world cards into a single combined draw pile (shuffled together).
+  // personalDeck is kept for discard routing only; worldDeck holds the combined draw pile.
+  const combinedCards = shuffle([
+    ...DETECTIVE_PERSONAL_DECK, ...(encounter.personalDeck ?? []),
+    ...convertedWorldDeck,
+  ]);
+
   let state: CombatState = {
     phase: 'attack',
     priority: 5,
@@ -173,8 +180,8 @@ function initCombat({ encounter, chosenWorldDeck, preShields = [] }: InitArg): C
     }),
     hand: [],
     oppHand: [],
-    personalDeck: { cards: shuffle([...DETECTIVE_PERSONAL_DECK, ...(encounter.personalDeck ?? [])]), discard: [] },
-    worldDeck: { cards: shuffle([...convertedWorldDeck]), discard: [] },
+    personalDeck: { cards: [], discard: [] },
+    worldDeck: { cards: combinedCards, discard: [] },
     oppDeck: { cards: shuffle([...encounter.oppDeck]), discard: [] },
     field: [],
     logs: substitutionLogs,
@@ -197,13 +204,14 @@ function initCombat({ encounter, chosenWorldDeck, preShields = [] }: InitArg): C
     playerShieldImmune: false,
     cardPlayCounts: {},
     availableCombinations: [],
-    // EXPERIMENTAL (BotM #84)
+    // BotM #84
     backOfMind: [],
     awaitingBackOfMindChoice: false,
+    awaitingOpponentAck: false,
   };
 
-  // Opening hands: 4 card pairs for player, 3 cards for opponent
-  for (let i = 0; i < 4; i++) state = drawOneCardPair(state);
+  // Opening hand: 8 cards from combined deck; 3 cards for opponent
+  for (let i = 0; i < 4; i++) state = drawOneCardPair(state); // drawOneCardPair draws 2 from combined
 
   for (let i = 0; i < 3; i++) {
     const [card, deck] = drawFromDeck(state.oppDeck);
@@ -226,7 +234,8 @@ type CombatAction =
   | { type: 'DISMISS_DIALOGUE' }
   | { type: 'DISMISS_REVEAL' }
   | { type: 'COMBINE_CARDS'; cardId: string } // #61
-  | { type: 'CONFIRM_BACK_OF_MIND'; keptIds: string[] } // EXPERIMENTAL (BotM #84)
+  | { type: 'CONFIRM_BACK_OF_MIND'; keptIds: string[] } // BotM #84
+  | { type: 'ACKNOWLEDGE_OPPONENT' } // player clears ack gate so opponent action timer fires
   | { type: 'RESET'; encounter: EncounterConfig; chosenWorldDeck: string[]; preShields?: string[] };
 
 function combatReducer(state: CombatState, action: CombatAction): CombatState {
@@ -295,14 +304,12 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
         if (linkedId) s = { ...s, revealedShieldCard: linkedId };
       }
 
-      // Place enchantments on field; Information shield-breakers are consumed entirely;
-      // Personal shield-breakers (for minor characters) return to discard as normal.
+      // Place enchantments on field; Information shield-breakers consumed entirely;
+      // all other played cards return to the combined worldDeck discard pile.
       if (card.type === 'enchantment') {
         s = { ...s, field: [...s.field, action.cardId] };
       } else if (shieldWasBroken && card.supertype === 'Information') {
-        // Information shield-breakers consumed — removed from game, not sent to any discard pile
-      } else if (card.supertype === 'Personal') {
-        s = { ...s, personalDeck: { ...s.personalDeck, discard: [...s.personalDeck.discard, action.cardId] } };
+        // Information shield-breakers consumed — removed from game entirely
       } else {
         s = { ...s, worldDeck: { ...s.worldDeck, discard: [...s.worldDeck.discard, action.cardId] } };
       }
@@ -420,7 +427,7 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
     case 'OPPONENT_ACT': {
       if (state.gameOver || state.awaitingShieldChoice || state.phase !== 'defense') return state;
 
-      let s = state;
+      let s = { ...state, awaitingOpponentAck: false }; // clear ack gate when action actually fires
 
       // Refill opponent hand from deck, reshuffling discard pile if needed
       // Only refill from deck if no specific card is being requested
@@ -532,34 +539,31 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
         }
       }
 
-      // Discard everything not kept, sorted into personal/world discard piles
-      let personalDiscard = [...state.personalDeck.discard];
-      let worldDiscard = [...state.worldDeck.discard];
-      for (const cardId of handCopy) {
-        const card = CARDS[cardId];
-        if (!card) continue;
-        if (card.supertype === 'Personal') personalDiscard.push(cardId);
-        else worldDiscard.push(cardId);
-      }
+      // Discard everything not kept into the combined worldDeck pile
+      const worldDiscard = [...state.worldDeck.discard, ...handCopy.filter(id => CARDS[id])];
 
       let s: CombatState = {
         ...state,
         hand: newHand,
         backOfMind: newHand,
         awaitingBackOfMindChoice: false,
-        personalDeck: { ...state.personalDeck, discard: personalDiscard },
         worldDeck: { ...state.worldDeck, discard: worldDiscard },
       };
 
       const kept = newHand.length;
       s = addLog(s, `Hand discarded — ${kept} card${kept !== 1 ? 's' : ''} kept in Back of Mind.`);
-      s = { ...s, opponentActionTrigger: s.opponentActionTrigger + 1 };
+      s = { ...s, opponentActionTrigger: s.opponentActionTrigger + 1, awaitingOpponentAck: true };
       s = recomputeCombinations(s);
       return s;
     }
 
+    case 'ACKNOWLEDGE_OPPONENT': {
+      if (!state.awaitingOpponentAck) return state;
+      return { ...state, awaitingOpponentAck: false };
+    }
+
     case 'COMBINE_CARDS': {
-      // EXPERIMENTAL (BotM #84): no combining during defense (BotM cards can't be combined mid-opponent-turn)
+      // No combining during defense (BotM cards can't be combined mid-opponent-turn)
       if (state.phase === 'defense') return addLog(state, 'Cannot combine cards during the opponent\'s turn.');
       const combCard = CARDS[action.cardId];
       if (!combCard?.combinesFrom) return state;
@@ -598,17 +602,17 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
 export function useCombat(encounter: EncounterConfig, chosenWorldDeck: string[], preShields: string[] = [], playtestMode = false) {
   const [state, dispatch] = useReducer(combatReducer, { encounter, chosenWorldDeck, preShields }, initCombat);
 
-  // Schedule opponent action whenever the trigger counter changes (disabled in playtest mode).
-  // Also paused while the shield reveal dialog is open, or while awaiting BotM choice (#84).
+  // Schedule opponent action after player acknowledgment clears the ack gate.
+  // Paused while: playtest mode, game over, awaiting shield/BotM choice, reveal dialog, or awaiting ack.
   useEffect(() => {
     if (playtestMode) return;
-    // EXPERIMENTAL (BotM #84): also pause during back-of-mind choice
     if (state.gameOver || state.awaitingShieldChoice || state.awaitingBackOfMindChoice || state.phase !== 'defense') return;
     if (state.revealedShieldCard) return;
-    const timer = setTimeout(() => dispatch({ type: 'OPPONENT_ACT' }), 1200);
+    if (state.awaitingOpponentAck) return; // wait for player to click "Pass"
+    const timer = setTimeout(() => dispatch({ type: 'OPPONENT_ACT' }), 800);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.opponentActionTrigger, playtestMode]);
+  }, [state.opponentActionTrigger, state.awaitingOpponentAck, playtestMode]);
 
   const selectCard = useCallback((cardId: string) => dispatch({ type: 'SELECT_CARD', cardId }), []);
   const playCard = useCallback((cardId: string) => dispatch({ type: 'PLAY_CARD', cardId }), []);
@@ -635,11 +639,15 @@ export function useCombat(encounter: EncounterConfig, chosenWorldDeck: string[],
     [],
   );
 
-  // EXPERIMENTAL (BotM #84)
   const confirmBackOfMind = useCallback(
     (keptIds: string[]) => dispatch({ type: 'CONFIRM_BACK_OF_MIND', keptIds }),
     [],
   );
 
-  return { state, selectCard, playCard, placeShield, endTurn, chooseShieldToBreak, dismissDialogue, dismissReveal, resetCombat, opponentAct, opponentEndTurn, combineCards, confirmBackOfMind };
+  const acknowledgeOpponent = useCallback(
+    () => dispatch({ type: 'ACKNOWLEDGE_OPPONENT' }),
+    [],
+  );
+
+  return { state, selectCard, playCard, placeShield, endTurn, chooseShieldToBreak, dismissDialogue, dismissReveal, resetCombat, opponentAct, opponentEndTurn, combineCards, confirmBackOfMind, acknowledgeOpponent };
 }

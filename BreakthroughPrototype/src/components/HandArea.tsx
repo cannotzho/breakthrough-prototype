@@ -72,11 +72,13 @@ export default function HandArea({ state, onSelectCard: _onSelectCard, onPlayCar
     if (awaitingShieldChoice) return false;
     const card = CARDS[cardId];
     if (!card) return false;
-    // EXPERIMENTAL (BotM #84): during defense, only Back of Mind instants are playable
+    const isInstantCard = card.type === 'instant' || !!card.effects.isInstant;
+    // During defense: only BotM instants are playable
     if (phase === 'defense') {
-      return !!card.effects.isInstant && state.backOfMind.includes(cardId);
+      return isInstantCard && state.backOfMind.includes(cardId);
     }
-    if (card.effects.isInstant) return true;
+    // During attack: instants are always playable (cost is a delta, not a gate)
+    if (isInstantCard) return true;
     return priority >= getActualCost(cardId);
   }
 
@@ -204,11 +206,14 @@ export default function HandArea({ state, onSelectCard: _onSelectCard, onPlayCar
           const isBeingDragged = cardId === draggingCardId;
           const isStaged = cardId === stagedCardId;
           const isMenuOpen = contextMenu?.cardId === cardId;
-          // EXPERIMENTAL (BotM #84)
           const isInBotM = backOfMind.includes(cardId);
-          const showInstantBadge = phase === 'defense' && !!card.effects.isInstant && isInBotM;
-          const showBotMBadge = phase === 'defense' && isInBotM && !card.effects.isInstant;
+          const isInstantCard = card.type === 'instant' || !!card.effects.isInstant;
+          const showInstantBadge = phase === 'defense' && isInstantCard && isInBotM;
+          const showBotMBadge = phase === 'defense' && isInBotM && !isInstantCard;
           const dimInDefense = phase === 'defense' && !isInBotM;
+          const isComboSource = phase !== 'defense' && state.availableCombinations.some(
+            cid => CARDS[cid]?.combinesFrom?.includes(cardId)
+          );
           return (
             <div
               key={idx}
@@ -255,7 +260,26 @@ export default function HandArea({ state, onSelectCard: _onSelectCard, onPlayCar
                   INSTANT
                 </div>
               )}
-              {/* EXPERIMENTAL (BotM #84): badge for kept-but-non-instant BotM cards */}
+              {isComboSource && (
+                <div style={{
+                  position: 'absolute',
+                  top: -10,
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  zIndex: 10,
+                  background: '#7c3aed',
+                  color: '#e9d5ff',
+                  fontSize: 8,
+                  fontWeight: 'bold',
+                  letterSpacing: '0.06em',
+                  padding: '2px 5px',
+                  borderRadius: 3,
+                  whiteSpace: 'nowrap',
+                  pointerEvents: 'none',
+                }}>
+                  COMBO
+                </div>
+              )}
               {showBotMBadge && (
                 <div style={{
                   position: 'absolute',
@@ -320,8 +344,10 @@ export default function HandArea({ state, onSelectCard: _onSelectCard, onPlayCar
               Play
               {!isPlayable(contextMenu.cardId) && (
                 <span className="text-[10px] ml-1 text-[#2a2a4a]">
-                  {phase === 'defense' && contextCard.type !== 'instant' && !contextCard.effects.isInstant
-                    ? '(opponent\'s turn)'
+                  {phase === 'defense'
+                    ? (contextCard.type !== 'instant' && !contextCard.effects.isInstant
+                        ? '(opponent\'s turn)'
+                        : '(not in Back of Mind)')
                     : `(need ${getActualCost(contextMenu.cardId)} priority)`}
                 </span>
               )}
