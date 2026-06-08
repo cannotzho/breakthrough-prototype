@@ -4,7 +4,7 @@ import { CARDS } from '../data/cards';
 
 const STORAGE_KEY = 'bt_tutorial_seen';
 
-export type TooltipPosition = 'top' | 'bottom' | 'left' | 'right' | 'center';
+export type TooltipPosition = 'top' | 'bottom' | 'left' | 'right' | 'center' | 'upper-center';
 
 export interface TutorialStep {
   id: string;
@@ -18,7 +18,7 @@ const STEPS: Record<string, TutorialStep> = {
     id: 'priority_bar',
     title: 'Priority Bar',
     body: 'The bar between shields shows who controls the conversation. Positive = your turn to act.',
-    position: 'top',
+    position: 'center',
   },
   play_card: {
     id: 'play_card',
@@ -30,7 +30,7 @@ const STEPS: Record<string, TutorialStep> = {
     id: 'break_shield',
     title: 'Breaking Shields',
     body: "Some cards can break your opponent's shields — revealing hidden information.",
-    position: 'top',
+    position: 'upper-center',
   },
   player_shields: {
     id: 'player_shields',
@@ -41,8 +41,14 @@ const STEPS: Record<string, TutorialStep> = {
   patience: {
     id: 'patience',
     title: 'Patience Meter',
-    body: "Drain your opponent's patience to zero to win the conversation.",
-    position: 'left',
+    body: "The opponent's patience is their resolve — drain it to zero to win the confrontation. Your patience works the same way: if the opponent drains yours to zero, the case stalls.",
+    position: 'top',
+  },
+  card_combination: {
+    id: 'card_combination',
+    title: 'Card Combinations',
+    body: 'Some cards in your hand can be combined to form a more powerful card. Click (or right-click) a card and look for a "Combine →" option in the menu.',
+    position: 'bottom',
   },
 };
 
@@ -128,6 +134,12 @@ export function useTutorial(encounterId: string, state: CombatState) {
       enqueue('patience');
     }
   }, [state.oppPatience, state.oppMaxPatience, isGutterfang, state.gameOver, enqueue]);
+
+  // Step 6: card combination — first time the player has played at least one card
+  useEffect(() => {
+    if (!isGutterfang || state.gameOver) return;
+    if (Object.keys(state.cardPlayCounts).length >= 1) enqueue('card_combination');
+  }, [state.cardPlayCounts, isGutterfang, state.gameOver, enqueue]);
 
   return { active: queue[0] ?? null, dismiss };
 }

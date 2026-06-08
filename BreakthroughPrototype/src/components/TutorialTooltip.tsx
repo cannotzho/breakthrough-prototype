@@ -16,6 +16,9 @@ function cardStyle(pos: TooltipPosition): CSSProperties {
       return { position: 'absolute', left: 10, top: '30%', transform: 'translateY(-50%)', width: 220 };
     case 'right':
       return { position: 'absolute', right: 10, top: '30%', transform: 'translateY(-50%)', width: 220 };
+    case 'upper-center':
+      // Sits at ~35% from top — near the opponent shield row in the battlefield
+      return { position: 'absolute', top: '35%', left: '50%', transform: 'translate(-50%, -50%)', width: 280 };
     default:
       return { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 280 };
   }
@@ -37,6 +40,9 @@ function Arrow({ pos }: { pos: TooltipPosition }) {
       return <div style={{ ...base, top: -8, left: '50%', transform: 'translateX(-50%)', borderLeft: T, borderRight: T, borderBottom: C }} />;
     case 'right':
       return <div style={{ ...base, right: -8, top: '50%', transform: 'translateY(-50%)', borderTop: T, borderBottom: T, borderLeft: C }} />;
+    case 'upper-center':
+      // Arrow at top of card, pointing up toward the opponent shield row above
+      return <div style={{ ...base, top: -8, left: '50%', transform: 'translateX(-50%)', borderLeft: T, borderRight: T, borderBottom: C }} />;
     default:
       return null;
   }

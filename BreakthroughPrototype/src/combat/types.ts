@@ -110,6 +110,8 @@ export interface EncounterConfig {
   shieldRequirements?: string[]; // parallel to shieldLinks — card ID required to break each slot (empty string = no requirement)
   // Relevance list: Information cards narratively relevant to this encounter. Cards not on this list are converted to Ponder at combat init.
   worldDeck: string[];
+  // Encounter-specific Personal cards added to the player's deck for this combat only (in addition to DETECTIVE_PERSONAL_DECK).
+  personalDeck?: string[];
   oppDeck: string[];       // card IDs
   disposition: Disposition;
   valuableShields: string[]; // World card IDs especially meaningful to this NPC

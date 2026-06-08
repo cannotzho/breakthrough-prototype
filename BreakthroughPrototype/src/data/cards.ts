@@ -578,7 +578,4 @@ export const STARTER_COMPENDIUM: string[] = [
 export const DETECTIVE_PERSONAL_DECK: string[] = [
   'intimidate', 'streetSmarts', 'persuade', 'logicalAppeal',
   'empathy', 'empathize', 'threaten', 'offerHelp', 'composure', 'probe',
-  'maryannInsightReluctance',
-  // TODO (#64): maryannInsightObligation should only enter the deck after Shield 1 breaks (locked mechanic not yet implemented)
-  'maryannInsightObligation',
 ];
