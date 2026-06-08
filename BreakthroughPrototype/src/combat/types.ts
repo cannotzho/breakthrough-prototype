@@ -86,6 +86,9 @@ export interface CombatState {
   playerShieldImmune: boolean;                // #59 — opponent cannot break player shields
   cardPlayCounts: Record<string, number>;     // #60 — cumulative play count per card ID this encounter
   availableCombinations: string[];            // #61 — combination card IDs whose sources are both in hand
+  // EXPERIMENTAL (BotM #84) ─────────────────────────────────────────────────
+  backOfMind: string[];              // card IDs kept through priority loss (subset of hand)
+  awaitingBackOfMindChoice: boolean; // player must pick ≤3 cards before hand discards
 }
 
 /**

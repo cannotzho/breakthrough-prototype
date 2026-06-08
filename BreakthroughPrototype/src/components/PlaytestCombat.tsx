@@ -6,6 +6,35 @@ import CardComponent from './CardComponent';
 import CombatLog from './CombatLog';
 import HandArea from './HandArea';
 import ShieldRow from './ShieldRow';
+// EXPERIMENTAL (BotM #84): reuse the picker component defined in CombatScreen
+// (inline here to avoid a circular dep — keep in sync with CombatScreen.tsx)
+function BotMPickerInline({ hand, onConfirm }: { hand: string[]; onConfirm: (ids: string[]) => void }) {
+  const [sel, setSel] = useState<string[]>([]);
+  function toggle(id: string) {
+    setSel(p => p.includes(id) ? p.filter(x => x !== id) : p.length < 3 ? [...p, id] : p);
+  }
+  return (
+    <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 200, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 }}>
+      <p style={{ color: '#c4b5fd', fontFamily: 'monospace', fontSize: 13, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 2, margin: 0 }}>Back of Mind — choose up to 3</p>
+      <p style={{ color: '#777', fontFamily: 'monospace', fontSize: 11, margin: 0 }}>Kept cards are playable during opponent's turn only if Instant. You draw 5 when you regain priority.</p>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
+        {hand.map((id, i) => {
+          const card = CARDS[id]; if (!card) return null;
+          const selected = sel.includes(id);
+          return (
+            <div key={i} onClick={() => toggle(id)} style={{ cursor: 'pointer', outline: selected ? '2px solid #c4b5fd' : undefined, borderRadius: 6, opacity: !selected && sel.length >= 3 ? 0.35 : 1, transform: selected ? 'translateY(-6px)' : undefined, transition: 'all 0.15s' }}>
+              <CardComponent card={card} />
+            </div>
+          );
+        })}
+        {hand.length === 0 && <span style={{ color: '#555', fontFamily: 'monospace', fontSize: 12 }}>No cards in hand.</span>}
+      </div>
+      <button onClick={() => onConfirm(sel)} style={{ background: '#7c3aed', border: 'none', color: '#fff', padding: '8px 24px', borderRadius: 6, fontFamily: 'monospace', fontSize: 13, fontWeight: 'bold', cursor: 'pointer' }}>
+        {sel.length === 0 ? 'Discard All' : `Keep ${sel.length}`}
+      </button>
+    </div>
+  );
+}
 
 // ── Styles (match DevTools theme) ────────────────────────────────────────────
 
@@ -86,6 +115,7 @@ function PlaytestActive({ encounter }: { encounter: EncounterConfig }) {
     opponentAct,
     opponentEndTurn,
     combineCards,
+    confirmBackOfMind,
   } = useCombat(encounter, encounter.worldDeck, [], true);
 
   const [draggingCardId, setDraggingCardId] = useState<string | null>(null);
@@ -122,10 +152,13 @@ function PlaytestActive({ encounter }: { encounter: EncounterConfig }) {
 
   const isPlayerTurn = state.priority > 0;
   const patiencePct = Math.max(0, (state.oppPatience / state.oppMaxPatience) * 100);
-  const phaseLabel = state.awaitingShieldChoice
+  // EXPERIMENTAL (BotM #84): add BotM choice to phase label
+  const phaseLabel = state.awaitingBackOfMindChoice
+    ? 'Back of Mind — choose cards to keep'
+    : state.awaitingShieldChoice
     ? 'Choose Shield to Sacrifice'
     : isPlayerTurn ? 'Your Turn' : "Opponent's Turn";
-  const phaseColor = state.awaitingShieldChoice ? '#f4d03f' : isPlayerTurn ? '#4ecca3' : '#e94560';
+  const phaseColor = state.awaitingBackOfMindChoice ? '#c4b5fd' : state.awaitingShieldChoice ? '#f4d03f' : isPlayerTurn ? '#4ecca3' : '#e94560';
   const ghostCard = ghostPos && draggingCardId ? CARDS[draggingCardId] : null;
 
   return (
@@ -362,6 +395,11 @@ function PlaytestActive({ encounter }: { encounter: EncounterConfig }) {
         <div style={{ position: 'fixed', left: ghostPos.x - 44, top: ghostPos.y - 30, transform: 'scale(1.05)', opacity: 0.8, pointerEvents: 'none', zIndex: 9999 }}>
           <CardComponent card={ghostCard} />
         </div>
+      )}
+
+      {/* EXPERIMENTAL (BotM #84): Back of Mind picker */}
+      {state.awaitingBackOfMindChoice && !state.gameOver && (
+        <BotMPickerInline hand={state.hand} onConfirm={confirmBackOfMind} />
       )}
 
       {/* Game-over overlay — inline, no navigation */}

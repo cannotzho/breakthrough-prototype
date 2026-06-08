@@ -48,7 +48,7 @@ function PileModal({ title, cardIds, onClose }: { title: string; cardIds: string
 }
 
 export default function HandArea({ state, onSelectCard: _onSelectCard, onPlayCard, onPlaceShield, onEndTurn, onDragStart, onDragEnd, onGhostMove, draggingCardId, stagedCardId, onCombineCards }: Props) {
-  const { hand, phase, awaitingShieldChoice, priority, field } = state;
+  const { hand, phase, awaitingShieldChoice, priority, field, backOfMind } = state;
 
   const [contextMenu, setContextMenu] = useState<{ cardId: string; x: number; y: number } | null>(null);
   const [inspectCardId, setInspectCardId] = useState<string | null>(null);
@@ -72,8 +72,11 @@ export default function HandArea({ state, onSelectCard: _onSelectCard, onPlayCar
     if (awaitingShieldChoice) return false;
     const card = CARDS[cardId];
     if (!card) return false;
+    // EXPERIMENTAL (BotM #84): during defense, only Back of Mind instants are playable
+    if (phase === 'defense') {
+      return !!card.effects.isInstant && state.backOfMind.includes(cardId);
+    }
     if (card.effects.isInstant) return true;
-    if (phase === 'defense' && card.type !== 'instant') return false;
     return priority >= getActualCost(cardId);
   }
 
@@ -201,8 +204,11 @@ export default function HandArea({ state, onSelectCard: _onSelectCard, onPlayCar
           const isBeingDragged = cardId === draggingCardId;
           const isStaged = cardId === stagedCardId;
           const isMenuOpen = contextMenu?.cardId === cardId;
-          const showInstantBadge = phase === 'defense' && !!card.effects.isInstant;
-          const dimInDefense = phase === 'defense' && !card.effects.isInstant && card.type !== 'instant';
+          // EXPERIMENTAL (BotM #84)
+          const isInBotM = backOfMind.includes(cardId);
+          const showInstantBadge = phase === 'defense' && !!card.effects.isInstant && isInBotM;
+          const showBotMBadge = phase === 'defense' && isInBotM && !card.effects.isInstant;
+          const dimInDefense = phase === 'defense' && !isInBotM;
           return (
             <div
               key={idx}
@@ -247,6 +253,27 @@ export default function HandArea({ state, onSelectCard: _onSelectCard, onPlayCar
                   pointerEvents: 'none',
                 }}>
                   INSTANT
+                </div>
+              )}
+              {/* EXPERIMENTAL (BotM #84): badge for kept-but-non-instant BotM cards */}
+              {showBotMBadge && (
+                <div style={{
+                  position: 'absolute',
+                  top: -10,
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  zIndex: 10,
+                  background: '#4a1d96',
+                  color: '#c4b5fd',
+                  fontSize: 8,
+                  fontWeight: 'bold',
+                  letterSpacing: '0.06em',
+                  padding: '2px 5px',
+                  borderRadius: 3,
+                  whiteSpace: 'nowrap',
+                  pointerEvents: 'none',
+                }}>
+                  BACK OF MIND
                 </div>
               )}
               <CardComponent

@@ -40,22 +40,54 @@ function checkEndCondition(state: CombatState): CombatState {
   return state;
 }
 
+// EXPERIMENTAL (BotM #84): Draw 5 cards (3 personal + 2 world) when regaining priority.
+function drawFiveNewCards(state: CombatState): CombatState {
+  let s = state;
+  for (let i = 0; i < 3; i++) s = drawOnePersonalCard(s);
+  for (let i = 0; i < 2; i++) {
+    const [card, deck] = drawFromDeck(s.worldDeck);
+    if (card) s = { ...s, hand: [...s.hand, card], worldDeck: deck };
+  }
+  return s;
+}
+
 /**
  * Recalculate the phase from priority. When entering defense, increment
  * opponentActionTrigger so the useEffect fires and schedules the opponent's move.
  * When entering attack, clear any active shield immunity (#59).
+ *
+ * EXPERIMENTAL (BotM #84): On attack→defense, instead of immediately triggering
+ * the opponent, pause to let the player choose ≤3 cards for Back of Mind.
+ * On defense→attack, draw 5 new cards and clear the BotM tracking set.
  */
 function updatePhase(state: CombatState): CombatState {
   const phase: 'attack' | 'defense' = state.priority > 0 ? 'attack' : 'defense';
   if (phase === state.phase) return state; // no change
 
   let s = { ...state, phase };
+
   if (phase === 'defense' && !s.awaitingShieldChoice && !s.gameOver) {
-    s = { ...s, opponentActionTrigger: s.opponentActionTrigger + 1 };
+    if (s.hand.length === 0) {
+      // Nothing to keep — skip picker and trigger opponent immediately
+      s = addLog(s, 'No cards in hand — opponent takes the floor.');
+      s = { ...s, opponentActionTrigger: s.opponentActionTrigger + 1 };
+    } else {
+      // EXPERIMENTAL (BotM #84): pause for player to pick ≤3 cards to retain
+      s = { ...s, awaitingBackOfMindChoice: true };
+      // opponentActionTrigger fires after CONFIRM_BACK_OF_MIND
+    }
   }
-  if (phase === 'attack' && s.playerShieldImmune) {
-    s = { ...s, playerShieldImmune: false };
+
+  if (phase === 'attack') {
+    if (s.playerShieldImmune) s = { ...s, playerShieldImmune: false };
+    if (!s.gameOver) {
+      // EXPERIMENTAL (BotM #84): regaining priority → draw 5 new cards, clear BotM
+      s = { ...s, backOfMind: [] };
+      s = drawFiveNewCards(s);
+      s = addLog(s, 'You regain the initiative — drew 5 new cards.');
+    }
   }
+
   return s;
 }
 
@@ -85,7 +117,8 @@ function recomputeCombinations(state: CombatState): CombatState {
 
 /** Force a re-trigger of the opponent action without changing phase. */
 function triggerOpponentAction(state: CombatState): CombatState {
-  if (state.phase === 'defense' && !state.awaitingShieldChoice && !state.gameOver) {
+  // EXPERIMENTAL (BotM #84): also gate on awaitingBackOfMindChoice
+  if (state.phase === 'defense' && !state.awaitingShieldChoice && !state.awaitingBackOfMindChoice && !state.gameOver) {
     return { ...state, opponentActionTrigger: state.opponentActionTrigger + 1 };
   }
   return state;
@@ -164,6 +197,9 @@ function initCombat({ encounter, chosenWorldDeck, preShields = [] }: InitArg): C
     playerShieldImmune: false,
     cardPlayCounts: {},
     availableCombinations: [],
+    // EXPERIMENTAL (BotM #84)
+    backOfMind: [],
+    awaitingBackOfMindChoice: false,
   };
 
   // Opening hands: 4 card pairs for player, 3 cards for opponent
@@ -190,6 +226,7 @@ type CombatAction =
   | { type: 'DISMISS_DIALOGUE' }
   | { type: 'DISMISS_REVEAL' }
   | { type: 'COMBINE_CARDS'; cardId: string } // #61
+  | { type: 'CONFIRM_BACK_OF_MIND'; keptIds: string[] } // EXPERIMENTAL (BotM #84)
   | { type: 'RESET'; encounter: EncounterConfig; chosenWorldDeck: string[]; preShields?: string[] };
 
 function combatReducer(state: CombatState, action: CombatAction): CombatState {
@@ -213,6 +250,10 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
 
       if (state.phase === 'defense' && card.type !== 'instant' && !card.effects.isInstant) {
         return addLog(state, 'Only Instant cards can be played in Defense Phase!');
+      }
+      // EXPERIMENTAL (BotM #84): during defense, only Back of Mind cards are playable
+      if (state.phase === 'defense' && !state.backOfMind.includes(action.cardId)) {
+        return addLog(state, 'Only Back of Mind cards can be played during the opponent\'s turn!');
       }
 
       // Cost reduction from Vampire Network enchantment
@@ -266,13 +307,14 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
         s = { ...s, worldDeck: { ...s.worldDeck, discard: [...s.worldDeck.discard, action.cardId] } };
       }
 
-      // End-of-turn draw: always draw one pair
-      s = drawOneCardPair(s);
-
-      // Street Smarts bonus: draw one extra personal card per enchantment copy on field
-      if (s.field.includes('streetSmarts')) {
-        const extra = CARDS['streetSmarts']?.effects.drawEachTurn ?? 0;
-        for (let i = 0; i < extra; i++) s = drawOnePersonalCard(s);
+      // EXPERIMENTAL (BotM #84): skip draw during defense — player gets 5 new cards on regaining priority
+      if (state.phase !== 'defense') {
+        s = drawOneCardPair(s);
+        // Street Smarts bonus: draw one extra personal card per enchantment copy on field
+        if (s.field.includes('streetSmarts')) {
+          const extra = CARDS['streetSmarts']?.effects.drawEachTurn ?? 0;
+          for (let i = 0; i < extra; i++) s = drawOnePersonalCard(s);
+        }
       }
 
       s = checkEndCondition(s);
@@ -371,6 +413,7 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
 
       s = checkEndCondition(s);
       if (!s.gameOver) s = updatePhase(s);
+      s = recomputeCombinations(s);
       return s;
     }
 
@@ -398,6 +441,7 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
           s = updatePhase(s);
           if (s.phase === 'defense') s = triggerOpponentAction(s);
         }
+        s = recomputeCombinations(s);
         return s;
       }
 
@@ -455,6 +499,7 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
         s = updatePhase(s);
         if (s.phase === 'defense') s = triggerOpponentAction(s);
       }
+      s = recomputeCombinations(s);
       return s;
     }
 
@@ -464,10 +509,58 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
       s = { ...s, priority: clamp(s.priority + 1) };
       s = checkEndCondition(s);
       if (!s.gameOver) s = updatePhase(s);
+      s = recomputeCombinations(s);
+      return s;
+    }
+
+    // EXPERIMENTAL (BotM #84): confirm which ≤3 cards to keep; discard the rest; trigger opponent
+    case 'CONFIRM_BACK_OF_MIND': {
+      if (!state.awaitingBackOfMindChoice) return state;
+
+      // Only keep cards that are actually in hand (guard against stale IDs), clamp to 3
+      const validKept = action.keptIds.filter(id => state.hand.includes(id)).slice(0, 3);
+      const keptSet = new Set<string>();
+      const newHand: string[] = [];
+      const handCopy = [...state.hand];
+
+      for (const kid of validKept) {
+        const idx = handCopy.indexOf(kid);
+        if (idx !== -1 && !keptSet.has(kid)) {
+          newHand.push(kid);
+          keptSet.add(kid);
+          handCopy.splice(idx, 1);
+        }
+      }
+
+      // Discard everything not kept, sorted into personal/world discard piles
+      let personalDiscard = [...state.personalDeck.discard];
+      let worldDiscard = [...state.worldDeck.discard];
+      for (const cardId of handCopy) {
+        const card = CARDS[cardId];
+        if (!card) continue;
+        if (card.supertype === 'Personal') personalDiscard.push(cardId);
+        else worldDiscard.push(cardId);
+      }
+
+      let s: CombatState = {
+        ...state,
+        hand: newHand,
+        backOfMind: newHand,
+        awaitingBackOfMindChoice: false,
+        personalDeck: { ...state.personalDeck, discard: personalDiscard },
+        worldDeck: { ...state.worldDeck, discard: worldDiscard },
+      };
+
+      const kept = newHand.length;
+      s = addLog(s, `Hand discarded — ${kept} card${kept !== 1 ? 's' : ''} kept in Back of Mind.`);
+      s = { ...s, opponentActionTrigger: s.opponentActionTrigger + 1 };
+      s = recomputeCombinations(s);
       return s;
     }
 
     case 'COMBINE_CARDS': {
+      // EXPERIMENTAL (BotM #84): no combining during defense (BotM cards can't be combined mid-opponent-turn)
+      if (state.phase === 'defense') return addLog(state, 'Cannot combine cards during the opponent\'s turn.');
       const combCard = CARDS[action.cardId];
       if (!combCard?.combinesFrom) return state;
       const [src1, src2] = combCard.combinesFrom;
@@ -506,10 +599,11 @@ export function useCombat(encounter: EncounterConfig, chosenWorldDeck: string[],
   const [state, dispatch] = useReducer(combatReducer, { encounter, chosenWorldDeck, preShields }, initCombat);
 
   // Schedule opponent action whenever the trigger counter changes (disabled in playtest mode).
-  // Also paused while the shield reveal dialog is open.
+  // Also paused while the shield reveal dialog is open, or while awaiting BotM choice (#84).
   useEffect(() => {
     if (playtestMode) return;
-    if (state.gameOver || state.awaitingShieldChoice || state.phase !== 'defense') return;
+    // EXPERIMENTAL (BotM #84): also pause during back-of-mind choice
+    if (state.gameOver || state.awaitingShieldChoice || state.awaitingBackOfMindChoice || state.phase !== 'defense') return;
     if (state.revealedShieldCard) return;
     const timer = setTimeout(() => dispatch({ type: 'OPPONENT_ACT' }), 1200);
     return () => clearTimeout(timer);
@@ -541,5 +635,11 @@ export function useCombat(encounter: EncounterConfig, chosenWorldDeck: string[],
     [],
   );
 
-  return { state, selectCard, playCard, placeShield, endTurn, chooseShieldToBreak, dismissDialogue, dismissReveal, resetCombat, opponentAct, opponentEndTurn, combineCards };
+  // EXPERIMENTAL (BotM #84)
+  const confirmBackOfMind = useCallback(
+    (keptIds: string[]) => dispatch({ type: 'CONFIRM_BACK_OF_MIND', keptIds }),
+    [],
+  );
+
+  return { state, selectCard, playCard, placeShield, endTurn, chooseShieldToBreak, dismissDialogue, dismissReveal, resetCombat, opponentAct, opponentEndTurn, combineCards, confirmBackOfMind };
 }
