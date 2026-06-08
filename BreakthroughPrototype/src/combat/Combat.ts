@@ -59,15 +59,25 @@ function updatePhase(state: CombatState): CombatState {
   return s;
 }
 
-/** Recompute which combination cards have both source cards in the player's hand (#61). */
+/** Recompute which combination cards have both source cards in the player's hand (#61).
+ * Only surfaces combinations whose sources are reachable in this combat's card pool (#83). */
 function recomputeCombinations(state: CombatState): CombatState {
+  const combatPool = new Set([
+    ...state.hand,
+    ...state.personalDeck.cards,
+    ...state.personalDeck.discard,
+    ...state.worldDeck.cards,
+    ...state.worldDeck.discard,
+  ]);
   const handSet = new Set(state.hand);
   const available: string[] = [];
   for (const id of Object.keys(CARDS)) {
     const card = CARDS[id];
     if (card.combinesFrom) {
       const [a, b] = card.combinesFrom;
-      if (handSet.has(a) && handSet.has(b)) available.push(id);
+      if (combatPool.has(a) && combatPool.has(b) && handSet.has(a) && handSet.has(b)) {
+        available.push(id);
+      }
     }
   }
   return { ...state, availableCombinations: available };
@@ -130,7 +140,7 @@ function initCombat({ encounter, chosenWorldDeck, preShields = [] }: InitArg): C
     }),
     hand: [],
     oppHand: [],
-    personalDeck: { cards: shuffle([...DETECTIVE_PERSONAL_DECK]), discard: [] },
+    personalDeck: { cards: shuffle([...DETECTIVE_PERSONAL_DECK, ...(encounter.personalDeck ?? [])]), discard: [] },
     worldDeck: { cards: shuffle([...convertedWorldDeck]), discard: [] },
     oppDeck: { cards: shuffle([...encounter.oppDeck]), discard: [] },
     field: [],

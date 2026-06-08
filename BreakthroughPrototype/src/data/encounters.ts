@@ -59,6 +59,9 @@ export const ENCOUNTERS: Record<string, EncounterConfig> = {
     // Shield 2: TODO (#64) — should unlock only after Shield 1 breaks (locked mechanic not yet implemented)
     // Shield 3: breaks ONLY via the promiseCard combination
     shieldLinks: ['maryannInsightReluctance', 'maryannInsightObligation', 'maryannConfession'],
+    // maryannInsightReluctance is encounter-specific — available from turn 1 to build pressure on Shield 1.
+    // maryannInsightObligation stays out until Shield 1 breaks (locked mechanic pending #64).
+    personalDeck: ['maryannInsightReluctance'],
     shieldRequirements: ['', '', 'promiseCard'],
     fearless: true,
     worldDeck: [
