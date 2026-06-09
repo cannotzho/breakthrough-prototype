@@ -125,6 +125,22 @@ export interface EncounterConfig {
   fearless?: boolean; // #58 — patience-cost shield break cards have no effect against this opponent
 }
 
+export type CombatAction =
+  | { type: 'SELECT_CARD'; cardId: string }
+  | { type: 'PLAY_CARD'; cardId: string }
+  | { type: 'PLACE_SHIELD' }
+  | { type: 'END_TURN' }
+  | { type: 'CHOOSE_SHIELD_TO_BREAK'; index: number }
+  | { type: 'OPPONENT_ACT'; specificCardId?: string }
+  | { type: 'OPPONENT_END_TURN' }
+  | { type: 'DISMISS_DIALOGUE' }
+  | { type: 'DISMISS_REVEAL' }
+  | { type: 'COMBINE_CARDS'; cardId: string }
+  | { type: 'CONFIRM_BACK_OF_MIND'; keptIds: string[] }
+  | { type: 'ACKNOWLEDGE_OPPONENT' }
+  | { type: 'RESET'; encounter: EncounterConfig; chosenWorldDeck: string[]; preShields?: string[] }
+  | { type: 'UPDATE_CONFIG'; config: Partial<CombatConfig> };
+
 export type AppScreen = 'overworld' | 'combat';
 
 export interface CombatConfig {

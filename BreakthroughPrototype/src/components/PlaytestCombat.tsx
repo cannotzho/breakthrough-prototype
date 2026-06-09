@@ -106,7 +106,6 @@ export default function PlaytestCombat() {
 function PlaytestActive({ encounter }: { encounter: EncounterConfig }) {
   const {
     state,
-    selectCard,
     playCard,
     placeShield,
     endTurn,
