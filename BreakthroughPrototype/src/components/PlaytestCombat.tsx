@@ -116,6 +116,7 @@ function PlaytestActive({ encounter }: { encounter: EncounterConfig }) {
     opponentEndTurn,
     combineCards,
     confirmBackOfMind,
+    updateConfig,
   } = useCombat(encounter, encounter.worldDeck, [], true);
 
   const [draggingCardId, setDraggingCardId] = useState<string | null>(null);
@@ -164,7 +165,7 @@ function PlaytestActive({ encounter }: { encounter: EncounterConfig }) {
   return (
     <div style={{ position: 'relative' }}>
       {/* Status / reset bar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
         <button
           onClick={resetCombat}
           style={{ ...btnSt, background: '#1a0a18', borderColor: '#e94560', color: '#e94560' }}
@@ -182,6 +183,41 @@ function PlaytestActive({ encounter }: { encounter: EncounterConfig }) {
         <span style={{ color: phaseColor, fontSize: 11, fontFamily: 'monospace', fontWeight: 'bold', letterSpacing: 0.5, textTransform: 'uppercase' }}>
           {phaseLabel}
         </span>
+      </div>
+
+      {/* Dev Settings — adjustable combat params (#88) */}
+      <div style={{ background: '#0a0a18', border: '1px solid #1e2a40', borderRadius: 6, padding: '10px 14px', marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'center' }}>
+        <span style={{ color: '#e94560', fontSize: 10, fontFamily: 'monospace', letterSpacing: 1, textTransform: 'uppercase', flexShrink: 0 }}>Dev Settings</span>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'monospace', fontSize: 11, color: '#888' }}>
+          Draw on priority:
+          <input
+            type="range" min={1} max={10} step={1}
+            value={state.combatConfig.drawOnPriority}
+            onChange={e => updateConfig({ drawOnPriority: Number(e.target.value) })}
+            style={{ width: 80 }}
+          />
+          <span style={{ color: '#ccc', minWidth: 16 }}>{state.combatConfig.drawOnPriority}</span>
+        </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'monospace', fontSize: 11, color: '#888' }}>
+          Starting cards <span style={{ color: '#555', fontSize: 10 }}>(next reset)</span>:
+          <input
+            type="range" min={1} max={12} step={1}
+            value={state.combatConfig.startingCards}
+            onChange={e => updateConfig({ startingCards: Number(e.target.value) })}
+            style={{ width: 80 }}
+          />
+          <span style={{ color: '#ccc', minWidth: 16 }}>{state.combatConfig.startingCards}</span>
+        </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'monospace', fontSize: 11, color: '#888' }}>
+          Max player shields <span style={{ color: '#555', fontSize: 10 }}>(0=∞)</span>:
+          <input
+            type="range" min={0} max={10} step={1}
+            value={state.combatConfig.maxPlayerShields}
+            onChange={e => updateConfig({ maxPlayerShields: Number(e.target.value) })}
+            style={{ width: 80 }}
+          />
+          <span style={{ color: '#ccc', minWidth: 16 }}>{state.combatConfig.maxPlayerShields === 0 ? '∞' : state.combatConfig.maxPlayerShields}</span>
+        </label>
       </div>
 
       {/* Two-column layout: combat + log */}

@@ -125,6 +125,12 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
     return () => clearTimeout(timer);
   }, [state.activeDialogue, dismissDialogue]);
 
+  // Priority transition banner — shown briefly when phase changes (#88)
+  const prevPhaseRef = useRef(state.phase);
+  const [priorityBanner, setPriorityBanner] = useState<string | null>(null);
+  const [botmPickerReady, setBotmPickerReady] = useState(true);
+  const priorityBannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Shield break animation — track which player shield was just broken
   const prevPlayerShieldsRef = useRef(state.playerShields);
   const [justBrokenShieldIdx, setJustBrokenShieldIdx] = useState<number | null>(null);
@@ -180,10 +186,42 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.opponentActionTrigger, state.awaitingOpponentAck, state.phase, state.gameOver]);
 
+  // Priority transition banner — fires on attack↔defense phase change (#88)
+  useEffect(() => {
+    const prev = prevPhaseRef.current;
+    prevPhaseRef.current = state.phase;
+    if (state.gameOver) {
+      setPriorityBanner(null);
+      setBotmPickerReady(true);
+      if (priorityBannerTimerRef.current) clearTimeout(priorityBannerTimerRef.current);
+      return;
+    }
+    if (prev === 'attack' && state.phase === 'defense') {
+      setPriorityBanner('They push back —');
+      setBotmPickerReady(false);
+      if (priorityBannerTimerRef.current) clearTimeout(priorityBannerTimerRef.current);
+      priorityBannerTimerRef.current = setTimeout(() => {
+        setPriorityBanner(null);
+        setBotmPickerReady(true);
+        priorityBannerTimerRef.current = null;
+      }, 700);
+    } else if (prev === 'defense' && state.phase === 'attack') {
+      setBotmPickerReady(true);
+      setPriorityBanner('You have the initiative');
+      if (priorityBannerTimerRef.current) clearTimeout(priorityBannerTimerRef.current);
+      priorityBannerTimerRef.current = setTimeout(() => {
+        setPriorityBanner(null);
+        priorityBannerTimerRef.current = null;
+      }, 800);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.phase, state.gameOver]);
+
   useEffect(() => {
     return () => {
       if (stagedTimerRef.current) clearTimeout(stagedTimerRef.current);
       if (priorityToastTimerRef.current) clearTimeout(priorityToastTimerRef.current);
+      if (priorityBannerTimerRef.current) clearTimeout(priorityBannerTimerRef.current);
     };
   }, []);
 
@@ -221,7 +259,15 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
 
   function handleRetry() {
     prevCollectedRef.current = [];
+    prevPlayerShieldsRef.current = [];
     handleCancelStaged();
+    // Clear all local animation state so nothing from the previous run bleeds through (#87)
+    if (justBrokenTimerRef.current) { clearTimeout(justBrokenTimerRef.current); justBrokenTimerRef.current = null; }
+    setJustBrokenShieldIdx(null);
+    if (priorityBannerTimerRef.current) { clearTimeout(priorityBannerTimerRef.current); priorityBannerTimerRef.current = null; }
+    setPriorityBanner(null);
+    setBotmPickerReady(true);
+    prevPhaseRef.current = 'attack';
     resetCombat();
     setEndingChoice(null);
   }
@@ -231,6 +277,14 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
 
   return (
     <div className="flex flex-col h-full bg-[#0a0a1a] relative">
+      <style>{`
+        @keyframes priorityBannerFade {
+          0%   { opacity: 0; transform: translateY(-8px) scale(0.97); }
+          15%  { opacity: 1; transform: translateY(0) scale(1); }
+          70%  { opacity: 1; transform: translateY(0) scale(1); }
+          100% { opacity: 0; transform: translateY(4px) scale(0.99); }
+        }
+      `}</style>
 
       {/* HUD */}
       <CombatHUD state={state} encounterName={encounter.name} />
@@ -358,8 +412,18 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
         );
       })()}
 
+      {/* Priority transition banner — flashes on phase change before picker/ack appears (#88) */}
+      {priorityBanner && !state.gameOver && (
+        <div className="absolute inset-x-0 top-[38%] flex justify-center z-40 pointer-events-none">
+          <div style={{ animation: 'priorityBannerFade 0.75s ease-out forwards' }}
+            className="bg-black/80 border border-[#4ecca3]/40 rounded-lg px-8 py-3 shadow-2xl">
+            <p className="text-[#4ecca3] font-mono text-sm tracking-[0.2em] uppercase">{priorityBanner}</p>
+          </div>
+        </div>
+      )}
+
       {/* Opponent-action acknowledgment — player must click "Pass" before each opponent action fires */}
-      {state.awaitingOpponentAck && !state.gameOver && !state.awaitingBackOfMindChoice && !state.awaitingShieldChoice && (
+      {state.awaitingOpponentAck && !state.gameOver && !state.awaitingBackOfMindChoice && !state.awaitingShieldChoice && botmPickerReady && (
         <div className="absolute bottom-[180px] left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-2 pointer-events-auto">
           <button
             onClick={acknowledgeOpponent}
@@ -371,8 +435,8 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
         </div>
       )}
 
-      {/* Back of Mind picker — shown when player loses priority */}
-      {state.awaitingBackOfMindChoice && !state.gameOver && (
+      {/* Back of Mind picker — shown when player loses priority (delayed by banner, #88) */}
+      {state.awaitingBackOfMindChoice && botmPickerReady && !state.gameOver && (
         <BackOfMindPicker
           hand={state.hand}
           onConfirm={confirmBackOfMind}

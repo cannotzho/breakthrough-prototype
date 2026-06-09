@@ -1,5 +1,5 @@
 import { useReducer, useEffect, useCallback } from 'react';
-import type { CombatState, EncounterConfig } from './types';
+import type { CombatState, EncounterConfig, CombatConfig } from './types';
 import { CARDS, DETECTIVE_PERSONAL_DECK } from '../data/cards';
 import {
   shuffle,
@@ -10,6 +10,14 @@ import {
   resolvePlayerEffect,
   resolveOpponentEffect,
 } from './effects';
+
+// ── Defaults ───────────────────────────────────────────────────────────────────
+
+const DEFAULT_COMBAT_CONFIG: CombatConfig = {
+  drawOnPriority: 3,    // was 5 before #88
+  startingCards: 4,     // was 8 before #88
+  maxPlayerShields: 0,  // 0 = no cap
+};
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -40,10 +48,11 @@ function checkEndCondition(state: CombatState): CombatState {
   return state;
 }
 
-// Draw 5 cards from the combined deck when regaining priority (BotM #84).
-function drawFiveNewCards(state: CombatState): CombatState {
+// Draw N cards from the combined deck when regaining priority (BotM #84). N from combatConfig (#88).
+function drawOnRegainingPriority(state: CombatState): CombatState {
   let s = state;
-  for (let i = 0; i < 5; i++) {
+  const n = s.combatConfig.drawOnPriority;
+  for (let i = 0; i < n; i++) {
     const [card, deck] = drawFromDeck(s.worldDeck);
     if (card) s = { ...s, hand: [...s.hand, card], worldDeck: deck };
   }
@@ -82,10 +91,10 @@ function updatePhase(state: CombatState): CombatState {
     // Clear the opponent-ack flag whenever priority returns to the player
     s = { ...s, awaitingOpponentAck: false };
     if (!s.gameOver) {
-      // Regaining priority → draw 5 new cards, clear BotM (BotM #84)
+      // Regaining priority → draw N new cards, clear BotM (BotM #84, N tunable via #88)
       s = { ...s, backOfMind: [] };
-      s = drawFiveNewCards(s);
-      s = addLog(s, 'You regain the initiative — drew 5 new cards.');
+      s = drawOnRegainingPriority(s);
+      s = addLog(s, `You regain the initiative — drew ${s.combatConfig.drawOnPriority} new cards.`);
     }
   }
 
@@ -126,9 +135,10 @@ function triggerOpponentAction(state: CombatState): CombatState {
 
 // ── Initialization ─────────────────────────────────────────────────────────────
 
-type InitArg = { encounter: EncounterConfig; chosenWorldDeck: string[]; preShields?: string[] };
+type InitArg = { encounter: EncounterConfig; chosenWorldDeck: string[]; preShields?: string[]; config?: Partial<CombatConfig> };
 
-function initCombat({ encounter, chosenWorldDeck, preShields = [] }: InitArg): CombatState {
+function initCombat({ encounter, chosenWorldDeck, preShields = [], config }: InitArg): CombatState {
+  const combatConfig: CombatConfig = { ...DEFAULT_COMBAT_CONFIG, ...config };
   // Remove pre-selected shield cards from the world deck (one removal per shield card)
   const deckWithoutShields = [...chosenWorldDeck];
   const validPreShields: string[] = [];
@@ -208,10 +218,15 @@ function initCombat({ encounter, chosenWorldDeck, preShields = [] }: InitArg): C
     backOfMind: [],
     awaitingBackOfMindChoice: false,
     awaitingOpponentAck: false,
+    pendingShieldBreakLine: null,
+    combatConfig,
   };
 
-  // Opening hand: 8 cards from combined deck; 3 cards for opponent
-  for (let i = 0; i < 4; i++) state = drawOneCardPair(state); // drawOneCardPair draws 2 from combined
+  // Opening hand: combatConfig.startingCards from combined deck (#88 — was 8, default now 4)
+  for (let i = 0; i < combatConfig.startingCards; i++) {
+    const [card, deck] = drawFromDeck(state.worldDeck);
+    if (card) state = { ...state, hand: [...state.hand, card], worldDeck: deck };
+  }
 
   for (let i = 0; i < 3; i++) {
     const [card, deck] = drawFromDeck(state.oppDeck);
@@ -236,11 +251,16 @@ type CombatAction =
   | { type: 'COMBINE_CARDS'; cardId: string } // #61
   | { type: 'CONFIRM_BACK_OF_MIND'; keptIds: string[] } // BotM #84
   | { type: 'ACKNOWLEDGE_OPPONENT' } // player clears ack gate so opponent action timer fires
-  | { type: 'RESET'; encounter: EncounterConfig; chosenWorldDeck: string[]; preShields?: string[] };
+  | { type: 'RESET'; encounter: EncounterConfig; chosenWorldDeck: string[]; preShields?: string[] }
+  | { type: 'UPDATE_CONFIG'; config: Partial<CombatConfig> };
 
 function combatReducer(state: CombatState, action: CombatAction): CombatState {
   if (action.type === 'RESET') {
-    return initCombat({ encounter: action.encounter, chosenWorldDeck: action.chosenWorldDeck, preShields: action.preShields });
+    // Preserve dev combatConfig across resets (#88)
+    return initCombat({ encounter: action.encounter, chosenWorldDeck: action.chosenWorldDeck, preShields: action.preShields, config: state.combatConfig });
+  }
+  if (action.type === 'UPDATE_CONFIG') {
+    return { ...state, combatConfig: { ...state.combatConfig, ...action.config } };
   }
   if (state.gameOver && action.type !== 'OPPONENT_ACT') return state;
 
@@ -297,11 +317,18 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
       // Detect any shield break (breakShield, breakShieldChance, shieldBreakPatience, autoBreakAfterPlays)
       const shieldWasBroken = s.oppShields.filter(sh => !sh.broken).length < intactBefore;
 
-      // When a shield is broken, queue the dramatic reveal dialog for its linked info card.
+      // When a shield is broken, queue the dramatic reveal dialog and a pending NPC reaction line.
       if (shieldWasBroken) {
         const newlyBrokenIdx = s.oppShields.findIndex((sh, i) => sh.broken && !state.oppShields[i].broken);
         const linkedId = newlyBrokenIdx !== -1 ? s.oppShields[newlyBrokenIdx].linkedCardId : undefined;
         if (linkedId) s = { ...s, revealedShieldCard: linkedId };
+        // Queue NPC shield-break reaction to show after reveal is dismissed (#88)
+        const breakLines = s.encounterDialogue.onShieldBreak;
+        if (breakLines && breakLines.length > 0) {
+          const brokenCount = s.oppShields.filter(sh => sh.broken).length;
+          const lineIdx = Math.min(brokenCount - 1, breakLines.length - 1);
+          s = { ...s, pendingShieldBreakLine: breakLines[lineIdx] };
+        }
       }
 
       // Place enchantments on field; Information shield-breakers consumed entirely;
@@ -370,6 +397,11 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
         newShields[brokenIdx] = { ...newShields[brokenIdx], broken: false, usedCardId: consumedCardId };
         s = { ...s, playerShields: newShields };
       } else {
+        // Check max shield cap before adding a new slot (0 = no cap, #88)
+        const maxShields = s.combatConfig.maxPlayerShields;
+        if (maxShields > 0 && s.playerShields.length >= maxShields) {
+          return addLog(s, `Can't place more shields — already at maximum (${maxShields}).`);
+        }
         s = { ...s, playerShields: [...s.playerShields, { broken: false, usedCardId: consumedCardId }] };
       }
 
@@ -588,6 +620,10 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
 
     case 'DISMISS_REVEAL': {
       let s: CombatState = { ...state, revealedShieldCard: null };
+      // Show NPC shield-break reaction after the reveal is dismissed (#88)
+      if (s.pendingShieldBreakLine) {
+        s = { ...s, activeDialogue: s.pendingShieldBreakLine, pendingShieldBreakLine: null };
+      }
       // Re-trigger opponent action if combat should resume in defense phase.
       if (!s.gameOver && s.phase === 'defense' && !s.awaitingShieldChoice) {
         s = triggerOpponentAction(s);
@@ -649,5 +685,10 @@ export function useCombat(encounter: EncounterConfig, chosenWorldDeck: string[],
     [],
   );
 
-  return { state, selectCard, playCard, placeShield, endTurn, chooseShieldToBreak, dismissDialogue, dismissReveal, resetCombat, opponentAct, opponentEndTurn, combineCards, confirmBackOfMind, acknowledgeOpponent };
+  const updateConfig = useCallback(
+    (config: Partial<CombatConfig>) => dispatch({ type: 'UPDATE_CONFIG', config }),
+    [],
+  );
+
+  return { state, selectCard, playCard, placeShield, endTurn, chooseShieldToBreak, dismissDialogue, dismissReveal, resetCombat, opponentAct, opponentEndTurn, combineCards, confirmBackOfMind, acknowledgeOpponent, updateConfig };
 }

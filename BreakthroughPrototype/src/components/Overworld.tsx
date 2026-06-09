@@ -970,21 +970,35 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
               <span style={{ fontSize: 13, color: '#4ecca3' }}>
                 + {interactionPanel.cardRewards.map(id => CARDS[id]?.name ?? id).join(', ')} added to compendium
               </span>
-              <button
-                onClick={() => {
-                  const item = interactionPanel;
-                  setCollectedItems(prev => new Set([...prev, item.id]));
-                  for (const cardId of item.cardRewards) {
-                    onCollectItemRef.current(cardId);
-                  }
-                  const cardName = item.cardRewards.map(id => CARDS[id]?.name ?? id).join(', ');
-                  setPickupNotif({ text: `+ ${cardName} added to compendium`, key: Date.now() });
-                  setInteractionPanel(null);
-                }}
-                style={btnStyle('#0f3460')}
-              >
-                Got it
-              </button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {/* Temporary dev shortcut — skip reading the investigation text (#88) */}
+                <button
+                  onClick={() => {
+                    const item = interactionPanel;
+                    setCollectedItems(prev => new Set([...prev, item.id]));
+                    for (const cardId of item.cardRewards) onCollectItemRef.current(cardId);
+                    setInteractionPanel(null);
+                  }}
+                  style={{ background: '#111', border: '1px solid #333', color: '#555', padding: '6px 12px', borderRadius: 6, fontFamily: 'monospace', fontSize: 11, cursor: 'pointer' }}
+                >
+                  Skip [dev]
+                </button>
+                <button
+                  onClick={() => {
+                    const item = interactionPanel;
+                    setCollectedItems(prev => new Set([...prev, item.id]));
+                    for (const cardId of item.cardRewards) {
+                      onCollectItemRef.current(cardId);
+                    }
+                    const cardName = item.cardRewards.map(id => CARDS[id]?.name ?? id).join(', ');
+                    setPickupNotif({ text: `+ ${cardName} added to compendium`, key: Date.now() });
+                    setInteractionPanel(null);
+                  }}
+                  style={btnStyle('#0f3460')}
+                >
+                  Got it
+                </button>
+              </div>
             </div>
           </div>
         </div>

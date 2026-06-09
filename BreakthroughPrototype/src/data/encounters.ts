@@ -46,6 +46,12 @@ export const ENCOUNTERS: Record<string, EncounterConfig> = {
         "Logic? Out here? You're a joke.",
         'Save the speech, detective.',
       ],
+      // Placeholder lines — flag for Ken to review (#88)
+      onShieldBreak: [
+        "Oi — the hell you think you're doin'?",
+        "You're pokin' at things you don't understand, mate.",
+        '…alright. Alright. I\'ll talk.',
+      ],
     },
   },
 
@@ -95,6 +101,12 @@ export const ENCOUNTERS: Record<string, EncounterConfig> = {
         'Intimidation? Really? How tiresome.',
         "I've dealt with far worse than you, detective.",
         'Threats are so… inelegant.',
+      ],
+      // Placeholder lines — flag for Ken to review (#88)
+      onShieldBreak: [
+        'My. You\'re more thorough than I anticipated.',
+        'I see you\'ve done your homework, detective.',
+        '…I suppose there\'s no point denying it further.',
       ],
     },
   },

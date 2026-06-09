@@ -80,7 +80,7 @@ export interface CombatState {
   disposition: Disposition;   // this opponent's vulnerability/resistance profile
   valuableShields: string[];     // card IDs the NPC cares about keeping hidden
   activeDialogue: string | null; // NPC line triggered by a disposition hit; null when idle
-  encounterDialogue: { onVulnerable: string[]; onResistant: string[] };
+  encounterDialogue: { onVulnerable: string[]; onResistant: string[]; onShieldBreak?: string[] };
   revealedShieldCard: string | null; // card ID shown in dramatic reveal dialog when player breaks opponent shield
   cardBreakChances: Record<string, number>;  // #57 — current break chance per card ID this encounter
   fearless: boolean;                          // #58 — opponent immune to patience-cost shield breaks
@@ -91,6 +91,8 @@ export interface CombatState {
   backOfMind: string[];              // card IDs kept through priority loss (subset of hand)
   awaitingBackOfMindChoice: boolean; // player must pick ≤3 cards before hand discards
   awaitingOpponentAck: boolean;      // player must click "Pass" before each opponent action fires
+  pendingShieldBreakLine: string | null; // NPC reaction queued to show after reveal modal dismisses
+  combatConfig: CombatConfig;        // tunable params (dev tools)
 }
 
 /**
@@ -120,8 +122,14 @@ export interface EncounterConfig {
   oppDeck: string[];       // card IDs
   disposition: Disposition;
   valuableShields: string[]; // World card IDs especially meaningful to this NPC
-  dialogue: { onVulnerable: string[]; onResistant: string[] };
+  dialogue: { onVulnerable: string[]; onResistant: string[]; onShieldBreak?: string[] };
   fearless?: boolean; // #58 — patience-cost shield break cards have no effect against this opponent
 }
 
 export type AppScreen = 'overworld' | 'combat';
+
+export interface CombatConfig {
+  drawOnPriority: number;   // cards drawn on regaining priority (default 3)
+  startingCards: number;    // cards in opening hand (default 4, applies on reset)
+  maxPlayerShields: number; // 0 = no cap
+}
