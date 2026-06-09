@@ -11,7 +11,7 @@ export interface CardEffects {
   priority?: number;          // positive = increases priority meter
   breakShield?: boolean;      // breaks one opponent shield, revealing linked info
   restoreShield?: boolean;    // repairs one broken player shield
-  drawCards?: number;         // draw N extra card pairs (1 personal + 1 world each)
+  drawCards?: number;         // draw N card pairs from the combined deck (2 cards per pair)
   peekShield?: boolean;       // secretly view a random intact opponent shield
   reduceInfoCost?: number;    // (enchantment) reduce cost of Information cards by N
   drawEachTurn?: number;      // (enchantment) draw N extra personal cards each turn
@@ -63,7 +63,6 @@ export interface CombatState {
   oppShields: ShieldSlot[];
   hand: string[];             // card IDs in player hand
   oppHand: string[];          // card IDs in opponent hand
-  personalDeck: DeckState;
   worldDeck: DeckState;
   oppDeck: DeckState;
   field: string[];            // enchantment card IDs currently on the field

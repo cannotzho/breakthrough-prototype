@@ -154,7 +154,6 @@ export default function App() {
           encounterId={encounterId}
           chosenWorldDeck={chosenWorldDeck}
           preShields={preShields}
-          compendium={compendium}
           addToCompendium={addToCompendium}
           onEnd={endCombat}
         />

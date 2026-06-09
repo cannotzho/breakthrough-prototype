@@ -35,7 +35,7 @@ export function drawFromDeck(deck: DeckState): [string | null, DeckState] {
  * Draw two cards from the combined deck (worldDeck holds both personal and world cards
  * shuffled together at combat init — see initCombat in Combat.ts).
  */
-export function drawOneCardPair(state: CombatState): CombatState {
+export function drawTwoCards(state: CombatState): CombatState {
   let s = state;
   for (let i = 0; i < 2; i++) {
     const [card, deck] = drawFromDeck(s.worldDeck);
@@ -45,10 +45,24 @@ export function drawOneCardPair(state: CombatState): CombatState {
 }
 
 /** Draw one card from the combined deck (used for Street Smarts bonus). */
-export function drawOnePersonalCard(state: CombatState): CombatState {
+export function drawOneCard(state: CombatState): CombatState {
   const [card, deck] = drawFromDeck(state.worldDeck);
   if (!card) return state;
   return { ...state, hand: [...state.hand, card], worldDeck: deck };
+}
+
+/**
+ * Compute the effective cost of a card given the current field state.
+ * Applies Vampire Network reduction to Information cards. Non-Information cards
+ * are returned at their base cost unchanged.
+ */
+export function computeCardCost(cardId: string, field: string[]): number {
+  const card = CARDS[cardId];
+  if (!card) return 0;
+  if (card.supertype !== 'Information') return card.cost;
+  const vnActive = field.includes('vampireNetwork');
+  const reduction = vnActive ? (CARDS['vampireNetwork']?.effects.reduceInfoCost ?? 0) : 0;
+  return Math.max(0, card.cost - reduction);
 }
 
 // ── Effect resolvers ───────────────────────────────────────────────────────────
@@ -216,7 +230,7 @@ export function resolvePlayerEffect(state: CombatState, card: CardDef): CombatSt
   }
 
   if (eff.drawCards) {
-    for (let i = 0; i < eff.drawCards; i++) s = drawOneCardPair(s);
+    for (let i = 0; i < eff.drawCards; i++) s = drawTwoCards(s);
     s = addLog(s, 'Drew a card.');
   }
 

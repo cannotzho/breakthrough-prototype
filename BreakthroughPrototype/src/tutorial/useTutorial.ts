@@ -106,6 +106,7 @@ export function useTutorial(encounterId: string, state: CombatState) {
     if (!isGutterfang || state.gameOver) return;
     enqueue('priority_bar');
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // intentional: fires once on Gutterfang entry; enqueue is stable (empty useCallback dep array)
   }, [isGutterfang]);
 
   // Step 2: play card — first time attack phase is active with priority to spend
@@ -122,7 +123,15 @@ export function useTutorial(encounterId: string, state: CombatState) {
 
   // Step 4: player shields — first time the opponent breaks one of the player's shields
   const prevShieldsRef = useRef(state.playerShields);
+  const prevGameOverRef = useRef(state.gameOver);
   useEffect(() => {
+    const wasGameOver = prevGameOverRef.current;
+    prevGameOverRef.current = state.gameOver;
+    // Reset tracking ref on retry (gameOver → false) so a re-broken shield correctly fires the step
+    if (wasGameOver && !state.gameOver) {
+      prevShieldsRef.current = state.playerShields;
+      return;
+    }
     if (!isGutterfang || state.gameOver) return;
     const prev = prevShieldsRef.current;
     for (let i = 0; i < state.playerShields.length; i++) {
@@ -132,7 +141,7 @@ export function useTutorial(encounterId: string, state: CombatState) {
       }
     }
     prevShieldsRef.current = state.playerShields;
-  }, [state.playerShields, isGutterfang, state.gameOver, enqueue]);
+  }, [state.playerShields, state.gameOver, isGutterfang, enqueue]);
 
   // Step 5: patience — first time opponent patience drops below 50%
   useEffect(() => {

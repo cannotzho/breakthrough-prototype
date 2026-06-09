@@ -1,11 +1,12 @@
 import { useRef, useState } from 'react';
 import { CARDS } from '../data/cards';
 import type { CombatState } from '../combat/types';
+import { computeCardCost } from '../combat/effects';
 import CardComponent from './CardComponent';
+import CardInspectModal from './CardInspectModal';
 
 interface Props {
   state: CombatState;
-  onSelectCard: (id: string) => void;
   onPlayCard: (id: string) => void;
   onPlaceShield: () => void;
   onEndTurn: () => void;
@@ -47,7 +48,7 @@ function PileModal({ title, cardIds, onClose }: { title: string; cardIds: string
   );
 }
 
-export default function HandArea({ state, onSelectCard: _onSelectCard, onPlayCard, onPlaceShield, onEndTurn, onDragStart, onDragEnd, onGhostMove, draggingCardId, stagedCardId, onCombineCards }: Props) {
+export default function HandArea({ state, onPlayCard, onPlaceShield, onEndTurn, onDragStart, onDragEnd, onGhostMove, draggingCardId, stagedCardId, onCombineCards }: Props) {
   const { hand, phase, awaitingShieldChoice, priority, field, backOfMind } = state;
 
   const [contextMenu, setContextMenu] = useState<{ cardId: string; x: number; y: number } | null>(null);
@@ -55,17 +56,11 @@ export default function HandArea({ state, onSelectCard: _onSelectCard, onPlayCar
   const [showDeck, setShowDeck] = useState(false);
   const [showDiscard, setShowDiscard] = useState(false);
 
-  const drawPile = [...state.personalDeck.cards, ...state.worldDeck.cards];
-  const discardPile = [...state.personalDeck.discard, ...state.worldDeck.discard];
-
-  const vnActive = field.includes('vampireNetwork');
-  const reduction = vnActive ? (CARDS['vampireNetwork']?.effects.reduceInfoCost ?? 0) : 0;
+  const drawPile = state.worldDeck.cards;
+  const discardPile = state.worldDeck.discard;
 
   function getActualCost(cardId: string): number {
-    const card = CARDS[cardId];
-    if (!card) return 0;
-    if (card.supertype === 'Information') return Math.max(0, card.cost - reduction);
-    return card.cost;
+    return computeCardCost(cardId, field);
   }
 
   function isPlayable(cardId: string): boolean {
@@ -380,39 +375,12 @@ export default function HandArea({ state, onSelectCard: _onSelectCard, onPlayCar
       )}
 
       {/* Inspect overlay */}
-      {inspectCardId && CARDS[inspectCardId] && (
-        <div
-          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
-          onClick={() => setInspectCardId(null)}
-        >
-          <div
-            className="flex flex-col items-center"
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Card scaled up — transformOrigin top keeps it anchored above the text panel */}
-            <div style={{ transform: 'scale(1.8)', transformOrigin: 'center top', marginBottom: 106 }}>
-              <CardComponent card={{ ...CARDS[inspectCardId]!, cost: getActualCost(inspectCardId) }} />
-            </div>
-            {/* Detail panel: effectText first, flavorText below a separator */}
-            <div
-              className="bg-[#0d1625] border border-[#1e2a40] rounded-lg p-3 text-left"
-              style={{ maxWidth: 240 }}
-            >
-              <p className="text-[#ccc] text-xs leading-relaxed">
-                {CARDS[inspectCardId]!.effectText}
-              </p>
-              {CARDS[inspectCardId]!.flavorText && (
-                <>
-                  <hr className="border-[#1e2a40] my-2.5" />
-                  <p className="text-[#666] text-xs italic leading-relaxed">
-                    {CARDS[inspectCardId]!.flavorText}
-                  </p>
-                </>
-              )}
-            </div>
-            <p className="text-[#444] text-[10px] mt-3 font-mono">tap anywhere to close</p>
-          </div>
-        </div>
+      {inspectCardId && (
+        <CardInspectModal
+          cardId={inspectCardId}
+          displayCost={getActualCost(inspectCardId)}
+          onClose={() => setInspectCardId(null)}
+        />
       )}
 
       {showDeck && <PileModal title="Draw Pile" cardIds={drawPile} onClose={() => setShowDeck(false)} />}

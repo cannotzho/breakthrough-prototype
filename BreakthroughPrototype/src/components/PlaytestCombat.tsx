@@ -417,7 +417,6 @@ function PlaytestActive({ encounter }: { encounter: EncounterConfig }) {
           {/* Hand area */}
           <HandArea
             state={state}
-            onSelectCard={selectCard}
             onPlayCard={handlePlayCard}
             onPlaceShield={placeShield}
             onEndTurn={endTurn}

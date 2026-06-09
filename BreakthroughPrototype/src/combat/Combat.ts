@@ -5,8 +5,9 @@ import {
   shuffle,
   addLog,
   drawFromDeck,
-  drawOneCardPair,
-  drawOnePersonalCard,
+  drawTwoCards,
+  drawOneCard,
+  computeCardCost,
   resolvePlayerEffect,
   resolveOpponentEffect,
 } from './effects';
@@ -108,8 +109,6 @@ function updatePhase(state: CombatState): CombatState {
 function recomputeCombinations(state: CombatState): CombatState {
   const combatPool = new Set([
     ...state.hand,
-    ...state.personalDeck.cards,
-    ...state.personalDeck.discard,
     ...state.worldDeck.cards,
     ...state.worldDeck.discard,
   ]);
@@ -192,7 +191,6 @@ function initCombat({ encounter, chosenWorldDeck, preShields = [], config }: Ini
     }),
     hand: [],
     oppHand: [],
-    personalDeck: { cards: [], discard: [] },
     worldDeck: { cards: combinedCards, discard: [] },
     oppDeck: { cards: shuffle([...encounter.oppDeck]), discard: [] },
     field: [],
@@ -287,11 +285,7 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
         return addLog(state, 'Only Back of Mind cards can be played during the opponent\'s turn!');
       }
 
-      // Cost reduction from Vampire Network enchantment
-      const vnActive = state.field.includes('vampireNetwork');
-      const reduction = vnActive && card.supertype === 'Information'
-        ? (CARDS['vampireNetwork']?.effects.reduceInfoCost ?? 0) : 0;
-      const actualCost = Math.max(0, card.cost - reduction);
+      const actualCost = computeCardCost(action.cardId, state.field);
 
       // Instant cards bypass the priority cost requirement and are played for free
       if (!card.effects.isInstant && state.priority < actualCost) {
@@ -351,10 +345,10 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
           const [drawn, deck] = drawFromDeck(s.worldDeck);
           if (drawn) s = { ...s, hand: [...s.hand, drawn], worldDeck: deck };
         }
-        // Street Smarts bonus: draw one extra personal card per enchantment copy on field
+        // Street Smarts bonus: draw one extra card per enchantment copy on field
         if (s.field.includes('streetSmarts')) {
           const extra = CARDS['streetSmarts']?.effects.drawEachTurn ?? 0;
-          for (let i = 0; i < extra; i++) s = drawOnePersonalCard(s);
+          for (let i = 0; i < extra; i++) s = drawOneCard(s);
         }
       }
 
@@ -376,7 +370,7 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
       if (state.awaitingShieldChoice || state.phase !== 'attack') return state;
       let s: CombatState = { ...state, priority: 0, selectedCardId: null, activeDialogue: null };
       s = addLog(s, 'You passed your turn.');
-      s = drawOneCardPair(s);
+      s = drawTwoCards(s);
       s = checkEndCondition(s);
       if (!s.gameOver) s = updatePhase(s);
       s = recomputeCombinations(s);
@@ -414,7 +408,7 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
 
       s = { ...s, priority: clamp(s.priority - 2) };
       s = addLog(s, 'Placed a Shield (−2 Priority).');
-      s = drawOneCardPair(s);
+      s = drawTwoCards(s);
       s = checkEndCondition(s);
       if (!s.gameOver) s = updatePhase(s);
       s = recomputeCombinations(s);
@@ -656,6 +650,7 @@ export function useCombat(encounter: EncounterConfig, chosenWorldDeck: string[],
     const timer = setTimeout(() => dispatch({ type: 'OPPONENT_ACT' }), 800);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
+    // intentional: fires only when opponentActionTrigger increments; guard state is read inside the effect, not as deps
   }, [state.opponentActionTrigger, state.awaitingOpponentAck, playtestMode]);
 
   const selectCard = useCallback((cardId: string) => dispatch({ type: 'SELECT_CARD', cardId }), []);

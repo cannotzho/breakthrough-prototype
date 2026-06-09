@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useCombat } from '../combat/Combat';
+import { computeCardCost } from '../combat/effects';
 import { ENCOUNTERS } from '../data/encounters';
 import { CARDS } from '../data/cards';
 import CombatHUD from './CombatHUD';
@@ -9,103 +10,20 @@ import CombatLog from './CombatLog';
 import CardComponent from './CardComponent';
 import TutorialTooltip from './TutorialTooltip';
 import { useTutorial } from '../tutorial/useTutorial';
-
-// EXPERIMENTAL (BotM #84): picker shown when the player loses priority
-function BackOfMindPicker({ hand, onConfirm }: { hand: string[]; onConfirm: (keptIds: string[]) => void }) {
-  const [selected, setSelected] = useState<string[]>([]);
-
-  function toggle(cardId: string) {
-    setSelected(prev => {
-      if (prev.includes(cardId)) return prev.filter(id => id !== cardId);
-      if (prev.length >= 3) return prev;
-      return [...prev, cardId];
-    });
-  }
-
-  return (
-    <div className="absolute inset-0 z-[70] bg-black/90 flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-sm flex flex-col items-center gap-4">
-        <div className="text-center">
-          <p className="text-[#c4b5fd] text-xs uppercase tracking-[0.2em] font-mono mb-1">Back of Mind</p>
-          <h2 className="text-white text-lg font-bold font-mono mb-1">Choose up to 3 cards to keep</h2>
-          <p className="text-[#888] text-xs leading-relaxed">
-            The rest are discarded. Kept cards can only be played if they're Instants.
-            You'll draw 5 new cards when you regain priority.
-          </p>
-        </div>
-
-        {hand.length === 0 ? (
-          <p className="text-[#555] text-sm font-mono italic">No cards in hand.</p>
-        ) : (
-          <div className="flex flex-wrap gap-2 justify-center">
-            {hand.map((cardId, idx) => {
-              const card = CARDS[cardId];
-              if (!card) return null;
-              const isSelected = selected.includes(cardId);
-              const isInstant = !!card.effects.isInstant;
-              return (
-                <div
-                  key={idx}
-                  onClick={() => toggle(cardId)}
-                  style={{
-                    cursor: 'pointer',
-                    position: 'relative',
-                    opacity: !isSelected && selected.length >= 3 ? 0.35 : 1,
-                    transition: 'opacity 0.15s, transform 0.15s',
-                    transform: isSelected ? 'translateY(-8px)' : undefined,
-                    outline: isSelected ? '2px solid #c4b5fd' : undefined,
-                    borderRadius: 6,
-                  }}
-                >
-                  <CardComponent card={card} />
-                  {isSelected && (
-                    <div style={{
-                      position: 'absolute', top: -8, right: -6,
-                      background: '#7c3aed', color: '#fff', borderRadius: '50%',
-                      width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 11, fontWeight: 'bold', pointerEvents: 'none',
-                    }}>✓</div>
-                  )}
-                  {isInstant && (
-                    <div style={{
-                      position: 'absolute', bottom: -8, left: '50%', transform: 'translateX(-50%)',
-                      background: '#d97706', color: '#fff', borderRadius: 3,
-                      fontSize: 8, fontWeight: 'bold', padding: '2px 5px', whiteSpace: 'nowrap',
-                      pointerEvents: 'none',
-                    }}>INSTANT</div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        <div className="flex items-center gap-3 mt-2">
-          <span className="text-[#888] text-xs font-mono">{selected.length}/3 selected</span>
-          <button
-            onClick={() => onConfirm(selected)}
-            className="px-6 py-2.5 bg-[#7c3aed] text-white rounded font-bold font-mono text-sm hover:bg-[#6d28d9] transition-colors"
-          >
-            {selected.length === 0 ? 'Discard All' : `Keep ${selected.length}`}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+import BackOfMindPicker from './BackOfMindPicker';
+import { useCombatTimers } from '../hooks/useCombatTimers';
 
 interface Props {
   encounterId: string;
   chosenWorldDeck: string[];
   preShields?: string[];
-  compendium: string[];
   addToCompendium: (cardId: string) => void;
   onEnd: (won: boolean, collectedInfo?: string[]) => void;
 }
 
 export default function CombatScreen({ encounterId, chosenWorldDeck, preShields = [], addToCompendium, onEnd }: Props) {
   const encounter = ENCOUNTERS[encounterId];
-  const { state, selectCard, playCard, placeShield, endTurn, chooseShieldToBreak, dismissDialogue, dismissReveal, resetCombat, combineCards, confirmBackOfMind, acknowledgeOpponent } = useCombat(encounter, chosenWorldDeck, preShields);
+  const { state, playCard, placeShield, endTurn, chooseShieldToBreak, dismissDialogue, dismissReveal, resetCombat, combineCards, confirmBackOfMind, acknowledgeOpponent } = useCombat(encounter, chosenWorldDeck, preShields);
   const { active: tutorialStep, dismiss: dismissTutorial } = useTutorial(encounterId, state);
 
   // Add newly revealed info cards to the player's compendium
@@ -125,16 +43,16 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
     return () => clearTimeout(timer);
   }, [state.activeDialogue, dismissDialogue]);
 
+  const { priorityBannerTimerRef, justBrokenTimerRef, priorityToastTimerRef, stagedTimerRef } = useCombatTimers();
+
   // Priority transition banner — shown briefly when phase changes (#88)
   const prevPhaseRef = useRef(state.phase);
   const [priorityBanner, setPriorityBanner] = useState<string | null>(null);
   const [botmPickerReady, setBotmPickerReady] = useState(true);
-  const priorityBannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Shield break animation — track which player shield was just broken
   const prevPlayerShieldsRef = useRef(state.playerShields);
   const [justBrokenShieldIdx, setJustBrokenShieldIdx] = useState<number | null>(null);
-  const justBrokenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     const prev = prevPlayerShieldsRef.current;
     const curr = state.playerShields;
@@ -151,7 +69,6 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
 
   // Priority toast — shown briefly when player tries to play an unaffordable card
   const [showPriorityToast, setShowPriorityToast] = useState(false);
-  const priorityToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Mary-Ann ending choice — null until game won, then 'pending' → 'completeJob' | 'letHerGo'
   const [endingChoice, setEndingChoice] = useState<null | 'completeJob' | 'letHerGo'>(null);
@@ -170,7 +87,6 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
 
   // Card staging — show played card for 1000 ms before resolving effects
   const [stagedCardId, setStagedCardId] = useState<string | null>(null);
-  const stagedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Opponent card staging — show opponent's card for ~1.2 s before OPPONENT_ACT resolves
   const [oppStagedCardId, setOppStagedCardId] = useState<string | null>(null);
@@ -184,6 +100,7 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
     }
     setOppStagedCardId(state.oppHand[0] ?? null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
+    // intentional: oppHand is read to capture the announced card at trigger time; not a dep to avoid re-running mid-decision
   }, [state.opponentActionTrigger, state.awaitingOpponentAck, state.phase, state.gameOver]);
 
   // Priority transition banner — fires on attack↔defense phase change (#88)
@@ -215,25 +132,15 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
       }, 800);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+    // intentional: prevPhaseRef is a mutable ref tracking the previous phase — not reactive state, so not a dep
   }, [state.phase, state.gameOver]);
-
-  useEffect(() => {
-    return () => {
-      if (stagedTimerRef.current) clearTimeout(stagedTimerRef.current);
-      if (priorityToastTimerRef.current) clearTimeout(priorityToastTimerRef.current);
-      if (priorityBannerTimerRef.current) clearTimeout(priorityBannerTimerRef.current);
-    };
-  }, []);
 
   function canAfford(cardId: string): boolean {
     const card = CARDS[cardId];
     if (!card) return false;
     // Instant cards bypass the priority gate — cost is only a delta, not a prerequisite
     if (card.type === 'instant' || card.effects.isInstant) return true;
-    const vnActive = state.field.includes('vampireNetwork');
-    const reduction = vnActive && card.supertype === 'Information'
-      ? (CARDS['vampireNetwork']?.effects.reduceInfoCost ?? 0) : 0;
-    return state.priority >= Math.max(0, card.cost - reduction);
+    return state.priority >= computeCardCost(cardId, state.field);
   }
 
   function handlePlayCard(cardId: string) {
@@ -331,7 +238,6 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
       {/* Hand */}
       <HandArea
         state={state}
-        onSelectCard={selectCard}
         onPlayCard={handlePlayCard}
         onPlaceShield={placeShield}
         onEndTurn={endTurn}
