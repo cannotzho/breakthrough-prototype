@@ -85,6 +85,31 @@ const ITEMS: ItemDef[] = [
 ];
 const LS_COLLECTED_ITEMS = 'bt_collected_items';
 const LS_INTRO_SEEN = 'bt_intro_seen';
+const LS_DEV_NOTES = 'btdev_notes';
+
+export const DEFAULT_NOTES_TEXT =
+`THE CASE
+
+Three dockworkers turned up dry in a week — not a drop of blood left in them. The Harbour Authority is calling it a disease. Someone higher up knows better.
+
+Every trail leads back to the same stretch of cobblestone between the Rusty Tap and the College. There's a blood trade running through this city — quiet, expensive, and protected. Finding out who's running it means getting to people who don't want to be found.
+
+
+PERSONS OF INTEREST
+
+Gutterfang
+Operates out of the alley district. Known fence for stolen medical stock — surgical tools, stored blood, unmarked vials. Blood-stained coat, nervous hands. Either he's guilty or he's seen something that scared him badly.
+
+Mary-Ann Mariposa
+Larkgrove Women's College — officially, a patroness of the sciences. Rumoured to have funded three private research contracts in the last year, all classified. Charming. Dangerous. Does not rattle easily.
+
+
+EVIDENCE
+
+• Unsigned ledger page — lists "Type O, 12 units" delivered to a Seashaker Casino storage room.
+• Matchbook from the Rusty Tap, found on the third victim. Back room meetings, most likely.
+• Moneylender's Office records show a lump-sum payment to an unnamed "medical contractor" — same week as the first death.
+• NOTE: The Harbour Authority physician was pulled off the case on day two. Someone has reach.`;
 
 const INTRO_PANELS = [
   {
@@ -161,6 +186,9 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
   const [isTouchDevice,   setIsTouchDevice]   = useState(false);
   const [showCollection,  setShowCollection]  = useState(false);
   const [showNotes,       setShowNotes]       = useState(false);
+  const [notesText,       setNotesText]       = useState(() =>
+    localStorage.getItem(LS_DEV_NOTES) ?? DEFAULT_NOTES_TEXT
+  );
 
   const [introPanel, setIntroPanel] = useState<1 | 2 | null>(() =>
     localStorage.getItem(LS_INTRO_SEEN) ? null : 1
@@ -176,6 +204,14 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
     setShowNotes(false);
     setIntroPanel(1);
   }
+
+  useEffect(() => {
+    function onStorage(e: StorageEvent) {
+      if (e.key === LS_DEV_NOTES) setNotesText(e.newValue ?? DEFAULT_NOTES_TEXT);
+    }
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
 
   const [collectedItems, setCollectedItems] = useState<Set<string>>(() => {
     try {
@@ -852,81 +888,13 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
               </p>
             </div>
 
-            {/* Section: The Case */}
-            <div style={{ marginBottom: 24 }}>
-              <p style={{ color: '#c8a96e', fontSize: 14, fontWeight: 'bold', margin: '0 0 10px', letterSpacing: 1, textTransform: 'uppercase', borderBottom: '1px solid #2a2010', paddingBottom: 6 }}>
-                The Case
-              </p>
-              <p style={{ fontSize: 14, lineHeight: 1.8, margin: '0 0 8px', color: '#d4c8a8' }}>
-                Three dockworkers turned up dry in a week — not a drop of blood left in them. The Harbour Authority
-                is calling it a disease. Someone higher up knows better.
-              </p>
-              <p style={{ fontSize: 14, lineHeight: 1.8, margin: 0, color: '#d4c8a8' }}>
-                Every trail leads back to the same stretch of cobblestone between the Rusty Tap and the College.
-                There's a blood trade running through this city — quiet, expensive, and protected. Finding out
-                who's running it means getting to people who don't want to be found.
-              </p>
-            </div>
-
-            {/* Section: Persons of Interest */}
-            <div style={{ marginBottom: 24 }}>
-              <p style={{ color: '#c8a96e', fontSize: 14, fontWeight: 'bold', margin: '0 0 10px', letterSpacing: 1, textTransform: 'uppercase', borderBottom: '1px solid #2a2010', paddingBottom: 6 }}>
-                Persons of Interest
-              </p>
-
-              {/* Gutterfang */}
-              <div style={{ marginBottom: 16, paddingLeft: 12, borderLeft: '2px solid #3a2a10' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                  <p style={{ fontSize: 14, fontWeight: 'bold', margin: 0, color: '#e8dfc4' }}>Gutterfang</p>
-                  {completedEncounters.has('gutterfang') ? (
-                    <span style={{ fontSize: 10, color: '#4ecca3', fontFamily: 'monospace', background: '#0a2a1e', border: '1px solid #4ecca3', borderRadius: 3, padding: '1px 6px' }}>
-                      ✓ Interviewed
-                    </span>
-                  ) : (
-                    <span style={{ fontSize: 10, color: '#6a5840', fontFamily: 'monospace' }}>Not yet interviewed</span>
-                  )}
-                </div>
-                <p style={{ fontSize: 13, lineHeight: 1.7, margin: 0, color: '#a89878' }}>
-                  Operates out of the alley district. Known fence for stolen medical stock — surgical tools, stored
-                  blood, unmarked vials. Blood-stained coat, nervous hands. Either he's guilty or he's seen
-                  something that scared him badly.
-                </p>
-              </div>
-
-              {/* Mary-Ann */}
-              <div style={{ paddingLeft: 12, borderLeft: '2px solid #3a2a10' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                  <p style={{ fontSize: 14, fontWeight: 'bold', margin: 0, color: '#e8dfc4' }}>Mary-Ann Mariposa</p>
-                  {completedEncounters.has('maryann') ? (
-                    <span style={{ fontSize: 10, color: '#4ecca3', fontFamily: 'monospace', background: '#0a2a1e', border: '1px solid #4ecca3', borderRadius: 3, padding: '1px 6px' }}>
-                      ✓ Interviewed
-                    </span>
-                  ) : (
-                    <span style={{ fontSize: 10, color: '#6a5840', fontFamily: 'monospace' }}>Not yet interviewed</span>
-                  )}
-                </div>
-                <p style={{ fontSize: 13, lineHeight: 1.7, margin: 0, color: '#a89878' }}>
-                  Larkgrove Women's College — officially, a patroness of the sciences. Rumoured to have funded
-                  three private research contracts in the last year, all classified. Charming. Dangerous. Does not
-                  rattle easily.
-                </p>
-              </div>
-            </div>
-
-            {/* Section: Evidence */}
-            <div style={{ marginBottom: 20 }}>
-              <p style={{ color: '#c8a96e', fontSize: 14, fontWeight: 'bold', margin: '0 0 10px', letterSpacing: 1, textTransform: 'uppercase', borderBottom: '1px solid #2a2010', paddingBottom: 6 }}>
-                Evidence
-              </p>
-              <ul style={{ margin: 0, padding: '0 0 0 18px', fontSize: 13, lineHeight: 1.9, color: '#a89878' }}>
-                <li>Unsigned ledger page — lists "Type O, 12 units" delivered to a Seashaker Casino storage room.</li>
-                <li>Matchbook from the Rusty Tap, found on the third victim. Back room meetings, most likely.</li>
-                <li>Moneylender's Office records show a lump-sum payment to an unnamed "medical contractor" — same week as the first death.</li>
-                <li>
-                  <span style={{ color: '#c8a96e' }}>NOTE:</span> The Harbour Authority physician was pulled off the case on day two. Someone has reach.
-                </li>
-              </ul>
-            </div>
+            {/* Notes content — editable via Dev Tools /dev → Notes tab */}
+            <p style={{
+              fontSize: 13, lineHeight: 1.85, margin: '0 0 20px',
+              color: '#d4c8a8', whiteSpace: 'pre-wrap', fontFamily: 'inherit',
+            }}>
+              {notesText}
+            </p>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
               <button

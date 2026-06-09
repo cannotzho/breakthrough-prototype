@@ -218,6 +218,26 @@ function PlaytestActive({ encounter }: { encounter: EncounterConfig }) {
           />
           <span style={{ color: '#ccc', minWidth: 16 }}>{state.combatConfig.maxPlayerShields === 0 ? '∞' : state.combatConfig.maxPlayerShields}</span>
         </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'monospace', fontSize: 11, color: '#888' }}>
+          Cards drawn per play <span style={{ color: '#555', fontSize: 10 }}>(0=none)</span>:
+          <input
+            type="range" min={0} max={5} step={1}
+            value={state.combatConfig.drawPerPlay}
+            onChange={e => updateConfig({ drawPerPlay: Number(e.target.value) })}
+            style={{ width: 80 }}
+          />
+          <span style={{ color: '#ccc', minWidth: 16 }}>{state.combatConfig.drawPerPlay}</span>
+        </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'monospace', fontSize: 11, color: '#888' }}>
+          Priority on shield break <span style={{ color: '#555', fontSize: 10 }}>(valuable: +4)</span>:
+          <input
+            type="range" min={0} max={10} step={1}
+            value={state.combatConfig.priorityOnShieldBreak}
+            onChange={e => updateConfig({ priorityOnShieldBreak: Number(e.target.value) })}
+            style={{ width: 80 }}
+          />
+          <span style={{ color: '#ccc', minWidth: 16 }}>{state.combatConfig.priorityOnShieldBreak}</span>
+        </label>
       </div>
 
       {/* Two-column layout: combat + log */}

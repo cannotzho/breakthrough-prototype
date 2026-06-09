@@ -14,9 +14,11 @@ import {
 // ── Defaults ───────────────────────────────────────────────────────────────────
 
 const DEFAULT_COMBAT_CONFIG: CombatConfig = {
-  drawOnPriority: 3,    // was 5 before #88
-  startingCards: 4,     // was 8 before #88
-  maxPlayerShields: 0,  // 0 = no cap
+  drawOnPriority: 3,          // was 5 before #88
+  startingCards: 4,           // was 8 before #88
+  maxPlayerShields: 0,        // 0 = no cap
+  drawPerPlay: 1,             // was hardcoded 2 (one pair) before #91
+  priorityOnShieldBreak: 1,   // was hardcoded 1/5 (plain/valuable) before #91
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -343,7 +345,12 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
 
       // EXPERIMENTAL (BotM #84): skip draw during defense — player gets 5 new cards on regaining priority
       if (state.phase !== 'defense') {
-        s = drawOneCardPair(s);
+        // drawPerPlay cards auto-drawn after playing a card (#91); 0 = no auto-draw
+        const drawN = s.combatConfig.drawPerPlay;
+        for (let i = 0; i < drawN; i++) {
+          const [drawn, deck] = drawFromDeck(s.worldDeck);
+          if (drawn) s = { ...s, hand: [...s.hand, drawn], worldDeck: deck };
+        }
         // Street Smarts bonus: draw one extra personal card per enchantment copy on field
         if (s.field.includes('streetSmarts')) {
           const extra = CARDS['streetSmarts']?.effects.drawEachTurn ?? 0;
@@ -440,14 +447,15 @@ function combatReducer(state: CombatState, action: CombatAction): CombatState {
         if (drawn) s = { ...s, oppHand: [...s.oppHand, drawn] };
       }
 
-      // Tiered break bonuses: valuable shield → NPC surges, plain shield → NPC barely notices
+      // Tiered break bonuses: valuable shield → NPC surges (+4 over base), plain → base only (#91)
+      const shieldBreakPriority = s.combatConfig.priorityOnShieldBreak;
       if (isValuable) {
         const cardName = CARDS[brokenSlot.usedCardId!]?.name ?? brokenSlot.usedCardId!;
         s = addLog(s, `Opponent finds ${cardName} behind the shield — their patience surges!`);
-        s = { ...s, oppPatience: Math.min(s.oppMaxPatience, s.oppPatience + 2), priority: 5 };
+        s = { ...s, oppPatience: Math.min(s.oppMaxPatience, s.oppPatience + 2), priority: clamp(shieldBreakPriority + 4) };
       } else {
         s = addLog(s, 'Opponent breaks the shield — but it means little to them.');
-        s = { ...s, oppPatience: Math.max(0, s.oppPatience - 1), priority: 1 };
+        s = { ...s, oppPatience: Math.max(0, s.oppPatience - 1), priority: shieldBreakPriority };
       }
 
       s = checkEndCondition(s);

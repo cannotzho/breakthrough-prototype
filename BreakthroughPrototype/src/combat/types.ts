@@ -129,7 +129,9 @@ export interface EncounterConfig {
 export type AppScreen = 'overworld' | 'combat';
 
 export interface CombatConfig {
-  drawOnPriority: number;   // cards drawn on regaining priority (default 3)
-  startingCards: number;    // cards in opening hand (default 4, applies on reset)
-  maxPlayerShields: number; // 0 = no cap
+  drawOnPriority: number;        // cards drawn on regaining priority (default 3)
+  startingCards: number;         // cards in opening hand (default 4, applies on reset)
+  maxPlayerShields: number;      // 0 = no cap
+  drawPerPlay: number;           // cards auto-drawn after playing a card (default 1; 0 = no auto-draw)
+  priorityOnShieldBreak: number; // priority restored to player when their shield is broken (default 1; valuable break adds 4 more)
 }

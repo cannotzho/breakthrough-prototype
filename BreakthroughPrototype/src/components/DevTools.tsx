@@ -2,9 +2,12 @@ import { useState, useEffect } from 'react';
 import { CARDS } from '../data/cards';
 import CardComponent from './CardComponent';
 import PlaytestCombat from './PlaytestCombat';
+import { DEFAULT_NOTES_TEXT } from './Overworld';
 import type { CardDef, CardEffects, EncounterConfig, CardSupertype, CardType } from '../combat/types';
 
-type Tab = 'card' | 'encounter' | 'playtest';
+type Tab = 'card' | 'encounter' | 'playtest' | 'notes';
+
+const LS_DEV_NOTES = 'btdev_notes';
 
 const COLOR_PRESETS = [
   { label: 'Red',    value: '#e94560' },
@@ -703,6 +706,58 @@ function EncounterCreator({ cardIds }: { cardIds: string[] }) {
   );
 }
 
+// ── Notes Editor ─────────────────────────────────────────────────────────────
+
+function NotesEditor() {
+  const [text, setText] = useState(() => localStorage.getItem(LS_DEV_NOTES) ?? DEFAULT_NOTES_TEXT);
+
+  function handleChange(val: string) {
+    setText(val);
+    localStorage.setItem(LS_DEV_NOTES, val);
+  }
+
+  function reset() {
+    handleChange(DEFAULT_NOTES_TEXT);
+  }
+
+  return (
+    <div style={{ maxWidth: 720 }}>
+      <Section title="Notes Panel Editor">
+        <p style={{ color: '#999', fontSize: 11, fontFamily: 'monospace', margin: '0 0 12px' }}>
+          Edit the player's Case Notes panel at runtime. Changes persist in <code style={{ color: '#00d9ff' }}>localStorage['{LS_DEV_NOTES}']</code> and are read by the game on next load (or immediately if both tabs are open).
+        </p>
+        <textarea
+          value={text}
+          onChange={e => handleChange(e.target.value)}
+          rows={28}
+          style={{
+            ...inputSt,
+            resize: 'vertical',
+            lineHeight: 1.7,
+            width: '100%',
+            fontFamily: '"Palatino Linotype", Palatino, Georgia, serif',
+            fontSize: 13,
+            color: '#d4c8a8',
+            background: '#140e04',
+            border: '1px solid #4a3820',
+          }}
+        />
+        <div style={{ marginTop: 10, display: 'flex', gap: 10, alignItems: 'center' }}>
+          <button
+            onClick={reset}
+            style={{ ...btnSt, background: '#1a0a06', borderColor: '#7a4820', color: '#c8a96e' }}
+          >
+            Reset to default
+          </button>
+          <span style={{ color: '#555', fontSize: 11, fontFamily: 'monospace' }}>
+            Auto-saved on every keystroke
+          </span>
+        </div>
+      </Section>
+    </div>
+  );
+}
+
 // ── Root component ───────────────────────────────────────────────────────────
 
 export default function DevTools() {
@@ -750,6 +805,7 @@ export default function DevTools() {
           <button style={tabStyle(tab === 'card')} onClick={() => setTab('card')}>Card Creator</button>
           <button style={tabStyle(tab === 'encounter')} onClick={() => setTab('encounter')}>Encounter Creator</button>
           <button style={tabStyle(tab === 'playtest')} onClick={() => setTab('playtest')}>Playtest</button>
+          <button style={tabStyle(tab === 'notes')} onClick={() => setTab('notes')}>Notes</button>
         </div>
 
         {/* Content */}
@@ -757,6 +813,7 @@ export default function DevTools() {
           {tab === 'card' && <CardCreator onCardSaved={refreshCards} />}
           {tab === 'encounter' && <EncounterCreator cardIds={cardIds} />}
           {tab === 'playtest' && <PlaytestCombat />}
+          {tab === 'notes' && <NotesEditor />}
         </div>
       </div>
     </div>
