@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { CARDS } from '../data/cards';
+import { COMBINATIONS } from '../data/combinations';
 import type { CombatState } from '../combat/types';
 import { computeCardCost } from '../combat/effects';
 import CardComponent from './CardComponent';
@@ -15,7 +16,7 @@ interface Props {
   onGhostMove: (x: number, y: number) => void;
   draggingCardId: string | null;
   stagedCardId: string | null;
-  onCombineCards: (comboId: string) => void; // #61
+  onCombineCards: (ingredient1: string, ingredient2: string) => void; // #94
 }
 
 function PileModal({ title, cardIds, onClose }: { title: string; cardIds: string[]; onClose: () => void }) {
@@ -52,6 +53,7 @@ export default function HandArea({ state, onPlayCard, onPlaceShield, onEndTurn, 
   const { hand, phase, awaitingShieldChoice, priority, field, backOfMind } = state;
 
   const [contextMenu, setContextMenu] = useState<{ cardId: string; x: number; y: number } | null>(null);
+  const [combinePrompt, setCombinePrompt] = useState<{ sourceCardId: string; partners: string[] } | null>(null);
   const [inspectCardId, setInspectCardId] = useState<string | null>(null);
   const [showDeck, setShowDeck] = useState(false);
   const [showDiscard, setShowDiscard] = useState(false);
@@ -131,11 +133,14 @@ export default function HandArea({ state, onPlayCard, onPlaceShield, onEndTurn, 
   const contextCard = contextMenu ? CARDS[contextMenu.cardId] : null;
   const canShield = phase === 'attack' && !awaitingShieldChoice;
 
-  // #61 — find combination cards whose sources include the context menu card
-  const availableCombos = contextMenu
-    ? state.availableCombinations
-        .map(id => CARDS[id])
-        .filter((c): c is typeof CARDS[string] => !!c?.combinesFrom?.includes(contextMenu.cardId))
+  // #94 — valid partners for the right-clicked card: recipes where it's an ingredient and
+  // the other ingredient is also currently in hand (i.e. the combination is available).
+  const handSet = new Set(hand);
+  const validPartners: string[] = contextMenu
+    ? COMBINATIONS
+        .filter(r => state.availableCombinations.includes(r.result) && r.ingredients.includes(contextMenu.cardId))
+        .map(r => r.ingredients.find(id => id !== contextMenu.cardId)!)
+        .filter(id => handSet.has(id))
     : [];
   const intactShields = state.playerShields.filter(s => !s.broken).length;
   const totalShields = state.playerShields.length;
@@ -206,8 +211,8 @@ export default function HandArea({ state, onPlayCard, onPlaceShield, onEndTurn, 
           const showInstantBadge = phase === 'defense' && isInstantCard && isInBotM;
           const showBotMBadge = phase === 'defense' && isInBotM && !isInstantCard;
           const dimInDefense = phase === 'defense' && !isInBotM;
-          const isComboSource = phase !== 'defense' && state.availableCombinations.some(
-            cid => CARDS[cid]?.combinesFrom?.includes(cardId)
+          const isComboSource = phase !== 'defense' && COMBINATIONS.some(r =>
+            state.availableCombinations.includes(r.result) && r.ingredients.includes(cardId)
           );
           return (
             <div
@@ -355,15 +360,14 @@ export default function HandArea({ state, onPlayCard, onPlaceShield, onEndTurn, 
                 Place as Shield
               </button>
             )}
-            {availableCombos.map(combo => (
+            {validPartners.length > 0 && (
               <button
-                key={combo.id}
                 className="w-full text-left px-3 py-2.5 text-sm text-[#c084fc] hover:bg-[#0f3460] transition-colors cursor-pointer border-b border-[#0f3460]"
-                onClick={() => { onCombineCards(combo.id); setContextMenu(null); }}
+                onClick={() => { setCombinePrompt({ sourceCardId: contextMenu!.cardId, partners: validPartners }); setContextMenu(null); }}
               >
-                Combine → {combo.name}
+                Combine…
               </button>
-            ))}
+            )}
             <button
               className="w-full text-left px-3 py-2.5 text-sm text-[#888] hover:bg-[#0f3460] transition-colors cursor-pointer"
               onClick={() => { setInspectCardId(contextMenu.cardId); setContextMenu(null); }}
@@ -372,6 +376,46 @@ export default function HandArea({ state, onPlayCard, onPlaceShield, onEndTurn, 
             </button>
           </div>
         </>
+      )}
+
+      {/* Combine partner picker */}
+      {combinePrompt && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setCombinePrompt(null)}
+        >
+          <div
+            className="bg-[#0d1625] border border-[#7c3aed] rounded-xl p-5 max-w-sm w-full font-mono text-[#ddd]"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-1">
+              <p className="text-[#c084fc] font-bold text-sm uppercase tracking-widest">Combine</p>
+              <button onClick={() => setCombinePrompt(null)} className="text-[#888] text-lg leading-none hover:text-white bg-transparent border-0 cursor-pointer">✕</button>
+            </div>
+            <p className="text-[#666] text-xs mb-4">
+              Select a card from your hand to combine with{' '}
+              <span className="text-[#c084fc]">{CARDS[combinePrompt.sourceCardId]?.name ?? combinePrompt.sourceCardId}</span>
+            </p>
+            <div className="flex flex-wrap gap-3 justify-center">
+              {combinePrompt.partners.map((partnerId, i) => {
+                const partnerCard = CARDS[partnerId];
+                if (!partnerCard) return null;
+                return (
+                  <div
+                    key={i}
+                    className="cursor-pointer transition-transform hover:-translate-y-1"
+                    onClick={() => {
+                      onCombineCards(combinePrompt.sourceCardId, partnerId);
+                      setCombinePrompt(null);
+                    }}
+                  >
+                    <CardComponent card={partnerCard} />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Inspect overlay */}
