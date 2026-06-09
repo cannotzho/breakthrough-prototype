@@ -86,6 +86,7 @@ const ITEMS: ItemDef[] = [
 const LS_COLLECTED_ITEMS = 'bt_collected_items';
 const LS_INTRO_SEEN = 'bt_intro_seen';
 const LS_DEV_NOTES = 'btdev_notes';
+const LS_DEV_OBJECTIVE = 'btdev_objective';
 
 export const DEFAULT_NOTES_TEXT =
 `THE CASE
@@ -189,6 +190,9 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
   const [notesText,       setNotesText]       = useState(() =>
     localStorage.getItem(LS_DEV_NOTES) ?? DEFAULT_NOTES_TEXT
   );
+  const [objectiveOverride, setObjectiveOverride] = useState<string | null>(
+    () => localStorage.getItem(LS_DEV_OBJECTIVE)
+  );
 
   const [introPanel, setIntroPanel] = useState<1 | 2 | null>(() =>
     localStorage.getItem(LS_INTRO_SEEN) ? null : 1
@@ -208,6 +212,7 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
   useEffect(() => {
     function onStorage(e: StorageEvent) {
       if (e.key === LS_DEV_NOTES) setNotesText(e.newValue ?? DEFAULT_NOTES_TEXT);
+      if (e.key === LS_DEV_OBJECTIVE) setObjectiveOverride(e.newValue);
     }
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);
@@ -646,7 +651,7 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
         lineHeight: 1.5,
       }}>
         <span style={{ color: '#e94560', fontWeight: 'bold', letterSpacing: 1 }}>OBJECTIVE</span>
-        <br />{objective}
+        <br />{objectiveOverride ?? objective}
       </div>
 
       {/* Controls hint — top-left, fades after mount */}

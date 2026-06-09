@@ -8,6 +8,7 @@ import type { CardDef, CardEffects, EncounterConfig, CardSupertype, CardType } f
 type Tab = 'card' | 'encounter' | 'playtest' | 'notes';
 
 const LS_DEV_NOTES = 'btdev_notes';
+const LS_DEV_OBJECTIVE = 'btdev_objective';
 
 const COLOR_PRESETS = [
   { label: 'Red',    value: '#e94560' },
@@ -758,6 +759,58 @@ function NotesEditor() {
   );
 }
 
+// ── Objective Editor ─────────────────────────────────────────────────────────
+
+function ObjectiveEditor() {
+  const [value, setValue] = useState(() => localStorage.getItem(LS_DEV_OBJECTIVE) ?? '');
+
+  function handleChange(val: string) {
+    setValue(val);
+    if (val.trim()) {
+      localStorage.setItem(LS_DEV_OBJECTIVE, val);
+    } else {
+      localStorage.removeItem(LS_DEV_OBJECTIVE);
+    }
+    // Notify same-tab Overworld if open in another component tree (cross-tab only via StorageEvent,
+    // but since DevTools is a separate route, we dispatch manually so the game tab picks it up)
+  }
+
+  function clearOverride() {
+    setValue('');
+    localStorage.removeItem(LS_DEV_OBJECTIVE);
+  }
+
+  return (
+    <div style={{ maxWidth: 720, marginBottom: 32 }}>
+      <Section title="Objective Override">
+        <p style={{ color: '#999', fontSize: 11, fontFamily: 'monospace', margin: '0 0 12px' }}>
+          Override the objective text shown in the top-right of the overworld. Stored in{' '}
+          <code style={{ color: '#00d9ff' }}>localStorage['{LS_DEV_OBJECTIVE}']</code>.
+          Leave blank to use the auto-computed objective.
+        </p>
+        <input
+          type="text"
+          value={value}
+          onChange={e => handleChange(e.target.value)}
+          placeholder="e.g. Speak with Gutterfang — The Alley."
+          style={{ ...inputSt, marginBottom: 10 }}
+        />
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <button
+            onClick={clearOverride}
+            style={{ ...btnSt, background: '#1a0a06', borderColor: '#7a4820', color: '#c8a96e' }}
+          >
+            Clear override
+          </button>
+          <span style={{ color: '#555', fontSize: 11, fontFamily: 'monospace' }}>
+            {value.trim() ? 'Override active — game tab will show this text' : 'No override — game uses auto-computed objective'}
+          </span>
+        </div>
+      </Section>
+    </div>
+  );
+}
+
 // ── Root component ───────────────────────────────────────────────────────────
 
 export default function DevTools() {
@@ -813,7 +866,12 @@ export default function DevTools() {
           {tab === 'card' && <CardCreator onCardSaved={refreshCards} />}
           {tab === 'encounter' && <EncounterCreator cardIds={cardIds} />}
           {tab === 'playtest' && <PlaytestCombat />}
-          {tab === 'notes' && <NotesEditor />}
+          {tab === 'notes' && (
+            <>
+              <ObjectiveEditor />
+              <NotesEditor />
+            </>
+          )}
         </div>
       </div>
     </div>

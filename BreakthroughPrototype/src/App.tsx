@@ -3,6 +3,7 @@ import Overworld from './components/Overworld';
 import DeckBuilder from './components/DeckBuilder';
 import ShieldSelector from './components/ShieldSelector';
 import CombatScreen from './components/CombatScreen';
+import DeckPreviewScreen from './components/DeckPreviewScreen';
 import { STARTER_COMPENDIUM, CARDS } from './data/cards';
 
 const MAX_DECK = 15;
@@ -16,7 +17,7 @@ Object.keys(localStorage)
 const LS_COMPENDIUM = 'bt_compendium';
 const LS_COLLECTED = 'bt_collected';
 
-type AppScreen = 'overworld' | 'deckbuilder' | 'shieldselector' | 'combat';
+type AppScreen = 'overworld' | 'deckbuilder' | 'deckpreview' | 'shieldselector' | 'combat';
 
 const isDevRoute = import.meta.env.DEV && window.location.pathname.replace(/\/$/, '').endsWith('/dev');
 
@@ -71,6 +72,10 @@ export default function App() {
 
   function enterCombat(chosen: string[]) {
     setChosenWorldDeck(chosen);
+    setScreen('deckpreview');
+  }
+
+  function proceedToShields() {
     setScreen('shieldselector');
   }
 
@@ -111,6 +116,18 @@ export default function App() {
           compendium={compendium}
           encounterId={encounterId}
           onConfirm={enterCombat}
+          onCancel={() => setScreen('overworld')}
+        />
+      </div>
+    );
+  }
+
+  if (screen === 'deckpreview' && encounterId) {
+    return (
+      <div style={{ maxWidth: 1280, margin: '0 auto', height: '100vh', overflow: 'hidden' }}>
+        <DeckPreviewScreen
+          encounterId={encounterId}
+          onConfirm={proceedToShields}
           onCancel={() => setScreen('overworld')}
         />
       </div>
