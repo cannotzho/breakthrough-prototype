@@ -4,7 +4,7 @@ import DeckBuilder from './components/DeckBuilder';
 import ShieldSelector from './components/ShieldSelector';
 import CombatScreen from './components/CombatScreen';
 import DeckPreviewScreen from './components/DeckPreviewScreen';
-import { STARTER_COMPENDIUM, CARDS } from './data/cards';
+import { STARTER_COMPENDIUM, CARDS, DETECTIVE_PERSONAL_DECK } from './data/cards';
 
 const MAX_DECK = 15;
 import DevTools from './components/DevTools';
@@ -16,6 +16,7 @@ Object.keys(localStorage)
 
 const LS_COMPENDIUM = 'bt_compendium';
 const LS_COLLECTED = 'bt_collected';
+const LS_BEATEN = 'bt_beaten_encounters';
 
 type AppScreen = 'overworld' | 'deckbuilder' | 'deckpreview' | 'shieldselector' | 'combat';
 
@@ -29,6 +30,7 @@ export default function App() {
   const [chosenWorldDeck, setChosenWorldDeck] = useState<string[]>([]);
   const [preShields, setPreShields] = useState<string[]>([]);
   const [completedEncounters, setCompletedEncounters] = useState<Set<string>>(new Set());
+  const [personalDeck, setPersonalDeck] = useState<string[]>(DETECTIVE_PERSONAL_DECK);
 
   const [compendium, setCompendium] = useState<string[]>(() => {
     try {
@@ -55,6 +57,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(LS_COLLECTED, JSON.stringify(collectedCards));
   }, [collectedCards]);
+
+  useEffect(() => {
+    localStorage.setItem(LS_BEATEN, JSON.stringify([...completedEncounters]));
+  }, [completedEncounters]);
 
   const addToCompendium = useCallback((cardId: string) => {
     setCompendium(prev => (prev.includes(cardId) ? prev : [...prev, cardId]));
@@ -103,6 +109,7 @@ export default function App() {
   function resetGame() {
     setCompletedEncounters(new Set());
     setCollectedCards([]);
+    setPersonalDeck(DETECTIVE_PERSONAL_DECK);
     setEncounterId(null);
     setChosenWorldDeck([]);
     setPreShields([]);
@@ -127,6 +134,7 @@ export default function App() {
       <div style={{ maxWidth: 1280, margin: '0 auto', height: '100vh', overflow: 'hidden' }}>
         <DeckPreviewScreen
           encounterId={encounterId}
+          personalDeck={personalDeck}
           onConfirm={proceedToShields}
           onCancel={() => setScreen('overworld')}
         />
@@ -154,6 +162,7 @@ export default function App() {
           encounterId={encounterId}
           chosenWorldDeck={chosenWorldDeck}
           preShields={preShields}
+          personalDeck={personalDeck}
           addToCompendium={addToCompendium}
           onEnd={endCombat}
         />
@@ -170,6 +179,8 @@ export default function App() {
         collectedCards={collectedCards}
         compendium={compendium}
         onCollectItem={addToCompendium}
+        personalDeck={personalDeck}
+        onUpdatePersonalDeck={setPersonalDeck}
       />
     </div>
   );

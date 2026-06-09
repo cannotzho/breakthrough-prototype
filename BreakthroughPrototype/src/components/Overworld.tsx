@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { CARDS } from '../data/cards';
 import CardComponent from './CardComponent';
+import PersonalDeckPanel from './PersonalDeckPanel';
 
 /* ── Props ──────────────────────────────────────────────────── */
 interface Props {
@@ -10,6 +11,8 @@ interface Props {
   collectedCards: string[];
   compendium: string[];
   onCollectItem: (cardId: string) => void;
+  personalDeck: string[];
+  onUpdatePersonalDeck: (deck: string[]) => void;
 }
 
 /* ── World constants ─────────────────────────────────────────── */
@@ -112,6 +115,57 @@ EVIDENCE
 • Moneylender's Office records show a lump-sum payment to an unnamed "medical contractor" — same week as the first death.
 • NOTE: The Harbour Authority physician was pulled off the case on day two. Someone has reach.`;
 
+/* ── Progressive note entries ────────────────────────────────── */
+interface NoteEntry {
+  id: string;
+  text: string;
+  unlocked: (completedEncounters: Set<string>, compendium: string[]) => boolean;
+}
+
+const NOTE_ENTRIES: NoteEntry[] = [
+  {
+    id: 'case_intro',
+    text: `THE CASE\n\nThree dockworkers turned up dry in a week — not a drop of blood left in them. The Harbour Authority is calling it a disease. Someone higher up knows better.\n\nEvery trail leads back to the same stretch of cobblestone between the Rusty Tap and the College. There's a blood trade running through this city — quiet, expensive, and protected. Finding out who's running it means getting to people who don't want to be found.`,
+    unlocked: () => true,
+  },
+  {
+    id: 'poi_gutterfang',
+    // Always visible — spotted in the intro cutscene (panel 2)
+    text: `PERSONS OF INTEREST\n\nGutterfang\nOperates out of the alley district. Known fence for stolen medical stock — surgical tools, stored blood, unmarked vials. Blood-stained coat, nervous hands. Either he's guilty or he's seen something that scared him badly.`,
+    unlocked: () => true,
+  },
+  {
+    id: 'poi_maryann',
+    // Unlocked after the second Rusty Tap eavesdrop names her (rewards larkgroveLead)
+    text: `Mary-Ann Mariposa\nLarkgrove Women's College — officially, a patroness of the sciences. Rumoured to have funded three private research contracts in the last year, all classified. Charming. Dangerous. Does not rattle easily.`,
+    unlocked: (_, compendium) => compendium.includes('larkgroveLead'),
+  },
+  {
+    id: 'evidence_ledger',
+    // Unlocked after examining the crumpled note in the alley (rewards bloodTrail)
+    text: `EVIDENCE\n\n• Unsigned ledger page — lists "Type O, 12 units" delivered to a Seashaker Casino storage room.`,
+    unlocked: (_, compendium) => compendium.includes('bloodTrail'),
+  },
+  {
+    id: 'evidence_matchbook',
+    // Unlocked after eavesdropping at the Rusty Tap (rewards loanLedger; gated behind Gutterfang)
+    text: `• Matchbook from the Rusty Tap, found on the third victim. Back room meetings, most likely.`,
+    unlocked: (_, compendium) => compendium.includes('loanLedger'),
+  },
+  {
+    id: 'evidence_moneylender',
+    // Unlocked after searching the Moneylender's Office (rewards distributionNet)
+    text: `• Moneylender's Office records show a lump-sum payment to an unnamed "medical contractor" — same week as the first death.`,
+    unlocked: (_, compendium) => compendium.includes('distributionNet'),
+  },
+  {
+    id: 'evidence_physician',
+    // Unlocked after visiting Larkgrove forensics workshop (rewards bloodAnalysis)
+    text: `• NOTE: The Harbour Authority physician was pulled off the case on day two. Someone has reach.`,
+    unlocked: (_, compendium) => compendium.includes('bloodAnalysis'),
+  },
+];
+
 const INTRO_PANELS = [
   {
     title: 'The Commission',
@@ -168,7 +222,7 @@ function btnStyle(bg: string): React.CSSProperties {
 }
 
 /* ── Component ───────────────────────────────────────────────── */
-export default function Overworld({ completedEncounters, onStartCombat, onResetGame, collectedCards, compendium, onCollectItem }: Props) {
+export default function Overworld({ completedEncounters, onStartCombat, onResetGame, collectedCards, compendium, onCollectItem, personalDeck, onUpdatePersonalDeck }: Props) {
   const canvasRef   = useRef<HTMLCanvasElement>(null);
   const keysRef     = useRef(new Set<string>());
   const playerRef   = useRef({ x: 576, y: 600 });
@@ -187,6 +241,7 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
   const [isTouchDevice,   setIsTouchDevice]   = useState(false);
   const [showCollection,  setShowCollection]  = useState(false);
   const [showNotes,       setShowNotes]       = useState(false);
+  const [showDeck,        setShowDeck]        = useState(false);
   const [notesText,       setNotesText]       = useState(() =>
     localStorage.getItem(LS_DEV_NOTES) ?? DEFAULT_NOTES_TEXT
   );
@@ -247,6 +302,29 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
     const t = setTimeout(() => setPickupNotif(null), 2000);
     return () => clearTimeout(t);
   }, [pickupNotif]);
+
+  /* ── Dev skip — collect all currently-reachable items without walking (#96) ── */
+  const handleSkip = useCallback(() => {
+    const newCollected = new Set(collectedItemsRef.current);
+    const simCompendium = [...compendiumRef.current];
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const item of ITEMS) {
+        if (newCollected.has(item.id)) continue;
+        if (item.lockedUntilEncounter && !completedRef.current.has(item.lockedUntilEncounter)) continue;
+        if (item.lockedUntilCompendium && !simCompendium.includes(item.lockedUntilCompendium)) continue;
+        newCollected.add(item.id);
+        for (const cardId of item.cardRewards) {
+          onCollectItemRef.current(cardId);
+          if (!simCompendium.includes(cardId)) simCompendium.push(cardId);
+        }
+        changed = true;
+      }
+    }
+    setCollectedItems(newCollected);
+    setPickupNotif({ text: 'Investigation skipped [dev]', key: Date.now() });
+  }, []);
 
   /* ── Interact ─────────────────────────────────────────────── */
   const interact = useCallback(() => {
@@ -766,12 +844,53 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
         Compendium [{compendium.length}]
       </button>
 
+      {/* Skip investigation button — bottom-left, dev builds only, visible during free roaming (#96) */}
+      {import.meta.env.DEV && !dialog && !interactionPanel && !introPanel &&
+        ITEMS.some(item =>
+          !collectedItems.has(item.id) &&
+          (!item.lockedUntilEncounter || completedEncounters.has(item.lockedUntilEncounter)) &&
+          (!item.lockedUntilCompendium || compendium.includes(item.lockedUntilCompendium))
+        ) && (
+        <button
+          onClick={handleSkip}
+          style={{
+            position: 'absolute', bottom: 12, left: 12,
+            background: '#000000bb', border: '1px solid #1e2a40',
+            padding: '6px 14px', borderRadius: 6,
+            fontFamily: 'monospace', fontSize: 11, color: '#555',
+            cursor: 'pointer',
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#f4d03f'; (e.currentTarget as HTMLButtonElement).style.color = '#f4d03f'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#1e2a40'; (e.currentTarget as HTMLButtonElement).style.color = '#555'; }}
+        >
+          Skip [dev]
+        </button>
+      )}
+
+      {/* Personal Deck button — bottom-right */}
+      <button
+        onClick={() => setShowDeck(prev => !prev)}
+        style={{
+          position: 'absolute', bottom: 120, right: 12,
+          background: '#000000bb', border: '1px solid #1e2a40',
+          padding: '6px 14px', borderRadius: 6,
+          fontFamily: 'monospace', fontSize: 11,
+          color: '#e94560',
+          cursor: 'pointer',
+        }}
+        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e94560'; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#1e2a40'; }}
+        title="Personal Deck"
+      >
+        Deck [{personalDeck.length}]
+      </button>
+
       {/* Dev Tools link — bottom-right, dev builds only */}
       {import.meta.env.DEV && (
         <a
           href="./dev"
           style={{
-            position: 'absolute', bottom: 120, right: 12,
+            position: 'absolute', bottom: 156, right: 12,
             background: '#000000bb', border: '1px solid #1e2a40',
             padding: '6px 14px', borderRadius: 6,
             fontFamily: 'monospace', fontSize: 11, color: '#555',
@@ -893,13 +1012,39 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
               </p>
             </div>
 
-            {/* Notes content — editable via Dev Tools /dev → Notes tab */}
-            <p style={{
-              fontSize: 13, lineHeight: 1.85, margin: '0 0 20px',
-              color: '#d4c8a8', whiteSpace: 'pre-wrap', fontFamily: 'inherit',
-            }}>
-              {notesText}
-            </p>
+            {/* Notes content: btdev_notes override → raw text; otherwise progressive reveal */}
+            {localStorage.getItem(LS_DEV_NOTES) !== null ? (
+              <p style={{
+                fontSize: 13, lineHeight: 1.85, margin: '0 0 20px',
+                color: '#d4c8a8', whiteSpace: 'pre-wrap', fontFamily: 'inherit',
+              }}>
+                {notesText}
+              </p>
+            ) : (
+              <div style={{ margin: '0 0 20px' }}>
+                {NOTE_ENTRIES.map((entry, i) => {
+                  if (!entry.unlocked(completedEncounters, compendium)) return null;
+                  return (
+                    <p key={entry.id} style={{
+                      fontSize: 13, lineHeight: 1.85,
+                      margin: i === 0 ? 0 : '16px 0 0',
+                      color: '#d4c8a8', whiteSpace: 'pre-wrap', fontFamily: 'inherit',
+                    }}>
+                      {entry.text}
+                    </p>
+                  );
+                })}
+                {NOTE_ENTRIES.some(e => !e.unlocked(completedEncounters, compendium)) && (
+                  <p style={{
+                    fontSize: 12, lineHeight: 1.6, marginTop: 16,
+                    color: '#4a3820', fontFamily: 'monospace', letterSpacing: 1,
+                    fontStyle: 'italic',
+                  }}>
+                    — [redacted] —
+                  </p>
+                )}
+              </div>
+            )}
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
               <button
@@ -920,6 +1065,16 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
             </div>
           </div>
         </div>
+      )}
+
+      {/* Personal deck panel */}
+      {showDeck && (
+        <PersonalDeckPanel
+          personalDeck={personalDeck}
+          compendium={compendium}
+          onUpdate={onUpdatePersonalDeck}
+          onClose={() => setShowDeck(false)}
+        />
       )}
 
       {/* Interaction panel overlay */}
@@ -943,35 +1098,21 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
               <span style={{ fontSize: 13, color: '#4ecca3' }}>
                 + {interactionPanel.cardRewards.map(id => CARDS[id]?.name ?? id).join(', ')} added to compendium
               </span>
-              <div style={{ display: 'flex', gap: 8 }}>
-                {/* Temporary dev shortcut — skip reading the investigation text (#88) */}
-                <button
-                  onClick={() => {
-                    const item = interactionPanel;
-                    setCollectedItems(prev => new Set([...prev, item.id]));
-                    for (const cardId of item.cardRewards) onCollectItemRef.current(cardId);
-                    setInteractionPanel(null);
-                  }}
-                  style={{ background: '#111', border: '1px solid #333', color: '#555', padding: '6px 12px', borderRadius: 6, fontFamily: 'monospace', fontSize: 11, cursor: 'pointer' }}
-                >
-                  Skip [dev]
-                </button>
-                <button
-                  onClick={() => {
-                    const item = interactionPanel;
-                    setCollectedItems(prev => new Set([...prev, item.id]));
-                    for (const cardId of item.cardRewards) {
-                      onCollectItemRef.current(cardId);
-                    }
-                    const cardName = item.cardRewards.map(id => CARDS[id]?.name ?? id).join(', ');
-                    setPickupNotif({ text: `+ ${cardName} added to compendium`, key: Date.now() });
-                    setInteractionPanel(null);
-                  }}
-                  style={btnStyle('#0f3460')}
-                >
-                  Got it
-                </button>
-              </div>
+              <button
+                onClick={() => {
+                  const item = interactionPanel;
+                  setCollectedItems(prev => new Set([...prev, item.id]));
+                  for (const cardId of item.cardRewards) {
+                    onCollectItemRef.current(cardId);
+                  }
+                  const cardName = item.cardRewards.map(id => CARDS[id]?.name ?? id).join(', ');
+                  setPickupNotif({ text: `+ ${cardName} added to compendium`, key: Date.now() });
+                  setInteractionPanel(null);
+                }}
+                style={btnStyle('#0f3460')}
+              >
+                Got it
+              </button>
             </div>
           </div>
         </div>

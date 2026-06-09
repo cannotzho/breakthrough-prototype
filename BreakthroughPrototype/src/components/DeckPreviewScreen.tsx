@@ -4,6 +4,7 @@ import CardComponent from './CardComponent';
 
 interface Props {
   encounterId: string;
+  personalDeck?: string[];
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -16,10 +17,10 @@ function btn(bg: string, border: string): React.CSSProperties {
   };
 }
 
-export default function DeckPreviewScreen({ encounterId, onConfirm, onCancel }: Props) {
+export default function DeckPreviewScreen({ encounterId, personalDeck, onConfirm, onCancel }: Props) {
   const encounter = ENCOUNTERS[encounterId];
   const personalDeckIds = [
-    ...DETECTIVE_PERSONAL_DECK,
+    ...(personalDeck ?? DETECTIVE_PERSONAL_DECK),
     ...(encounter?.personalDeck ?? []),
   ];
 

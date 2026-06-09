@@ -4,8 +4,8 @@ import { initCombat, combatReducer } from './combatEngine';
 
 // ── Public hook ────────────────────────────────────────────────────────────────
 
-export function useCombat(encounter: EncounterConfig, chosenWorldDeck: string[], preShields: string[] = [], playtestMode = false) {
-  const [state, dispatch] = useReducer(combatReducer, { encounter, chosenWorldDeck, preShields }, initCombat);
+export function useCombat(encounter: EncounterConfig, chosenWorldDeck: string[], preShields: string[] = [], playtestMode = false, personalDeck?: string[]) {
+  const [state, dispatch] = useReducer(combatReducer, { encounter, chosenWorldDeck, preShields, personalDeck }, initCombat);
 
   // Schedule opponent action after player acknowledgment clears the ack gate.
   // Paused while: playtest mode, game over, awaiting shield/BotM choice, reveal dialog, or awaiting ack.
@@ -28,8 +28,8 @@ export function useCombat(encounter: EncounterConfig, chosenWorldDeck: string[],
   const dismissDialogue = useCallback(() => dispatch({ type: 'DISMISS_DIALOGUE' }), []);
   const dismissReveal = useCallback(() => dispatch({ type: 'DISMISS_REVEAL' }), []);
   const resetCombat = useCallback(
-    () => dispatch({ type: 'RESET', encounter, chosenWorldDeck, preShields }),
-    [encounter, chosenWorldDeck, preShields],
+    () => dispatch({ type: 'RESET', encounter, chosenWorldDeck, preShields, personalDeck }),
+    [encounter, chosenWorldDeck, preShields, personalDeck],
   );
   const opponentAct = useCallback(
     (specificCardId?: string) => dispatch({ type: 'OPPONENT_ACT', specificCardId }),
@@ -40,7 +40,7 @@ export function useCombat(encounter: EncounterConfig, chosenWorldDeck: string[],
     [],
   );
   const combineCards = useCallback(
-    (cardId: string) => dispatch({ type: 'COMBINE_CARDS', cardId }),
+    (ingredient1: string, ingredient2: string) => dispatch({ type: 'COMBINE_CARDS', ingredient1, ingredient2 }),
     [],
   );
   const confirmBackOfMind = useCallback(

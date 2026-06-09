@@ -1,5 +1,6 @@
 import type { CombatState, CombatAction, EncounterConfig, CombatConfig } from './types';
 import { CARDS, DETECTIVE_PERSONAL_DECK } from '../data/cards';
+import { COMBINATIONS } from '../data/combinations';
 import {
   shuffle,
   addLog,
@@ -19,6 +20,7 @@ export const DEFAULT_COMBAT_CONFIG: CombatConfig = {
   maxPlayerShields: 0,        // 0 = no cap
   drawPerPlay: 1,             // was hardcoded 2 (one pair) before #91
   priorityOnShieldBreak: 1,   // was hardcoded 1/5 (plain/valuable) before #91
+  animDelay: 1,               // 1× = normal speed; 0 = instant; 2 = slow-motion (#96)
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -103,8 +105,8 @@ export function updatePhase(state: CombatState): CombatState {
   return s;
 }
 
-/** Recompute which combination cards have both source cards in the player's hand (#61).
- * Only surfaces combinations whose sources are reachable in this combat's card pool (#83). */
+/** Recompute which combination result cards have both ingredients in the player's hand.
+ * Only surfaces combinations whose ingredients are reachable in this combat's card pool. */
 export function recomputeCombinations(state: CombatState): CombatState {
   const combatPool = new Set([
     ...state.hand,
@@ -113,13 +115,10 @@ export function recomputeCombinations(state: CombatState): CombatState {
   ]);
   const handSet = new Set(state.hand);
   const available: string[] = [];
-  for (const id of Object.keys(CARDS)) {
-    const card = CARDS[id];
-    if (card.combinesFrom) {
-      const [a, b] = card.combinesFrom;
-      if (combatPool.has(a) && combatPool.has(b) && handSet.has(a) && handSet.has(b)) {
-        available.push(id);
-      }
+  for (const recipe of COMBINATIONS) {
+    const [a, b] = recipe.ingredients;
+    if (combatPool.has(a) && combatPool.has(b) && handSet.has(a) && handSet.has(b)) {
+      available.push(recipe.result);
     }
   }
   return { ...state, availableCombinations: available };
@@ -135,9 +134,9 @@ export function triggerOpponentAction(state: CombatState): CombatState {
 
 // ── Initialization ─────────────────────────────────────────────────────────────
 
-export type InitArg = { encounter: EncounterConfig; chosenWorldDeck: string[]; preShields?: string[]; config?: Partial<CombatConfig> };
+export type InitArg = { encounter: EncounterConfig; chosenWorldDeck: string[]; preShields?: string[]; config?: Partial<CombatConfig>; personalDeck?: string[] };
 
-export function initCombat({ encounter, chosenWorldDeck, preShields = [], config }: InitArg): CombatState {
+export function initCombat({ encounter, chosenWorldDeck, preShields = [], config, personalDeck }: InitArg): CombatState {
   const combatConfig: CombatConfig = { ...DEFAULT_COMBAT_CONFIG, ...config };
   // Remove pre-selected shield cards from the world deck (one removal per shield card)
   const deckWithoutShields = [...chosenWorldDeck];
@@ -176,7 +175,7 @@ export function initCombat({ encounter, chosenWorldDeck, preShields = [], config
   // Merge personal + world cards into a single combined draw pile (shuffled together).
   // personalDeck is kept for discard routing only; worldDeck holds the combined draw pile.
   const combinedCards = shuffle([
-    ...DETECTIVE_PERSONAL_DECK, ...(encounter.personalDeck ?? []),
+    ...(personalDeck ?? DETECTIVE_PERSONAL_DECK), ...(encounter.personalDeck ?? []),
     ...convertedWorldDeck,
   ]);
 
@@ -240,7 +239,7 @@ export function initCombat({ encounter, chosenWorldDeck, preShields = [], config
 export function combatReducer(state: CombatState, action: CombatAction): CombatState {
   if (action.type === 'RESET') {
     // Preserve dev combatConfig across resets (#88)
-    return initCombat({ encounter: action.encounter, chosenWorldDeck: action.chosenWorldDeck, preShields: action.preShields, config: state.combatConfig });
+    return initCombat({ encounter: action.encounter, chosenWorldDeck: action.chosenWorldDeck, preShields: action.preShields, personalDeck: action.personalDeck, config: state.combatConfig });
   }
   if (action.type === 'UPDATE_CONFIG') {
     return { ...state, combatConfig: { ...state.combatConfig, ...action.config } };
@@ -582,17 +581,28 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
     case 'COMBINE_CARDS': {
       // No combining during defense (BotM cards can't be combined mid-opponent-turn)
       if (state.phase === 'defense') return addLog(state, 'Cannot combine cards during the opponent\'s turn.');
-      const combCard = CARDS[action.cardId];
-      if (!combCard?.combinesFrom) return state;
-      const [src1, src2] = combCard.combinesFrom;
-      if (!state.hand.includes(src1) || !state.hand.includes(src2)) return state;
 
+      const { ingredient1, ingredient2 } = action;
+      if (!state.hand.includes(ingredient1) || !state.hand.includes(ingredient2)) return state;
+
+      // Find matching recipe (ingredients are unordered)
+      const recipe = COMBINATIONS.find(r =>
+        (r.ingredients[0] === ingredient1 && r.ingredients[1] === ingredient2) ||
+        (r.ingredients[0] === ingredient2 && r.ingredients[1] === ingredient1)
+      );
+
+      if (!recipe) {
+        return addLog(state, "These cards can't be combined.");
+      }
+
+      const resultCard = CARDS[recipe.result];
       const newHand = [...state.hand];
-      newHand.splice(newHand.indexOf(src1), 1);
-      newHand.splice(newHand.indexOf(src2), 1);
-      newHand.push(action.cardId);
+      newHand.splice(newHand.indexOf(ingredient1), 1);
+      newHand.splice(newHand.indexOf(ingredient2), 1);
+      newHand.push(recipe.result);
 
-      let s = addLog(state, `Combined [${CARDS[src1]?.name ?? src1}] + [${CARDS[src2]?.name ?? src2}] → [${combCard.name}]`);
+      let s = addLog(state, `Combined [${CARDS[ingredient1]?.name ?? ingredient1}] + [${CARDS[ingredient2]?.name ?? ingredient2}] → [${resultCard?.name ?? recipe.result}]`);
+      s = addLog(s, `Combined into ${resultCard?.name ?? recipe.result}.`);
       s = { ...s, hand: newHand };
       s = recomputeCombinations(s);
       s = checkEndCondition(s);

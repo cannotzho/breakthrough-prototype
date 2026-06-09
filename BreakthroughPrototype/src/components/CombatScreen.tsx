@@ -17,14 +17,17 @@ interface Props {
   encounterId: string;
   chosenWorldDeck: string[];
   preShields?: string[];
+  personalDeck?: string[];
   addToCompendium: (cardId: string) => void;
   onEnd: (won: boolean, collectedInfo?: string[]) => void;
 }
 
-export default function CombatScreen({ encounterId, chosenWorldDeck, preShields = [], addToCompendium, onEnd }: Props) {
+export default function CombatScreen({ encounterId, chosenWorldDeck, preShields = [], personalDeck, addToCompendium, onEnd }: Props) {
   const encounter = ENCOUNTERS[encounterId];
-  const { state, playCard, placeShield, endTurn, chooseShieldToBreak, dismissDialogue, dismissReveal, resetCombat, combineCards, confirmBackOfMind, acknowledgeOpponent } = useCombat(encounter, chosenWorldDeck, preShields);
+  const { state, playCard, placeShield, endTurn, chooseShieldToBreak, dismissDialogue, dismissReveal, resetCombat, combineCards, confirmBackOfMind, acknowledgeOpponent } = useCombat(encounter, chosenWorldDeck, preShields, false, personalDeck);
   const { active: tutorialStep, dismiss: dismissTutorial } = useTutorial(encounterId, state);
+  const animDelay = state.combatConfig.animDelay;
+  const hasInstants = state.hand.some(id => { const c = CARDS[id]; return c && (c.type === 'instant' || c.effects.isInstant); });
 
   // Add newly revealed info cards to the player's compendium
   const prevCollectedRef = useRef<string[]>([]);
@@ -103,6 +106,14 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
     // intentional: oppHand is read to capture the announced card at trigger time; not a dep to avoid re-running mid-decision
   }, [state.opponentActionTrigger, state.awaitingOpponentAck, state.phase, state.gameOver]);
 
+  // Auto-acknowledge opponent when player has no instants to play (#96)
+  useEffect(() => {
+    if (!state.awaitingOpponentAck || state.gameOver || state.awaitingBackOfMindChoice || state.awaitingShieldChoice || !botmPickerReady) return;
+    if (hasInstants) return;
+    const t = setTimeout(acknowledgeOpponent, Math.round(2000 * animDelay));
+    return () => clearTimeout(t);
+  }, [state.awaitingOpponentAck, state.gameOver, state.awaitingBackOfMindChoice, state.awaitingShieldChoice, botmPickerReady, hasInstants, acknowledgeOpponent, animDelay]);
+
   // Priority transition banner — fires on attack↔defense phase change (#88)
   useEffect(() => {
     const prev = prevPhaseRef.current;
@@ -114,26 +125,33 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
       return;
     }
     if (prev === 'attack' && state.phase === 'defense') {
-      setPriorityBanner('They push back —');
-      setBotmPickerReady(false);
       if (priorityBannerTimerRef.current) clearTimeout(priorityBannerTimerRef.current);
-      priorityBannerTimerRef.current = setTimeout(() => {
+      if (animDelay === 0) {
         setPriorityBanner(null);
         setBotmPickerReady(true);
-        priorityBannerTimerRef.current = null;
-      }, 700);
+      } else {
+        setPriorityBanner('They push back —');
+        setBotmPickerReady(false);
+        priorityBannerTimerRef.current = setTimeout(() => {
+          setPriorityBanner(null);
+          setBotmPickerReady(true);
+          priorityBannerTimerRef.current = null;
+        }, Math.round(700 * animDelay));
+      }
     } else if (prev === 'defense' && state.phase === 'attack') {
       setBotmPickerReady(true);
-      setPriorityBanner('You have the initiative');
       if (priorityBannerTimerRef.current) clearTimeout(priorityBannerTimerRef.current);
-      priorityBannerTimerRef.current = setTimeout(() => {
-        setPriorityBanner(null);
-        priorityBannerTimerRef.current = null;
-      }, 800);
+      if (animDelay > 0) {
+        setPriorityBanner('You have the initiative');
+        priorityBannerTimerRef.current = setTimeout(() => {
+          setPriorityBanner(null);
+          priorityBannerTimerRef.current = null;
+        }, Math.round(800 * animDelay));
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    // intentional: prevPhaseRef is a mutable ref tracking the previous phase — not reactive state, so not a dep
-  }, [state.phase, state.gameOver]);
+    // intentional: prevPhaseRef is a mutable ref — not a reactive dep; animDelay read from combatConfig
+  }, [state.phase, state.gameOver, animDelay]);
 
   function canAfford(cardId: string): boolean {
     const card = CARDS[cardId];
@@ -150,13 +168,17 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
       priorityToastTimerRef.current = setTimeout(() => setShowPriorityToast(false), 1500);
       return;
     }
+    if (animDelay === 0) {
+      playCard(cardId);
+      return;
+    }
     if (stagedTimerRef.current) clearTimeout(stagedTimerRef.current);
     setStagedCardId(cardId);
     stagedTimerRef.current = setTimeout(() => {
       playCard(cardId);
       setStagedCardId(null);
       stagedTimerRef.current = null;
-    }, 1000);
+    }, Math.round(1000 * animDelay));
   }
 
   function handleCancelStaged() {
@@ -328,8 +350,8 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
         </div>
       )}
 
-      {/* Opponent-action acknowledgment — player must click "Pass" before each opponent action fires */}
-      {state.awaitingOpponentAck && !state.gameOver && !state.awaitingBackOfMindChoice && !state.awaitingShieldChoice && botmPickerReady && (
+      {/* Opponent-action acknowledgment — only shown when player has an instant to play; otherwise auto-resolved (#96) */}
+      {state.awaitingOpponentAck && !state.gameOver && !state.awaitingBackOfMindChoice && !state.awaitingShieldChoice && botmPickerReady && hasInstants && (
         <div className="absolute bottom-[180px] left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-2 pointer-events-auto">
           <button
             onClick={acknowledgeOpponent}

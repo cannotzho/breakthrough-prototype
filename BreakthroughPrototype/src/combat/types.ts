@@ -40,7 +40,7 @@ export interface CardDef {
   flavorText?: string;
   effects: CardEffects;
   color: string;
-  combinesFrom?: [string, string]; // #61 — IDs of two source cards that combine into this card
+  combinesFrom?: [string, string]; // informational annotation only — authoritative recipes are in src/data/combinations.ts
 }
 
 export interface ShieldSlot {
@@ -135,10 +135,10 @@ export type CombatAction =
   | { type: 'OPPONENT_END_TURN' }
   | { type: 'DISMISS_DIALOGUE' }
   | { type: 'DISMISS_REVEAL' }
-  | { type: 'COMBINE_CARDS'; cardId: string }
+  | { type: 'COMBINE_CARDS'; ingredient1: string; ingredient2: string }
   | { type: 'CONFIRM_BACK_OF_MIND'; keptIds: string[] }
   | { type: 'ACKNOWLEDGE_OPPONENT' }
-  | { type: 'RESET'; encounter: EncounterConfig; chosenWorldDeck: string[]; preShields?: string[] }
+  | { type: 'RESET'; encounter: EncounterConfig; chosenWorldDeck: string[]; preShields?: string[]; personalDeck?: string[] }
   | { type: 'UPDATE_CONFIG'; config: Partial<CombatConfig> };
 
 export type AppScreen = 'overworld' | 'combat';
@@ -149,4 +149,5 @@ export interface CombatConfig {
   maxPlayerShields: number;      // 0 = no cap
   drawPerPlay: number;           // cards auto-drawn after playing a card (default 1; 0 = no auto-draw)
   priorityOnShieldBreak: number; // priority restored to player when their shield is broken (default 1; valuable break adds 4 more)
+  animDelay: number;             // animation speed multiplier (0 = instant, 1 = normal, 2 = slow-motion)
 }
