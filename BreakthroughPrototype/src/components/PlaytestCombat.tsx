@@ -136,13 +136,18 @@ function PlaytestActive({ encounter }: { encounter: EncounterConfig }) {
   }, []);
 
   function handlePlayCard(cardId: string) {
+    const animDelay = state.combatConfig.animDelay;
     if (stagedTimerRef.current) clearTimeout(stagedTimerRef.current);
+    if (animDelay === 0) {
+      playCard(cardId);
+      return;
+    }
     setStagedCardId(cardId);
     stagedTimerRef.current = setTimeout(() => {
       playCard(cardId);
       setStagedCardId(null);
       stagedTimerRef.current = null;
-    }, 1000);
+    }, Math.round(1000 * animDelay));
   }
 
   function handleCancelStaged() {
@@ -236,6 +241,16 @@ function PlaytestActive({ encounter }: { encounter: EncounterConfig }) {
             style={{ width: 80 }}
           />
           <span style={{ color: '#ccc', minWidth: 16 }}>{state.combatConfig.priorityOnShieldBreak}</span>
+        </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'monospace', fontSize: 11, color: '#888' }}>
+          Anim delay <span style={{ color: '#555', fontSize: 10 }}>(0=instant, 1=normal, 2=slow)</span>:
+          <input
+            type="range" min={0} max={2} step={0.25}
+            value={state.combatConfig.animDelay}
+            onChange={e => updateConfig({ animDelay: Number(e.target.value) })}
+            style={{ width: 80 }}
+          />
+          <span style={{ color: '#ccc', minWidth: 24 }}>{state.combatConfig.animDelay}×</span>
         </label>
       </div>
 
