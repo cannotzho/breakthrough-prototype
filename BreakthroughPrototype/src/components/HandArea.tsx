@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { CARDS } from '../data/cards';
 import { COMBINATIONS } from '../data/combinations';
 import type { CombatState } from '../combat/types';
-import { computeCardCost } from '../combat/effects';
+import { computeCardCost, cardForDisplay } from '../combat/effects';
 import CardComponent from './CardComponent';
 import CardInspectModal from './CardInspectModal';
 
@@ -203,6 +203,8 @@ export default function HandArea({ state, onPlayCard, onPlaceShield, onEndTurn, 
         {hand.map((cardId, idx) => {
           const card = CARDS[cardId];
           if (!card) return null;
+          // #100: mask effect text if not yet understood this encounter
+          const displayCard = cardForDisplay(cardId, state.understoodCards, state.cardOverrides, getActualCost(cardId)) ?? card;
           const isBeingDragged = cardId === draggingCardId;
           const isStaged = cardId === stagedCardId;
           const isMenuOpen = contextMenu?.cardId === cardId;
@@ -301,7 +303,7 @@ export default function HandArea({ state, onPlayCard, onPlaceShield, onEndTurn, 
                 </div>
               )}
               <CardComponent
-                card={{ ...card, cost: getActualCost(cardId) }}
+                card={displayCard}
                 selected={isMenuOpen}
                 disabled={!!stagedCardId}
               />
@@ -423,6 +425,8 @@ export default function HandArea({ state, onPlayCard, onPlaceShield, onEndTurn, 
         <CardInspectModal
           cardId={inspectCardId}
           displayCost={getActualCost(inspectCardId)}
+          understood={state.understoodCards.has(inspectCardId)}
+          cardOverrides={state.cardOverrides}
           onClose={() => setInspectCardId(null)}
         />
       )}

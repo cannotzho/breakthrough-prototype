@@ -55,6 +55,10 @@ export function useCombat(encounter: EncounterConfig, chosenWorldDeck: string[],
     (config: Partial<CombatConfig>) => dispatch({ type: 'UPDATE_CONFIG', config }),
     [],
   );
+  const understandCard = useCallback(
+    (cardId: string) => dispatch({ type: 'UNDERSTAND_CARD', cardId }),
+    [],
+  );
 
-  return { state, selectCard, playCard, placeShield, endTurn, chooseShieldToBreak, dismissDialogue, dismissReveal, resetCombat, opponentAct, opponentEndTurn, combineCards, confirmBackOfMind, acknowledgeOpponent, updateConfig };
+  return { state, selectCard, playCard, placeShield, endTurn, chooseShieldToBreak, dismissDialogue, dismissReveal, resetCombat, opponentAct, opponentEndTurn, combineCards, confirmBackOfMind, acknowledgeOpponent, updateConfig, understandCard };
 }
