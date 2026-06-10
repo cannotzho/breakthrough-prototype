@@ -1,4 +1,4 @@
-import type { CombatState, DeckState, CardDef } from './types';
+import type { CombatState, DeckState, CardDef, CardOverride } from './types';
 import { CARDS } from '../data/cards';
 
 // ── Utility helpers ────────────────────────────────────────────────────────────
@@ -70,6 +70,26 @@ export function computeCardCost(cardId: string, field: string[]): number {
 const clamp = (v: number) => Math.max(-10, Math.min(10, v));
 
 /**
+ * Break the opponent shield at a specific index. Used when the player has chosen
+ * their target via the confirmation UI (#99).
+ */
+export function breakOppShieldAt(state: CombatState, index: number, prefix: string): CombatState {
+  const target = state.oppShields[index];
+  if (!target || target.broken) return addLog(state, 'No shield to break at that position.');
+  const newShields = [...state.oppShields];
+  newShields[index] = { ...target, broken: true };
+  let s = { ...state, oppShields: newShields };
+  if (target.linkedCardId) {
+    const info = CARDS[target.linkedCardId];
+    s = addLog(s, `${prefix}Shield broken! Reveals: ${info?.name ?? target.linkedCardId}`);
+    s = { ...s, collectedInfo: [...s.collectedInfo, target.linkedCardId] };
+  } else {
+    s = addLog(s, `${prefix}Shield broken!`);
+  }
+  return s;
+}
+
+/**
  * Break the first intact opponent shield and log the result. `prefix` is prepended to the log message.
  * If a shield has `requiresCardId` set, only a card with that ID may break it.
  * Priority: shields that specifically require `breakingCardId` are targeted first; unrestricted
@@ -109,8 +129,9 @@ export function breakLowestOppShield(state: CombatState, prefix: string, breakin
  * Apply a card's effects from the player's perspective.
  * breakShield targets opponent shields; restoreShield targets player shields.
  * Personal cards are further modified by the opponent's disposition.
+ * Pass `opts.skipBreak: true` when deferring the `breakShield` effect (#99).
  */
-export function resolvePlayerEffect(state: CombatState, card: CardDef): CombatState {
+export function resolvePlayerEffect(state: CombatState, card: CardDef, opts?: { skipBreak?: boolean }): CombatState {
   let s = state;
   const eff = card.effects;
 
@@ -132,7 +153,7 @@ export function resolvePlayerEffect(state: CombatState, card: CardDef): CombatSt
     }
   }
 
-  if (eff.breakShield) {
+  if (eff.breakShield && !opts?.skipBreak) {
     s = breakLowestOppShield(s, '', card.id);
   }
 
@@ -246,6 +267,45 @@ export function resolvePlayerEffect(state: CombatState, card: CardDef): CombatSt
   }
 
   return s;
+}
+
+// ── #100: Card understanding helpers ──────────────────────────────────────────
+
+/**
+ * Merge a base CardDef with any encounter-specific overrides.
+ * Returns the base card unchanged if no override is registered for it.
+ */
+export function resolveCardDef(
+  cardId: string,
+  overrides: Record<string, CardOverride>,
+): CardDef | undefined {
+  const base = CARDS[cardId];
+  if (!base) return undefined;
+  const o = overrides[cardId];
+  if (!o) return base;
+  return {
+    ...base,
+    ...(o.effectText !== undefined ? { effectText: o.effectText } : {}),
+    effects: o.effects ? { ...base.effects, ...o.effects } : base.effects,
+  };
+}
+
+/**
+ * Return a CardDef suitable for display: real effectText when understood, '???' when not.
+ * Also applies any encounter-specific overrides and an optional cost override.
+ */
+export function cardForDisplay(
+  cardId: string,
+  understood: Set<string>,
+  overrides: Record<string, CardOverride>,
+  costOverride?: number,
+): CardDef | undefined {
+  const resolved = resolveCardDef(cardId, overrides);
+  if (!resolved) return undefined;
+  const effectText = understood.has(cardId) ? resolved.effectText : '???';
+  return costOverride !== undefined
+    ? { ...resolved, effectText, cost: costOverride }
+    : { ...resolved, effectText };
 }
 
 /**

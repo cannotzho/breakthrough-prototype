@@ -10,6 +10,8 @@ import {
   computeCardCost,
   resolvePlayerEffect,
   resolveOpponentEffect,
+  resolveCardDef,
+  breakOppShieldAt,
 } from './effects';
 
 // ── Defaults ───────────────────────────────────────────────────────────────────
@@ -179,6 +181,19 @@ export function initCombat({ encounter, chosenWorldDeck, preShields = [], config
     ...convertedWorldDeck,
   ]);
 
+  // #100 — understood cards: personal deck cards start understood (detective knows their own techniques);
+  // world/info cards start as ??? until played. Also seeds from bt_understood_cards overworld pre-flags.
+  const personalCardSet = new Set([
+    ...(personalDeck ?? DETECTIVE_PERSONAL_DECK),
+    ...(encounter.personalDeck ?? []),
+  ]);
+  const preUnderstood: string[] = (() => {
+    try { return JSON.parse(localStorage.getItem('bt_understood_cards') ?? '[]') as string[]; }
+    catch { return []; }
+  })();
+  const understoodCards = new Set<string>([...personalCardSet, ...preUnderstood]);
+  const cardOverrides: Record<string, import('./types').CardOverride> = encounter.cardOverrides ?? {};
+
   let state: CombatState = {
     phase: 'attack',
     priority: 5,
@@ -218,6 +233,12 @@ export function initCombat({ encounter, chosenWorldDeck, preShields = [], config
     awaitingOpponentAck: false,
     pendingShieldBreakLine: null,
     combatConfig,
+    // #99
+    awaitingOppShieldBreakChoice: false,
+    pendingBreakCardId: null,
+    // #100
+    understoodCards,
+    cardOverrides,
   };
 
   // Opening hand: combatConfig.startingCards from combined deck (#88 — was 8, default now 4)
@@ -244,6 +265,10 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
   if (action.type === 'UPDATE_CONFIG') {
     return { ...state, combatConfig: { ...state.combatConfig, ...action.config } };
   }
+  if (action.type === 'UNDERSTAND_CARD') {
+    if (state.understoodCards.has(action.cardId)) return state;
+    return { ...state, understoodCards: new Set([...state.understoodCards, action.cardId]) };
+  }
   if (state.gameOver && action.type !== 'OPPONENT_ACT') return state;
 
   switch (action.type) {
@@ -255,8 +280,9 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
     }
 
     case 'PLAY_CARD': {
-      if (state.awaitingShieldChoice) return state;
-      const card = CARDS[action.cardId];
+      if (state.awaitingShieldChoice || state.awaitingOppShieldBreakChoice) return state;
+      // #100: use encounter-specific card definition for effect resolution
+      const card = resolveCardDef(action.cardId, state.cardOverrides) ?? CARDS[action.cardId];
       if (!card || !state.hand.includes(action.cardId)) return state;
 
       if (state.phase === 'defense' && card.type !== 'instant' && !card.effects.isInstant) {
@@ -285,6 +311,10 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
         priority: card.effects.isInstant ? state.priority : clamp(state.priority - actualCost),
         selectedCardId: null,
         activeDialogue: null,
+        // #100: playing a card reveals its effect text for the rest of this encounter
+        understoodCards: state.understoodCards.has(action.cardId)
+          ? state.understoodCards
+          : new Set([...state.understoodCards, action.cardId]),
       };
 
       s = addLog(s, `You played [${card.name}]`);
@@ -299,7 +329,13 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       if (shieldWasBroken) {
         const newlyBrokenIdx = s.oppShields.findIndex((sh, i) => sh.broken && !state.oppShields[i].broken);
         const linkedId = newlyBrokenIdx !== -1 ? s.oppShields[newlyBrokenIdx].linkedCardId : undefined;
-        if (linkedId) s = { ...s, revealedShieldCard: linkedId };
+        if (linkedId) {
+          s = { ...s, revealedShieldCard: linkedId };
+          // #100: shield-linked info card becomes understood so its text shows if drawn later
+          if (!s.understoodCards.has(linkedId)) {
+            s = { ...s, understoodCards: new Set([...s.understoodCards, linkedId]) };
+          }
+        }
         // Queue NPC shield-break reaction to show after reveal is dismissed (#88)
         const breakLines = s.encounterDialogue.onShieldBreak;
         if (breakLines && breakLines.length > 0) {
@@ -456,14 +492,11 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       }
 
       if (s.oppHand.length === 0) {
-        // Opponent truly has nothing — nudge priority toward attack and loop until positive
-        s = addLog(s, 'Opponent has nothing to say…');
-        s = { ...s, priority: clamp(s.priority + 1) };
+        // Opponent has no cards — immediately return priority to the player (#101)
+        s = addLog(s, 'Opponent has nothing to say — you regain the initiative.');
+        s = { ...s, priority: 1 };
         s = checkEndCondition(s);
-        if (!s.gameOver) {
-          s = updatePhase(s);
-          if (s.phase === 'defense') s = triggerOpponentAction(s);
-        }
+        if (!s.gameOver) s = updatePhase(s);
         s = recomputeCombinations(s);
         return s;
       }
@@ -495,15 +528,34 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
 
       // Shield-break requires player to choose which shield to sacrifice
       if (playedCard.effects.breakShield) {
-        if (s.playerShieldImmune) {
-          s = addLog(s, 'Opponent cannot break your shields right now.');
-        } else {
-          const hasIntact = s.playerShields.some(sh => !sh.broken);
-          if (hasIntact) {
-            return { ...s, awaitingShieldChoice: true, pendingOppCardId: playedId };
-          }
-          s = addLog(s, 'No shields to break.');
+        const intactShields = s.playerShields.filter(sh => !sh.broken);
+        // Shields with requiresCardId can only be broken by that specific card (#101)
+        const validTargets = intactShields.filter(sh => !sh.requiresCardId || sh.requiresCardId === playedId);
+
+        if (!s.playerShieldImmune && intactShields.length > 0 && validTargets.length > 0) {
+          // Normal case — ask player to choose which shield to sacrifice
+          return { ...s, awaitingShieldChoice: true, pendingOppCardId: playedId };
         }
+
+        if (s.playerShieldImmune || (intactShields.length > 0 && validTargets.length === 0)) {
+          // Blocked: shields are immune or none match the card requirement — return priority to player (#101)
+          const blockMsg = s.playerShieldImmune
+            ? "Opponent's attack was deflected — you keep the initiative!"
+            : "Opponent's attack was blocked — shields resist this approach!";
+          s = addLog(s, blockMsg);
+          const blockedDeck = { ...s.oppDeck, discard: [...s.oppDeck.discard, playedId] };
+          const [blockedDrawn, blockedFinalDeck] = drawFromDeck(blockedDeck);
+          s = { ...s, oppDeck: blockedFinalDeck };
+          if (blockedDrawn) s = { ...s, oppHand: [...s.oppHand, blockedDrawn] };
+          s = { ...s, priority: 1 };
+          s = checkEndCondition(s);
+          if (!s.gameOver) s = updatePhase(s);
+          s = recomputeCombinations(s);
+          return s;
+        }
+
+        // intactShields.length === 0: no shields to attack, fall through to standard action cost
+        s = addLog(s, 'No shields to break.');
       }
 
       // Apply other opponent card effects

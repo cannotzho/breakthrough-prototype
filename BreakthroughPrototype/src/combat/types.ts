@@ -43,6 +43,12 @@ export interface CardDef {
   combinesFrom?: [string, string]; // informational annotation only — authoritative recipes are in src/data/combinations.ts
 }
 
+/** Per-encounter override applied on top of the base CardDef. */
+export interface CardOverride {
+  effects?: Partial<CardEffects>;
+  effectText?: string;
+}
+
 export interface ShieldSlot {
   broken: boolean;
   linkedCardId?: string;  // info card revealed when this shield breaks (opponent shields)
@@ -92,6 +98,12 @@ export interface CombatState {
   awaitingOpponentAck: boolean;      // player must click "Pass" before each opponent action fires
   pendingShieldBreakLine: string | null; // NPC reaction queued to show after reveal modal dismisses
   combatConfig: CombatConfig;        // tunable params (dev tools)
+  // #99 — player chooses which opponent shield to break before confirming
+  awaitingOppShieldBreakChoice: boolean; // player must click an opponent shield then confirm
+  pendingBreakCardId: string | null;     // card that triggered the break choice
+  // #100 — card effects hidden until understood
+  understoodCards: Set<string>;          // card IDs whose effect text is visible this encounter
+  cardOverrides: Record<string, CardOverride>; // encounter-specific card definition patches
 }
 
 /**
@@ -123,6 +135,7 @@ export interface EncounterConfig {
   valuableShields: string[]; // World card IDs especially meaningful to this NPC
   dialogue: { onVulnerable: string[]; onResistant: string[]; onShieldBreak?: string[] };
   fearless?: boolean; // #58 — patience-cost shield break cards have no effect against this opponent
+  cardOverrides?: Record<string, CardOverride>; // #100 — per-card effect/text patches for this encounter
 }
 
 export type CombatAction =
@@ -131,6 +144,7 @@ export type CombatAction =
   | { type: 'PLACE_SHIELD' }
   | { type: 'END_TURN' }
   | { type: 'CHOOSE_SHIELD_TO_BREAK'; index: number }
+  | { type: 'CHOOSE_OPP_SHIELD'; index: number }
   | { type: 'OPPONENT_ACT'; specificCardId?: string }
   | { type: 'OPPONENT_END_TURN' }
   | { type: 'DISMISS_DIALOGUE' }
@@ -138,6 +152,7 @@ export type CombatAction =
   | { type: 'COMBINE_CARDS'; ingredient1: string; ingredient2: string }
   | { type: 'CONFIRM_BACK_OF_MIND'; keptIds: string[] }
   | { type: 'ACKNOWLEDGE_OPPONENT' }
+  | { type: 'UNDERSTAND_CARD'; cardId: string }
   | { type: 'RESET'; encounter: EncounterConfig; chosenWorldDeck: string[]; preShields?: string[]; personalDeck?: string[] }
   | { type: 'UPDATE_CONFIG'; config: Partial<CombatConfig> };
 
