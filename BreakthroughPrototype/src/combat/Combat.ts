@@ -11,7 +11,7 @@ export function useCombat(encounter: EncounterConfig, chosenWorldDeck: string[],
   // Paused while: playtest mode, game over, awaiting shield/BotM choice, reveal dialog, or awaiting ack.
   useEffect(() => {
     if (playtestMode) return;
-    if (state.gameOver || state.awaitingShieldChoice || state.awaitingBackOfMindChoice || state.phase !== 'defense') return;
+    if (state.gameOver || state.awaitingShieldChoice || state.awaitingOppShieldBreakChoice || state.awaitingBackOfMindChoice || state.phase !== 'defense') return;
     if (state.revealedShieldCard) return;
     if (state.awaitingOpponentAck) return; // wait for player to click "Pass"
     const timer = setTimeout(() => dispatch({ type: 'OPPONENT_ACT' }), 800);
@@ -25,6 +25,7 @@ export function useCombat(encounter: EncounterConfig, chosenWorldDeck: string[],
   const placeShield = useCallback(() => dispatch({ type: 'PLACE_SHIELD' }), []);
   const endTurn = useCallback(() => dispatch({ type: 'END_TURN' }), []);
   const chooseShieldToBreak = useCallback((index: number) => dispatch({ type: 'CHOOSE_SHIELD_TO_BREAK', index }), []);
+  const chooseOppShieldToBreak = useCallback((index: number) => dispatch({ type: 'CHOOSE_OPP_SHIELD', index }), []);
   const dismissDialogue = useCallback(() => dispatch({ type: 'DISMISS_DIALOGUE' }), []);
   const dismissReveal = useCallback(() => dispatch({ type: 'DISMISS_REVEAL' }), []);
   const resetCombat = useCallback(
@@ -60,5 +61,5 @@ export function useCombat(encounter: EncounterConfig, chosenWorldDeck: string[],
     [],
   );
 
-  return { state, selectCard, playCard, placeShield, endTurn, chooseShieldToBreak, dismissDialogue, dismissReveal, resetCombat, opponentAct, opponentEndTurn, combineCards, confirmBackOfMind, acknowledgeOpponent, updateConfig, understandCard };
+  return { state, selectCard, playCard, placeShield, endTurn, chooseShieldToBreak, chooseOppShieldToBreak, dismissDialogue, dismissReveal, resetCombat, opponentAct, opponentEndTurn, combineCards, confirmBackOfMind, acknowledgeOpponent, updateConfig, understandCard };
 }
