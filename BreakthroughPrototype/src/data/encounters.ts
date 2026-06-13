@@ -18,25 +18,29 @@ export const ENCOUNTERS: Record<string, EncounterConfig> = {
   pettyCriminal: {
     id: 'pettyCriminal',
     name: 'Petty Criminal',
-    patience: 6,
+    patience: 10,        // raised from 6: intimidate−2 + slap−4 = 6 total drain; need headroom so patience never hits 0 before whiteDeerPD wins
     playerShields: 0,    // no player shields in this encounter (spec: simplified UI)
     oppShields: 3,
     shieldLinks: ['feignIgnorance', 'theRustyTap', 'sampleBloodVial'],
+    // Draw positions (with drawCards:1 fixed to draw exactly 1 + drawPerPlay:1):
+    //   [0-2] initial deal: intimidate, slap, ponder
+    //   [3]   after intimidate drawPerPlay:    dominate
+    //   [4]   after ponder drawOneCard effect: ponder (filler — ponder in discard triggers step advance)
+    //   [5]   after ponder drawPerPlay:        ponder (filler)
+    //   [6]   after dominate drawPerPlay:      ponder (filler, discarded in BotM)
+    //   [7-8] drawOnPriority=3 after Slap:    whiteDeerPD, ponder
+    //   (9th draw reshuffles the discard pile — random, doesn't matter)
     worldDeck: [
-      'intimidate', 'slap', 'ponder', 'dominate', 'whiteDeerPD',
-      'ponder', 'ponder', 'ponder',
+      'intimidate', 'slap', 'ponder', 'dominate',
+      'ponder', 'ponder', 'ponder', 'whiteDeerPD', 'ponder',
     ],
-    // The starting hand and subsequent draws are fully scripted.
-    // Positions: [0]=intimidate [1]=slap [2]=ponder [3]=dominate [4]=whiteDeerPD (1st draw after ponder)
-    // [5..7]=ponder fillers drawn during drawPerPlay (discarded in BotM)
-    // whiteDeerPD appears again at index 6 of the unscripted remainder so it's drawn when priority is regained
     scriptedDrawOrder: [
-      'intimidate', 'slap', 'ponder', 'dominate', 'whiteDeerPD',
-      'ponder', 'whiteDeerPD', 'ponder', 'ponder',
+      'intimidate', 'slap', 'ponder', 'dominate',
+      'ponder', 'ponder', 'ponder', 'whiteDeerPD', 'ponder',
     ],
     scriptedOpponentPlays: ['grovelling'],
     personalDeck: [],   // override: no standard detective deck — hand is fully scripted
-    oppDeck: ['grovelling', 'ponder', 'ponder'],
+    oppDeck: ['grovelling'],   // single-card deck so oppHand[0] is always grovelling (correct staged card)
     disposition: { vulnerable: [], resistant: [] },
     valuableShields: [],
     fearless: false,

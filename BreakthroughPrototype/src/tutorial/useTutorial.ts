@@ -363,13 +363,14 @@ export function useTutorial(
   const pcStepIdxRef = useRef(0);
   pcStepIdxRef.current = pcStepIdx;
 
-  // Track ponder being played (hand loses ponder, dominate appears)
+  // Track ponder being played: ponder enters worldDeck discard when played.
+  // Hand-based detection fails because drawPerPlay immediately draws another ponder back.
   useEffect(() => {
     if (!isPettyCriminal || pcPonderPlayedRef.current) return;
-    if (!state.hand.includes('ponder') && state.hand.includes('dominate')) {
+    if (state.worldDeck.discard.includes('ponder')) {
       pcPonderPlayedRef.current = true;
     }
-  }, [state.hand, isPettyCriminal]);
+  }, [state.worldDeck.discard, isPettyCriminal]);
 
   // Track shields broken for petty criminal
   useEffect(() => {
@@ -391,14 +392,15 @@ export function useTutorial(
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPettyCriminal, state.oppShields]);
 
-  // Auto-advance from pc_priority_intro (step 5) when ponder is played and dominate drawn.
+  // Auto-advance from pc_priority_intro (step 5) when ponder is played.
+  // Use discard presence — hand check is unreliable because drawPerPlay draws another ponder back.
   useEffect(() => {
     if (!isPettyCriminal || pcStepIdxRef.current !== 5) return;
-    if (!state.hand.includes('ponder') && state.hand.includes('dominate')) {
+    if (state.worldDeck.discard.includes('ponder')) {
       setPcStepIdx(6);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPettyCriminal, state.hand, pcStepIdx]);
+  }, [isPettyCriminal, state.worldDeck.discard, pcStepIdx]);
 
   // Auto-advance from pc_dominate_hint (step 7) when dominate is played.
   useEffect(() => {
@@ -427,14 +429,16 @@ export function useTutorial(
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPettyCriminal, state.phase, pcStepIdx]);
 
-  // Auto-advance from pc_play_white_deer (step 12) when whiteDeerPD is played.
+  // Auto-advance from pc_play_white_deer (step 12) when whiteDeerPD is played or game is won.
+  // gameOver path: playing whiteDeerPD breaks the final shield, ending the game atomically —
+  // the hand never transitions to "no whiteDeerPD" because no further actions are processed.
   useEffect(() => {
     if (!isPettyCriminal || pcStepIdxRef.current !== 12) return;
-    if (!state.hand.includes('whiteDeerPD')) {
+    if (!state.hand.includes('whiteDeerPD') || state.gameOver) {
       setPcStepIdx(13);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPettyCriminal, state.hand, pcStepIdx]);
+  }, [isPettyCriminal, state.hand, state.gameOver, pcStepIdx]);
 
   // Reveal patience meter when pc_skill_card (step 3) becomes active
   useEffect(() => {
@@ -465,8 +469,8 @@ export function useTutorial(
         if (!pcPonderPlayedRef.current) return null;
         break;
       case 'pc_priority_intro':
-        // Hide once ponder has been played (auto-advance fires on next render)
-        if (!state.hand.includes('ponder')) return null;
+        // Hide once ponder has been played (detected via discard); auto-advance fires on next render
+        if (pcPonderPlayedRef.current) return null;
         break;
       case 'pc_dominate_hint':
         // Hide once dominate has been played (auto-advance fires on next render)

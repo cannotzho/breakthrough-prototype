@@ -263,7 +263,7 @@ export function resolvePlayerEffect(state: CombatState, card: CardDef, opts?: { 
   }
 
   if (eff.drawCards) {
-    for (let i = 0; i < eff.drawCards; i++) s = drawTwoCards(s);
+    for (let i = 0; i < eff.drawCards; i++) s = drawOneCard(s);
     s = addLog(s, 'Drew a card.');
   }
 

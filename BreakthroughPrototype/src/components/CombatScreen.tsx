@@ -374,8 +374,8 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
         />
       )}
 
-      {/* Tutorial tooltip — one step at a time, Gutterfang only */}
-      {tutorialStep && !state.gameOver && (
+      {/* Tutorial tooltip — pc_victory is allowed to render over the win screen */}
+      {tutorialStep && (!state.gameOver || tutorialStep.id === 'pc_victory') && (
         <TutorialTooltip step={tutorialStep} onDismiss={dismissTutorial} />
       )}
 
