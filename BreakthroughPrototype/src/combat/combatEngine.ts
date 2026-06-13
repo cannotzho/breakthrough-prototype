@@ -33,7 +33,9 @@ export function checkEndCondition(state: CombatState): CombatState {
   const playerIntact = state.playerShields.filter(s => !s.broken).length;
   const oppIntact = state.oppShields.filter(s => !s.broken).length;
 
-  if (playerIntact === 0) {
+  // Only trigger on shield loss when the player actually has shields to lose.
+  // Encounters with playerShields:0 (e.g. tutorial) should not instantly end.
+  if (state.playerShields.length > 0 && playerIntact === 0) {
     return addLog(
       { ...state, gameOver: true, winner: 'opponent' },
       'All your shields were broken — the conversation is over!',

@@ -352,14 +352,32 @@ export function useTutorial(
   }, [state.oppShields, isPettyCriminal]);
 
   const dismissPc = useCallback(() => {
-    setPcStepIdx(prev => {
-      const next = prev + 1;
-      const step = PC_STEPS[prev];
-      if (step?.revealPatience) setPcRevealPatience(true);
-      if (step?.revealPriorityBar) setPcRevealPriorityBar(true);
-      return next;
-    });
+    setPcStepIdx(prev => prev + 1);
   }, []);
+
+  // Auto-advance from pc_play_intimidate (step 2) as soon as the first shield breaks,
+  // so playing Intimidate without first clicking "Got it" still moves the tutorial forward.
+  useEffect(() => {
+    if (!isPettyCriminal || pcStepIdxRef.current !== 2) return;
+    if (state.oppShields.filter(s => s.broken).length >= 1) {
+      setPcStepIdx(3);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPettyCriminal, state.oppShields]);
+
+  // Reveal patience meter when pc_skill_card (step 3) becomes active
+  useEffect(() => {
+    if (!isPettyCriminal) return;
+    if (pcStepIdx >= 3 && state.oppShields.filter(s => s.broken).length >= 1) {
+      setPcRevealPatience(true);
+    }
+  }, [isPettyCriminal, pcStepIdx, state.oppShields]);
+
+  // Reveal priority bar when pc_priority_intro (step 5) is reached
+  useEffect(() => {
+    if (!isPettyCriminal) return;
+    if (pcStepIdx >= 5) setPcRevealPriorityBar(true);
+  }, [isPettyCriminal, pcStepIdx]);
 
   // Determine which PC step should show
   const pcCurrentStep: TutorialStep | null = (() => {
@@ -394,9 +412,6 @@ export function useTutorial(
       default:
         break;
     }
-    // Reveal patience/priorityBar as soon as they're needed (even if the step is pending)
-    if (step.revealPatience) setPcRevealPatience(true);
-    if (step.revealPriorityBar) setPcRevealPriorityBar(true);
     return step;
   })();
 
