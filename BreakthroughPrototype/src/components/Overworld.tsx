@@ -22,6 +22,12 @@ const SPEED = 3;
 const P_R = 12;
 const I_R = 64;
 
+/* ── Alley map constants (tutorial: Petty Criminal encounter) ── */
+const ALLEY_X1 = 380;   // left wall inner edge
+const ALLEY_X2 = 620;   // right wall inner edge
+const ALLEY_TOP = 80;   // far (top) end
+const ALLEY_BOT = 920;  // near (bottom) end, behind player spawn
+
 /* ── Buildings ───────────────────────────────────────────────── */
 interface Bldg {
   x: number; y: number; w: number; h: number;
@@ -45,6 +51,11 @@ const NPCS: NpcDef[] = [
   { id: 'mumPhoneCall',  x: 440, y: 380, color: '#e0c080', name: 'Mum (Phone Call)', encounterId: 'mumPhoneCall', lockedUntil: 'pettyCriminal' },
   { id: 'gutterfang',   x: 600, y: 430, color: '#8B4513', name: 'Gutterfang',       encounterId: 'gutterfang',  lockedUntil: 'mumPhoneCall' },
   { id: 'maryann',      x: 800, y: 500, color: '#9b30d0', name: 'Mary-Ann Mariposa', encounterId: 'maryann',    lockedUntil: 'gutterfang', lockedUntilCompendium: 'bloodAnalysis' },
+];
+
+// Alley-mode NPC set — only the Petty Criminal, repositioned to alley coordinates
+const ALLEY_NPCS: NpcDef[] = [
+  { id: 'pettyCriminal', x: 500, y: 280, color: '#aaa', name: 'Petty Criminal', encounterId: 'pettyCriminal' },
 ];
 
 /* ── Items / Interaction points ──────────────────────────────── */
@@ -181,6 +192,7 @@ const INTRO_PANELS = [
 
 /* ── Dialog text ─────────────────────────────────────────────── */
 const DIALOG_TEXT: Record<string, string> = {
+  pettyCriminal: 'A thin figure wedged into the alley mouth, pupils blown wide and black. His eyes keep darting to something behind you. He hasn\'t clocked you yet — but he will.',
   gutterfang: 'A rough figure in a blood-stained coat. He\'s trying to act casual — but his hands won\'t stop moving.',
   maryann:    'She greets you with a smile that doesn\'t reach her eyes. There\'s steel beneath the silk.',
 };
@@ -215,6 +227,10 @@ function isBlocked(x: number, y: number): boolean {
   return x < P_R || x > MAP_W - P_R || y < P_R || y > MAP_H - P_R;
 }
 
+function isBlockedAlley(x: number, y: number): boolean {
+  return x < ALLEY_X1 + P_R || x > ALLEY_X2 - P_R || y < ALLEY_TOP + P_R || y > ALLEY_BOT - P_R;
+}
+
 function btnStyle(bg: string): React.CSSProperties {
   return {
     background: bg, border: 'none', color: '#fff',
@@ -227,7 +243,12 @@ function btnStyle(bg: string): React.CSSProperties {
 export default function Overworld({ completedEncounters, onStartCombat, onResetGame, collectedCards, compendium, onCollectItem, personalDeck, onUpdatePersonalDeck }: Props) {
   const canvasRef   = useRef<HTMLCanvasElement>(null);
   const keysRef     = useRef(new Set<string>());
-  const playerRef   = useRef({ x: 576, y: 600 });
+  // Alley mode is active until the Petty Criminal encounter is completed
+  const isAlleyModeRef = useRef(!completedEncounters.has('pettyCriminal'));
+  isAlleyModeRef.current = !completedEncounters.has('pettyCriminal');
+  const playerRef   = useRef(
+    isAlleyModeRef.current ? { x: 500, y: 820 } : { x: 576, y: 600 }
+  );
   const completedRef = useRef(completedEncounters);
   completedRef.current = completedEncounters;
   const nearNpcRef  = useRef<NpcDef | null>(null);
@@ -251,9 +272,11 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
     () => localStorage.getItem(LS_DEV_OBJECTIVE)
   );
 
-  const [introPanel, setIntroPanel] = useState<1 | 2 | null>(() =>
-    localStorage.getItem(LS_INTRO_SEEN) ? null : 1
-  );
+  const [introPanel, setIntroPanel] = useState<1 | 2 | null>(() => {
+    // Alley mode has its own scene description screen — suppress the in-game intro panels
+    if (isAlleyModeRef.current) return null;
+    return localStorage.getItem(LS_INTRO_SEEN) ? null : 1;
+  });
   const introPanelRef = useRef(introPanel);
   introPanelRef.current = introPanel;
 
@@ -368,6 +391,121 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
     ctx.save();
     ctx.translate(-camX, -camY);
 
+    if (isAlleyModeRef.current) {
+      // ── ALLEY MAP (tutorial — Petty Criminal only) ──────────────
+      ctx.fillStyle = '#050508';
+      ctx.fillRect(0, 0, MAP_W, MAP_H);
+
+      // Alley floor — narrow dark strip
+      ctx.fillStyle = '#0d0d10';
+      ctx.fillRect(ALLEY_X1, ALLEY_TOP, ALLEY_X2 - ALLEY_X1, ALLEY_BOT - ALLEY_TOP);
+
+      // Cobblestone variation on alley floor
+      ctx.fillStyle = '#131318';
+      for (const c of COBBLES) {
+        if (c.x >= ALLEY_X1 && c.x <= ALLEY_X2 && c.y >= ALLEY_TOP) {
+          ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+
+      // Left brick wall
+      ctx.fillStyle = '#120c0a';
+      ctx.fillRect(0, 0, ALLEY_X1, MAP_H);
+      // Right brick wall
+      ctx.fillStyle = '#120c0a';
+      ctx.fillRect(ALLEY_X2, 0, MAP_W - ALLEY_X2, MAP_H);
+      // Far end wall (top of alley)
+      ctx.fillStyle = '#1a1210';
+      ctx.fillRect(ALLEY_X1, 0, ALLEY_X2 - ALLEY_X1, ALLEY_TOP);
+
+      // Brick mortar lines
+      ctx.strokeStyle = '#0a0806';
+      ctx.lineWidth = 1;
+      for (let row = 0; row < Math.ceil(MAP_H / 16); row++) {
+        const ry = row * 16;
+        const offset = (row % 2) * 20;
+        // left wall
+        ctx.beginPath(); ctx.moveTo(0, ry); ctx.lineTo(ALLEY_X1, ry); ctx.stroke();
+        for (let gx = -offset; gx < ALLEY_X1; gx += 40) {
+          const vx = gx + 40;
+          if (vx > 0 && vx < ALLEY_X1) { ctx.beginPath(); ctx.moveTo(vx, ry); ctx.lineTo(vx, ry + 16); ctx.stroke(); }
+        }
+        // right wall
+        ctx.beginPath(); ctx.moveTo(ALLEY_X2, ry); ctx.lineTo(MAP_W, ry); ctx.stroke();
+        for (let gx = ALLEY_X2 - offset; gx < MAP_W; gx += 40) {
+          const vx = gx + 40;
+          if (vx < MAP_W) { ctx.beginPath(); ctx.moveTo(vx, ry); ctx.lineTo(vx, ry + 16); ctx.stroke(); }
+        }
+      }
+
+      // Lamp post (left side of alley, mid-height)
+      const lampX = ALLEY_X1 + 16;
+      const lampY = ALLEY_TOP + 140;
+      // Glow pool
+      const lampGlow = ctx.createRadialGradient(lampX, lampY, 0, lampX, lampY, 180);
+      lampGlow.addColorStop(0, 'rgba(190, 140, 50, 0.18)');
+      lampGlow.addColorStop(1, 'transparent');
+      ctx.fillStyle = lampGlow;
+      ctx.fillRect(ALLEY_X1, ALLEY_TOP, ALLEY_X2 - ALLEY_X1, 350);
+      // Pole
+      ctx.fillStyle = '#252528';
+      ctx.fillRect(lampX - 2, lampY - 90, 4, 90);
+      // Bracket arm
+      ctx.fillRect(lampX, lampY - 90, 20, 3);
+      // Lamp head
+      ctx.fillStyle = '#c89040';
+      ctx.shadowColor = '#c89040';
+      ctx.shadowBlur = 22;
+      ctx.beginPath(); ctx.arc(lampX + 20, lampY - 90, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Distant city light haze bleeding in from the top of the alley
+      const topHaze = ctx.createLinearGradient(500, ALLEY_TOP, 500, ALLEY_TOP + 80);
+      topHaze.addColorStop(0, 'rgba(60, 70, 120, 0.25)');
+      topHaze.addColorStop(1, 'transparent');
+      ctx.fillStyle = topHaze;
+      ctx.fillRect(ALLEY_X1, ALLEY_TOP, ALLEY_X2 - ALLEY_X1, 80);
+
+      // Petty Criminal NPC
+      const crimNpc = ALLEY_NPCS[0];
+      const ddxC = px - crimNpc.x, ddyC = py - crimNpc.y;
+      const inRangeC = Math.sqrt(ddxC * ddxC + ddyC * ddyC) < I_R;
+      const doneC = completedRef.current.has('pettyCriminal');
+
+      if (inRangeC) {
+        ctx.strokeStyle = '#ffffff66';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 4]);
+        ctx.globalAlpha = 0.6;
+        ctx.beginPath(); ctx.arc(crimNpc.x, crimNpc.y, I_R, 0, Math.PI * 2); ctx.stroke();
+        ctx.setLineDash([]); ctx.globalAlpha = 1;
+      }
+      drawPerson(ctx, crimNpc.x, crimNpc.y, '#777', '#c5a080', '#111');
+      ctx.font = '11px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = doneC ? '#4ecca3' : '#cccccc';
+      ctx.fillText(doneC ? '✓ ' + crimNpc.name : crimNpc.name, crimNpc.x, crimNpc.y - 33);
+      if (doneC) {
+        ctx.font = '9px monospace';
+        ctx.fillStyle = '#4ecca3';
+        ctx.fillText('✓ Interrogated', crimNpc.x, crimNpc.y - 21);
+      }
+      if (inRangeC && !doneC) {
+        ctx.font = '10px monospace';
+        ctx.fillStyle = '#ffffffcc';
+        ctx.fillText('[E] Talk', crimNpc.x, crimNpc.y + 32);
+      }
+
+      // Player
+      drawPerson(ctx, px, py, '#1e2030', '#f5c5a0', '#0a0a0a');
+      ctx.fillStyle = '#cccccc';
+      ctx.fillRect(px - 3, py - 2, 6, 5);
+
+      ctx.restore();
+      return;
+    }
+
+    // ── CITY MAP (normal play) ───────────────────────────────────
     // Ground
     ctx.fillStyle = '#090912';
     ctx.fillRect(0, 0, MAP_W, MAP_H);
@@ -572,12 +710,14 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
     const p = playerRef.current;
     const nx = p.x + dx * SPEED;
     const ny = p.y + dy * SPEED;
-    if (!isBlocked(nx, p.y)) p.x = nx;
-    if (!isBlocked(p.x, ny)) p.y = ny;
+    const blocked = isAlleyModeRef.current ? isBlockedAlley : isBlocked;
+    if (!blocked(nx, p.y)) p.x = nx;
+    if (!blocked(p.x, ny)) p.y = ny;
 
     // Near-NPC check (only update state on change to avoid re-render storm)
+    const activeNpcs = isAlleyModeRef.current ? ALLEY_NPCS : NPCS;
     let near: NpcDef | null = null;
-    for (const npc of NPCS) {
+    for (const npc of activeNpcs) {
       const ddx = p.x - npc.x, ddy = p.y - npc.y;
       if (Math.sqrt(ddx * ddx + ddy * ddy) < I_R) { near = npc; break; }
     }
@@ -588,14 +728,16 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
       setNearNpc(near);
     }
 
-    // Near-item check
+    // Near-item check (no items in alley mode)
     let nearFoundItem: ItemDef | null = null;
+    if (!isAlleyModeRef.current) {
     for (const item of ITEMS) {
       if (collectedItemsRef.current.has(item.id)) continue;
       if (item.lockedUntilEncounter && !completedRef.current.has(item.lockedUntilEncounter)) continue;
       if (item.lockedUntilCompendium && !compendiumRef.current.includes(item.lockedUntilCompendium)) continue;
       const ddx = p.x - item.x, ddy = p.y - item.y;
       if (Math.sqrt(ddx * ddx + ddy * ddy) < item.radius) { nearFoundItem = item; break; }
+    }
     }
     nearItemRef.current = nearFoundItem;
     const nearItemId = nearFoundItem?.id ?? null;
@@ -687,13 +829,16 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
   }
 
   /* ── Objective text ───────────────────────────────────────── */
+  const isAlleyMode = !completedEncounters.has('pettyCriminal');
   const gDone = completedEncounters.has('gutterfang');
   const mDone = completedEncounters.has('maryann');
   const hasLoanLedger      = compendium.includes('loanLedger');
   const hasDistributionNet = compendium.includes('distributionNet');
   const hasLarkgroveLead   = compendium.includes('larkgroveLead');
   const hasCollegeVisit    = compendium.includes('bloodAnalysis');
-  const objective = mDone
+  const objective = isAlleyMode
+    ? 'Approach the suspect.'
+    : mDone
     ? 'Case closed.'
     : !gDone
     ? 'Find Gutterfang — The Alley.'
@@ -810,41 +955,40 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
         </div>
       )}
 
-      {/* Notes button — bottom-right, above Compendium */}
-      <button
-        onClick={() => setShowNotes(prev => !prev)}
-        style={{
-          position: 'absolute', bottom: 84, right: 12,
-          background: '#000000bb', border: '1px solid #1e2a40',
-          padding: '6px 14px', borderRadius: 6,
-          fontFamily: 'monospace', fontSize: 11,
-          color: '#c8a96e',
-          cursor: 'pointer',
-        }}
-        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#c8a96e'; }}
-        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#1e2a40'; }}
-        title="Notes [N]"
-      >
-        Notes [N]
-      </button>
+      {/* Notes / Compendium / Deck — hidden in alley mode to keep tutorial screen clean */}
+      {!isAlleyMode && <>
+        <button
+          onClick={() => setShowNotes(prev => !prev)}
+          style={{
+            position: 'absolute', bottom: 84, right: 12,
+            background: '#000000bb', border: '1px solid #1e2a40',
+            padding: '6px 14px', borderRadius: 6,
+            fontFamily: 'monospace', fontSize: 11,
+            color: '#c8a96e', cursor: 'pointer',
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#c8a96e'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#1e2a40'; }}
+          title="Notes [N]"
+        >
+          Notes [N]
+        </button>
 
-      {/* Intel collection button — bottom-right, above New Game */}
-      <button
-        onClick={() => setShowCollection(prev => !prev)}
-        style={{
-          position: 'absolute', bottom: 48, right: 12,
-          background: '#000000bb', border: '1px solid #1e2a40',
-          padding: '6px 14px', borderRadius: 6,
-          fontFamily: 'monospace', fontSize: 11,
-          color: '#4ecca3',
-          cursor: 'pointer',
-        }}
-        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ecca3'; }}
-        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#1e2a40'; }}
-        title="Compendium [I]"
-      >
-        Compendium [{compendium.length}]
-      </button>
+        <button
+          onClick={() => setShowCollection(prev => !prev)}
+          style={{
+            position: 'absolute', bottom: 48, right: 12,
+            background: '#000000bb', border: '1px solid #1e2a40',
+            padding: '6px 14px', borderRadius: 6,
+            fontFamily: 'monospace', fontSize: 11,
+            color: '#4ecca3', cursor: 'pointer',
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ecca3'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#1e2a40'; }}
+          title="Compendium [I]"
+        >
+          Compendium [{compendium.length}]
+        </button>
+      </>}
 
       {/* Skip investigation button — bottom-left, dev builds only, visible during free roaming (#96) */}
       {import.meta.env.DEV && !dialog && !interactionPanel && !introPanel &&
@@ -869,41 +1013,41 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
         </button>
       )}
 
-      {/* Personal Deck button — bottom-right */}
-      <button
-        onClick={() => setShowDeck(prev => !prev)}
-        style={{
-          position: 'absolute', bottom: 120, right: 12,
-          background: '#000000bb', border: '1px solid #1e2a40',
-          padding: '6px 14px', borderRadius: 6,
-          fontFamily: 'monospace', fontSize: 11,
-          color: '#e94560',
-          cursor: 'pointer',
-        }}
-        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e94560'; }}
-        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#1e2a40'; }}
-        title="Personal Deck"
-      >
-        Deck [{personalDeck.length}]
-      </button>
-
-      {/* Dev Tools link — bottom-right, dev builds only */}
-      {import.meta.env.DEV && (
-        <a
-          href="./dev"
+      {/* Personal Deck / Dev Tools — hidden in alley mode */}
+      {!isAlleyMode && <>
+        <button
+          onClick={() => setShowDeck(prev => !prev)}
           style={{
-            position: 'absolute', bottom: 156, right: 12,
+            position: 'absolute', bottom: 120, right: 12,
             background: '#000000bb', border: '1px solid #1e2a40',
             padding: '6px 14px', borderRadius: 6,
-            fontFamily: 'monospace', fontSize: 11, color: '#555',
-            cursor: 'pointer', textDecoration: 'none', display: 'block',
+            fontFamily: 'monospace', fontSize: 11,
+            color: '#e94560', cursor: 'pointer',
           }}
-          onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.borderColor = '#00d9ff'; (e.currentTarget as HTMLAnchorElement).style.color = '#00d9ff'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.borderColor = '#1e2a40'; (e.currentTarget as HTMLAnchorElement).style.color = '#555'; }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e94560'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#1e2a40'; }}
+          title="Personal Deck"
         >
-          Dev Tools
-        </a>
-      )}
+          Deck [{personalDeck.length}]
+        </button>
+
+        {import.meta.env.DEV && (
+          <a
+            href="./dev"
+            style={{
+              position: 'absolute', bottom: 156, right: 12,
+              background: '#000000bb', border: '1px solid #1e2a40',
+              padding: '6px 14px', borderRadius: 6,
+              fontFamily: 'monospace', fontSize: 11, color: '#555',
+              cursor: 'pointer', textDecoration: 'none', display: 'block',
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.borderColor = '#00d9ff'; (e.currentTarget as HTMLAnchorElement).style.color = '#00d9ff'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.borderColor = '#1e2a40'; (e.currentTarget as HTMLAnchorElement).style.color = '#555'; }}
+          >
+            Dev Tools
+          </a>
+        )}
+      </>}
 
       {/* New Game button — bottom-right corner */}
       <button

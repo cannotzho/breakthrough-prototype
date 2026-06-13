@@ -4,6 +4,8 @@ import DeckBuilder from './components/DeckBuilder';
 import ShieldSelector from './components/ShieldSelector';
 import CombatScreen from './components/CombatScreen';
 import DeckPreviewScreen from './components/DeckPreviewScreen';
+import TitleScreen from './components/TitleScreen';
+import SceneDescriptionScreen from './components/SceneDescriptionScreen';
 import { STARTER_COMPENDIUM, CARDS, DETECTIVE_PERSONAL_DECK } from './data/cards';
 import { ENCOUNTERS } from './data/encounters';
 
@@ -19,14 +21,14 @@ const LS_COMPENDIUM = 'bt_compendium';
 const LS_COLLECTED = 'bt_collected';
 const LS_BEATEN = 'bt_beaten_encounters';
 
-type AppScreen = 'overworld' | 'deckbuilder' | 'deckpreview' | 'shieldselector' | 'combat';
+type AppScreen = 'title' | 'overworld' | 'scenedesc' | 'deckbuilder' | 'deckpreview' | 'shieldselector' | 'combat';
 
 const isDevRoute = import.meta.env.DEV && window.location.pathname.replace(/\/$/, '').endsWith('/dev');
 
 export default function App() {
   if (isDevRoute) return <DevTools />;
 
-  const [screen, setScreen] = useState<AppScreen>('overworld');
+  const [screen, setScreen] = useState<AppScreen>('title');
   const [encounterId, setEncounterId] = useState<string | null>(null);
   const [chosenWorldDeck, setChosenWorldDeck] = useState<string[]>([]);
   const [preShields, setPreShields] = useState<string[]>([]);
@@ -74,7 +76,8 @@ export default function App() {
       setEncounterId(id);
       setChosenWorldDeck(enc.scriptedDrawOrder ?? []);
       setPreShields(enc.tutorialPreShields ?? []);
-      setScreen('combat');
+      // pettyCriminal gets a cinematic scene description before combat
+      setScreen(id === 'pettyCriminal' ? 'scenedesc' : 'combat');
       return;
     }
     setEncounterId(id);
@@ -123,7 +126,23 @@ export default function App() {
     setEncounterId(null);
     setChosenWorldDeck([]);
     setPreShields([]);
-    setScreen('overworld');
+    setScreen('title');
+  }
+
+  if (screen === 'title') {
+    return (
+      <div style={{ maxWidth: 1280, margin: '0 auto', height: '100vh', overflow: 'hidden' }}>
+        <TitleScreen onNewGame={() => setScreen('overworld')} />
+      </div>
+    );
+  }
+
+  if (screen === 'scenedesc') {
+    return (
+      <div style={{ maxWidth: 1280, margin: '0 auto', height: '100vh', overflow: 'hidden' }}>
+        <SceneDescriptionScreen onContinue={() => setScreen('combat')} />
+      </div>
+    );
   }
 
   if (screen === 'deckbuilder' && encounterId) {
