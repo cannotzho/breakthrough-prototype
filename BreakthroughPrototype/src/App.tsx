@@ -76,8 +76,7 @@ export default function App() {
       setEncounterId(id);
       setChosenWorldDeck(enc.scriptedDrawOrder ?? []);
       setPreShields(enc.tutorialPreShields ?? []);
-      // pettyCriminal gets a cinematic scene description before combat
-      setScreen(id === 'pettyCriminal' ? 'scenedesc' : 'combat');
+      setScreen('combat');
       return;
     }
     setEncounterId(id);
@@ -132,7 +131,7 @@ export default function App() {
   if (screen === 'title') {
     return (
       <div style={{ maxWidth: 1280, margin: '0 auto', height: '100vh', overflow: 'hidden' }}>
-        <TitleScreen onNewGame={() => setScreen('overworld')} />
+        <TitleScreen onNewGame={() => setScreen('scenedesc')} />
       </div>
     );
   }
@@ -140,7 +139,7 @@ export default function App() {
   if (screen === 'scenedesc') {
     return (
       <div style={{ maxWidth: 1280, margin: '0 auto', height: '100vh', overflow: 'hidden' }}>
-        <SceneDescriptionScreen onContinue={() => setScreen('combat')} />
+        <SceneDescriptionScreen onContinue={() => setScreen('overworld')} />
       </div>
     );
   }

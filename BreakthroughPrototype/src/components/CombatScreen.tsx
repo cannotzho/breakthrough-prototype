@@ -270,6 +270,7 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
         draggingCardId={draggingCardId}
         stagedCardId={stagedCardId}
         onCombineCards={combineCards}
+        tutorialForcedCard={tutorialStep?.forcedPlayCard}
       />
 
       {/* Ghost card — follows cursor/finger during drag */}
@@ -369,6 +370,7 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
         <BackOfMindPicker
           hand={state.hand}
           onConfirm={confirmBackOfMind}
+          forcedCard={tutorialStep?.forcedPlayCard}
         />
       )}
 

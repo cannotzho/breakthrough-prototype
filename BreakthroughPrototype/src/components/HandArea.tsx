@@ -17,6 +17,7 @@ interface Props {
   draggingCardId: string | null;
   stagedCardId: string | null;
   onCombineCards: (ingredient1: string, ingredient2: string) => void; // #94
+  tutorialForcedCard?: string;
 }
 
 function PileModal({ title, cardIds, onClose }: { title: string; cardIds: string[]; onClose: () => void }) {
@@ -49,7 +50,7 @@ function PileModal({ title, cardIds, onClose }: { title: string; cardIds: string
   );
 }
 
-export default function HandArea({ state, onPlayCard, onPlaceShield, onEndTurn, onDragStart, onDragEnd, onGhostMove, draggingCardId, stagedCardId, onCombineCards }: Props) {
+export default function HandArea({ state, onPlayCard, onPlaceShield, onEndTurn, onDragStart, onDragEnd, onGhostMove, draggingCardId, stagedCardId, onCombineCards, tutorialForcedCard }: Props) {
   const { hand, phase, awaitingShieldChoice, priority, field, backOfMind } = state;
 
   const [contextMenu, setContextMenu] = useState<{ cardId: string; x: number; y: number } | null>(null);
@@ -190,8 +191,8 @@ export default function HandArea({ state, onPlayCard, onPlaceShield, onEndTurn, 
 
       {/* Hand */}
       <div className="flex items-center gap-2 px-3 py-2 overflow-x-auto min-h-[158px]" data-tutorial-id="hand">
-        {/* End Turn button — only in attack phase */}
-        {phase === 'attack' && !awaitingShieldChoice && (
+        {/* End Turn button — only in attack phase; hidden during forced-play tutorial steps */}
+        {phase === 'attack' && !awaitingShieldChoice && !tutorialForcedCard && (
           <button
             data-tutorial-id="end-turn-btn"
             onClick={(e) => { e.stopPropagation(); onEndTurn(); }}
@@ -217,14 +218,17 @@ export default function HandArea({ state, onPlayCard, onPlaceShield, onEndTurn, 
           const isComboSource = phase !== 'defense' && COMBINATIONS.some(r =>
             state.availableCombinations.includes(r.result) && r.ingredients.includes(cardId)
           );
+          // Forced-play: non-target cards are non-interactive and greyed out
+          const isForcedTarget = tutorialForcedCard === cardId;
+          const isLockedByTutorial = !!tutorialForcedCard && !isForcedTarget;
           return (
             <div
               key={idx}
               data-tutorial-id={`card-${cardId}`}
-              draggable={!stagedCardId}
-              onClick={(e) => handleCardClick(e, cardId)}
+              draggable={!stagedCardId && !isLockedByTutorial}
+              onClick={(e) => { if (isLockedByTutorial) { e.stopPropagation(); return; } handleCardClick(e, cardId); }}
               onDragStart={(e) => {
-                if (stagedCardId) { e.preventDefault(); return; }
+                if (stagedCardId || isLockedByTutorial) { e.preventDefault(); return; }
                 const img = new Image();
                 img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
                 e.dataTransfer.setDragImage(img, 0, 0);
@@ -234,14 +238,15 @@ export default function HandArea({ state, onPlayCard, onPlaceShield, onEndTurn, 
                 onDragStart(cardId);
               }}
               onDragEnd={onDragEnd}
-              onTouchStart={(e) => handleTouchStart(e, cardId)}
+              onTouchStart={(e) => { if (isLockedByTutorial) return; handleTouchStart(e, cardId); }}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
               style={{
-                cursor: !stagedCardId ? 'grab' : 'pointer',
-                opacity: isBeingDragged || isStaged ? 0.25 : dimInDefense ? 0.4 : 1,
+                cursor: isLockedByTutorial ? 'not-allowed' : !stagedCardId ? 'grab' : 'pointer',
+                opacity: isBeingDragged || isStaged ? 0.25 : isLockedByTutorial ? 0.25 : dimInDefense ? 0.4 : 1,
                 transition: 'opacity 0.15s',
                 position: 'relative',
+                pointerEvents: isLockedByTutorial ? 'none' : undefined,
               }}
             >
               {showInstantBadge && (

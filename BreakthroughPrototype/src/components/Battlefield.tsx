@@ -151,6 +151,7 @@ export default function Battlefield({ state, onChooseShield, isDragging, onDropP
         </p>
         <div
           data-dropzone="shield"
+          data-tutorial-id="shield-zone"
           className={[
             'rounded-lg p-1 transition-all',
             shieldZoneOver

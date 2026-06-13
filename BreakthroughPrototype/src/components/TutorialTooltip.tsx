@@ -45,7 +45,7 @@ function Arrow({ pos }: { pos: TooltipPosition }) {
 
 // Highlight ring — finds the element with data-tutorial-id matching the target
 // and renders a pulsing gold border around it.
-function HighlightRing({ target }: { target: string }) {
+function HighlightRing({ target, zIndex }: { target: string; zIndex: number }) {
   const [rect, setRect] = useState<DOMRect | null>(null);
 
   useEffect(() => {
@@ -73,29 +73,29 @@ function HighlightRing({ target }: { target: string }) {
         border: '2px solid #e6a817',
         boxShadow: '0 0 12px rgba(230,168,23,0.7)',
         pointerEvents: 'none',
-        zIndex: 45,
+        zIndex,
         animation: 'tutorialHighlightPulse 1.2s ease-in-out infinite',
       }}
     />
   );
 }
 
-// Ghost drag — animates a card silhouette from the hand toward the play zone
-function GhostDrag({ cardId }: { cardId: string }) {
+// Ghost drag — animates a card silhouette from the hand toward the play zone (or shield zone)
+function GhostDrag({ cardId, targetId, zIndex }: { cardId: string; targetId: string; zIndex: number }) {
   const [startRect, setStartRect] = useState<DOMRect | null>(null);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
 
   useEffect(() => {
     function update() {
       const cardEl = document.querySelector(`[data-tutorial-id="card-${cardId}"]`);
-      const playZone = document.querySelector('[data-tutorial-id="play-zone"]');
+      const zoneEl = document.querySelector(`[data-tutorial-id="${targetId}"]`);
       if (cardEl) setStartRect(cardEl.getBoundingClientRect());
-      if (playZone) setTargetRect(playZone.getBoundingClientRect());
+      if (zoneEl) setTargetRect(zoneEl.getBoundingClientRect());
     }
     update();
     const interval = setInterval(update, 300);
     return () => clearInterval(interval);
-  }, [cardId]);
+  }, [cardId, targetId]);
 
   if (!startRect) return null;
 
@@ -116,7 +116,7 @@ function GhostDrag({ cardId }: { cardId: string }) {
         background: 'rgba(78,204,163,0.3)',
         border: '2px dashed #4ecca3',
         pointerEvents: 'none',
-        zIndex: 46,
+        zIndex,
         // Use CSS custom properties for animation
         '--ghost-start-x': `${startX - 30}px`,
         '--ghost-start-y': `${startY - 42}px`,
@@ -132,6 +132,7 @@ function GhostDrag({ cardId }: { cardId: string }) {
 
 export default function TutorialTooltip({ step, onDismiss }: Props) {
   const tooltipRef = useRef<HTMLDivElement>(null);
+  const baseZ = step.overlayZIndex ?? 40;
 
   return (
     <>
@@ -149,18 +150,22 @@ export default function TutorialTooltip({ step, onDismiss }: Props) {
       `}</style>
 
       {/* Dim overlay — semi-transparent so the player can see the game underneath */}
-      <div className="absolute inset-0 z-40 pointer-events-none bg-black/40" />
+      <div className="absolute inset-0 pointer-events-none bg-black/40" style={{ zIndex: baseZ }} />
 
       {/* Highlight ring */}
-      {step.highlightTarget && <HighlightRing target={step.highlightTarget} />}
+      {step.highlightTarget && <HighlightRing target={step.highlightTarget} zIndex={baseZ + 5} />}
 
       {/* Ghost drag animation */}
       {step.showGhostDrag && step.ghostDragCardId && (
-        <GhostDrag cardId={step.ghostDragCardId} />
+        <GhostDrag
+          cardId={step.ghostDragCardId}
+          targetId={step.ghostDragTarget ?? 'play-zone'}
+          zIndex={baseZ + 6}
+        />
       )}
 
       {/* Tooltip card */}
-      <div className="absolute inset-0 z-40 pointer-events-none">
+      <div className="absolute inset-0 pointer-events-none" style={{ zIndex: baseZ }}>
         <div
           ref={tooltipRef}
           className="bg-[#0d1b2e] border border-[#4ecca3] rounded-xl p-5 shadow-2xl pointer-events-auto"
@@ -170,12 +175,19 @@ export default function TutorialTooltip({ step, onDismiss }: Props) {
           <p className="text-[#4ecca3] text-[10px] uppercase tracking-widest font-mono mb-1">Tutorial</p>
           <h3 className="text-white text-base font-bold mb-2">{step.title}</h3>
           <p className="text-[#ccc] text-sm leading-relaxed mb-4">{step.body}</p>
-          <button
-            onClick={onDismiss}
-            className="w-full py-1.5 bg-[#4ecca3] text-black text-sm font-bold rounded hover:bg-[#3db892] transition-colors"
-          >
-            Got it
-          </button>
+          {!step.forcedPlayCard && (
+            <button
+              onClick={onDismiss}
+              className="w-full py-1.5 bg-[#4ecca3] text-black text-sm font-bold rounded hover:bg-[#3db892] transition-colors"
+            >
+              Got it
+            </button>
+          )}
+          {step.forcedPlayCard && (
+            <p className="text-[#4ecca3] text-[10px] uppercase tracking-widest font-mono text-center opacity-60">
+              Play the card to continue
+            </p>
+          )}
         </div>
       </div>
     </>

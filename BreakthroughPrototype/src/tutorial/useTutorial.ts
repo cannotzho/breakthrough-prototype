@@ -16,12 +16,18 @@ export interface TutorialStep {
   // Show a ghost drag animation for this card ID from the hand toward the play zone.
   showGhostDrag?: boolean;
   ghostDragCardId?: string;
+  // Where the ghost drag animation ends (defaults to 'play-zone').
+  ghostDragTarget?: 'play-zone' | 'shield-zone';
   // When this step fires, make the patience meter visible (tutorial encounter only).
   revealPatience?: boolean;
   // When this step fires, make the priority bar visible (tutorial encounter only).
   revealPriorityBar?: boolean;
   // When this step is active, hide the "Nothing to play — Pass" button.
   hidePassButton?: boolean;
+  // When set, only this card is interactive in hand/BotM — no Got It button shown.
+  forcedPlayCard?: string;
+  // Override z-index for rendering above modals/pickers (e.g. 65 for reveal modal, 80 for BotM picker).
+  overlayZIndex?: number;
 }
 
 // ── Gutterfang (original) steps ───────────────────────────────────────────────
@@ -110,6 +116,7 @@ const PC_STEPS: TutorialStep[] = [
     highlightTarget: 'hand',
     showGhostDrag: true,
     ghostDragCardId: 'intimidate',
+    forcedPlayCard: 'intimidate',
   },
   {
     id: 'pc_skill_card',
@@ -117,6 +124,7 @@ const PC_STEPS: TutorialStep[] = [
     body: "You just played a Skill Card — Intimidate — which breaks Shield cards against weak-willed opponents. Skill Cards always have the same effects and come from the Detective's Self Deck. As you play Breakthrough, the Detective meets new people and obtains more Skill Cards that shape his approach.",
     position: 'center',
     revealPatience: true,
+    overlayZIndex: 65,
   },
   {
     id: 'pc_patience',
@@ -132,6 +140,9 @@ const PC_STEPS: TutorialStep[] = [
     position: 'center',
     highlightTarget: 'priority-bar',
     revealPriorityBar: true,
+    showGhostDrag: true,
+    ghostDragCardId: 'ponder',
+    forcedPlayCard: 'ponder',
   },
   {
     id: 'pc_ponder_played',
@@ -145,14 +156,19 @@ const PC_STEPS: TutorialStep[] = [
     body: 'Playing Ponder drew Dominate. Use your remaining Priority to play it now.',
     position: 'bottom',
     highlightTarget: 'card-dominate',
+    showGhostDrag: true,
+    ghostDragCardId: 'dominate',
+    forcedPlayCard: 'dominate',
   },
   {
     id: 'pc_botm',
     title: 'Back of Mind',
     body: "Whenever Priority shifts to your opponent, the Detective is forced to discard all Hand cards — except for one, which you keep in the Back of Mind. Choose to keep Slap.",
-    position: 'center',
+    position: 'top',
     highlightTarget: 'card-slap',
     hidePassButton: true,
+    forcedPlayCard: 'slap',
+    overlayZIndex: 80,
   },
   {
     id: 'pc_interrupt_intro',
@@ -168,6 +184,9 @@ const PC_STEPS: TutorialStep[] = [
     position: 'bottom',
     highlightTarget: 'card-slap',
     hidePassButton: true,
+    showGhostDrag: true,
+    ghostDragCardId: 'slap',
+    forcedPlayCard: 'slap',
   },
   {
     id: 'pc_white_deer',
@@ -182,6 +201,9 @@ const PC_STEPS: TutorialStep[] = [
     body: "Notice that this card's effect is Unknown — you don't yet know how this person will react to it. Play it now to find out.",
     position: 'bottom',
     highlightTarget: 'card-whiteDeerPD',
+    showGhostDrag: true,
+    ghostDragCardId: 'whiteDeerPD',
+    forcedPlayCard: 'whiteDeerPD',
   },
   {
     id: 'pc_victory',
@@ -214,6 +236,10 @@ const MUM_STEPS: TutorialStep[] = [
     body: "While you have Priority, you can place new Shields. Try placing White Deer P.D. as a Shield by dragging it to the Shield zone or using the context menu. Placing a Shield costs 2 Priority.",
     position: 'bottom',
     highlightTarget: 'card-whiteDeerPD',
+    showGhostDrag: true,
+    ghostDragCardId: 'whiteDeerPD',
+    ghostDragTarget: 'shield-zone',
+    forcedPlayCard: 'whiteDeerPD',
   },
   {
     id: 'mum_end_turn',
@@ -365,6 +391,51 @@ export function useTutorial(
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPettyCriminal, state.oppShields]);
 
+  // Auto-advance from pc_priority_intro (step 5) when ponder is played and dominate drawn.
+  useEffect(() => {
+    if (!isPettyCriminal || pcStepIdxRef.current !== 5) return;
+    if (!state.hand.includes('ponder') && state.hand.includes('dominate')) {
+      setPcStepIdx(6);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPettyCriminal, state.hand, pcStepIdx]);
+
+  // Auto-advance from pc_dominate_hint (step 7) when dominate is played.
+  useEffect(() => {
+    if (!isPettyCriminal || pcStepIdxRef.current !== 7) return;
+    if (!state.hand.includes('dominate')) {
+      setPcStepIdx(8);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPettyCriminal, state.hand, pcStepIdx]);
+
+  // Auto-advance from pc_botm (step 8) when BotM choice is confirmed.
+  useEffect(() => {
+    if (!isPettyCriminal || pcStepIdxRef.current !== 8) return;
+    if (!state.awaitingBackOfMindChoice) {
+      setPcStepIdx(9);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPettyCriminal, state.awaitingBackOfMindChoice, pcStepIdx]);
+
+  // Auto-advance from pc_play_slap (step 10) when slap is played and priority returns.
+  useEffect(() => {
+    if (!isPettyCriminal || pcStepIdxRef.current !== 10) return;
+    if (state.phase === 'attack') {
+      setPcStepIdx(11);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPettyCriminal, state.phase, pcStepIdx]);
+
+  // Auto-advance from pc_play_white_deer (step 12) when whiteDeerPD is played.
+  useEffect(() => {
+    if (!isPettyCriminal || pcStepIdxRef.current !== 12) return;
+    if (!state.hand.includes('whiteDeerPD')) {
+      setPcStepIdx(13);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPettyCriminal, state.hand, pcStepIdx]);
+
   // Reveal patience meter when pc_skill_card (step 3) becomes active
   useEffect(() => {
     if (!isPettyCriminal) return;
@@ -393,6 +464,14 @@ export function useTutorial(
         // Wait for ponder to have been played (dominate drawn)
         if (!pcPonderPlayedRef.current) return null;
         break;
+      case 'pc_priority_intro':
+        // Hide once ponder has been played (auto-advance fires on next render)
+        if (!state.hand.includes('ponder')) return null;
+        break;
+      case 'pc_dominate_hint':
+        // Hide once dominate has been played (auto-advance fires on next render)
+        if (!state.hand.includes('dominate')) return null;
+        break;
       case 'pc_botm':
         // Wait for BotM picker
         if (!state.awaitingBackOfMindChoice) return null;
@@ -401,9 +480,17 @@ export function useTutorial(
         // Wait for opponent ack (opponent about to play)
         if (!state.awaitingOpponentAck || state.awaitingBackOfMindChoice) return null;
         break;
+      case 'pc_play_slap':
+        // Hide once priority returns to attack (auto-advance fires on next render)
+        if (state.phase === 'attack') return null;
+        break;
       case 'pc_white_deer':
         // Wait for whiteDeerPD to be in hand and in attack phase
         if (!state.hand.includes('whiteDeerPD') || state.phase !== 'attack') return null;
+        break;
+      case 'pc_play_white_deer':
+        // Hide once whiteDeerPD has been played (auto-advance fires on next render)
+        if (!state.hand.includes('whiteDeerPD')) return null;
         break;
       case 'pc_victory':
         // Wait for game won
@@ -455,6 +542,15 @@ export function useTutorial(
       if (mumStepIdxRef.current < 1) setMumStepIdx(1);
     }
   }, [state.playerShields, isMumPhoneCall]);
+
+  // Auto-advance from mum_place_shield (step 2) when whiteDeerPD is placed as shield.
+  useEffect(() => {
+    if (!isMumPhoneCall || mumStepIdxRef.current !== 2) return;
+    if (mumShieldPlacedRef.current) {
+      setMumStepIdx(3);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMumPhoneCall, state.playerShields, mumStepIdx]);
 
   const mumCurrentStep: TutorialStep | null = (() => {
     if (!isMumPhoneCall || mumStepIdx >= MUM_STEPS.length) return null;

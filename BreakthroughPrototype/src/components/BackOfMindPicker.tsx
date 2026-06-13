@@ -3,7 +3,7 @@ import { CARDS } from '../data/cards';
 import CardComponent from './CardComponent';
 
 // EXPERIMENTAL (BotM #84): picker shown when the player loses priority
-export default function BackOfMindPicker({ hand, onConfirm }: { hand: string[]; onConfirm: (keptIds: string[]) => void }) {
+export default function BackOfMindPicker({ hand, onConfirm, forcedCard }: { hand: string[]; onConfirm: (keptIds: string[]) => void; forcedCard?: string }) {
   const [selected, setSelected] = useState<string[]>([]);
 
   function toggle(cardId: string) {
@@ -35,18 +35,22 @@ export default function BackOfMindPicker({ hand, onConfirm }: { hand: string[]; 
               if (!card) return null;
               const isSelected = selected.includes(cardId);
               const isInterrupt = !!card.effects.isInterrupt;
+              // Tutorial forced-card: only the designated card is selectable
+              const isLockedByTutorial = !!forcedCard && cardId !== forcedCard;
               return (
                 <div
                   key={idx}
-                  onClick={() => toggle(cardId)}
+                  data-tutorial-id={`card-${cardId}`}
+                  onClick={() => { if (!isLockedByTutorial) toggle(cardId); }}
                   style={{
-                    cursor: 'pointer',
+                    cursor: isLockedByTutorial ? 'not-allowed' : 'pointer',
                     position: 'relative',
-                    opacity: !isSelected && selected.length >= 3 ? 0.35 : 1,
+                    opacity: isLockedByTutorial ? 0.25 : !isSelected && selected.length >= 3 ? 0.35 : 1,
                     transition: 'opacity 0.15s, transform 0.15s',
                     transform: isSelected ? 'translateY(-8px)' : undefined,
                     outline: isSelected ? '2px solid #c4b5fd' : undefined,
                     borderRadius: 6,
+                    pointerEvents: isLockedByTutorial ? 'none' : undefined,
                   }}
                 >
                   <CardComponent card={card} />
