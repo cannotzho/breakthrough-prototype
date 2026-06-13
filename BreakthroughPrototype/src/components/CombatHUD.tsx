@@ -14,7 +14,7 @@ export default function CombatHUD({ state, encounterName }: Props) {
     ? 'Click one of your shields to sacrifice it.'
     : phase === 'attack'
       ? 'Your turn: click a card for options, or drag to play / place shield.'
-      : 'Opponent acting… You may still play Instant cards.';
+      : 'Opponent acting… You may still play Interrupt cards.';
 
   return (
     <div className="flex flex-wrap items-start gap-2 p-2 bg-[rgba(10,15,30,0.95)] border-b border-[#0f3460]">

@@ -27,7 +27,7 @@ export interface CardEffects {
   // #60 — auto-break after N cumulative plays of this card
   autoBreakAfterPlays?: number;
   // #79 — can be played by the player even during the opponent's phase (negative priority)
-  isInstant?: boolean;
+  isInterrupt?: boolean;
 }
 
 export interface CardDef {

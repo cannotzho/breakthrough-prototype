@@ -53,7 +53,7 @@ const STEPS: Record<string, TutorialStep> = {
   back_of_mind: {
     id: 'back_of_mind',
     title: 'Back of Mind',
-    body: "When the opponent takes the floor, choose up to 3 cards to keep in the back of your mind. The rest are discarded. Instant cards can still be played from here. You'll draw 5 fresh cards when you regain priority.",
+    body: "When the opponent takes the floor, choose up to 3 cards to keep in the back of your mind. The rest are discarded. Interrupt cards can still be played from here. You'll draw 5 fresh cards when you regain priority.",
     position: 'center',
   },
 };

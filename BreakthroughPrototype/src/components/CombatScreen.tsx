@@ -27,7 +27,7 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
   const { state, playCard, placeShield, endTurn, chooseShieldToBreak, chooseOppShieldToBreak, dismissDialogue, dismissReveal, resetCombat, combineCards, confirmBackOfMind, acknowledgeOpponent } = useCombat(encounter, chosenWorldDeck, preShields, false, personalDeck);
   const { active: tutorialStep, dismiss: dismissTutorial } = useTutorial(encounterId, state);
   const animDelay = state.combatConfig.animDelay;
-  const hasInstants = state.hand.some(id => { const c = CARDS[id]; return c && (c.type === 'instant' || c.effects.isInstant); });
+  const hasInstants = state.hand.some(id => { const c = CARDS[id]; return c && (c.type === 'instant' || c.effects.isInterrupt); });
 
   // Add newly revealed info cards to the player's compendium
   const prevCollectedRef = useRef<string[]>([]);
@@ -156,8 +156,8 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
   function canAfford(cardId: string): boolean {
     const card = CARDS[cardId];
     if (!card) return false;
-    // Instant cards bypass the priority gate — cost is only a delta, not a prerequisite
-    if (card.type === 'instant' || card.effects.isInstant) return true;
+    // Interrupt cards bypass the priority gate — cost is only a delta, not a prerequisite
+    if (card.type === 'instant' || card.effects.isInterrupt) return true;
     return state.priority >= computeCardCost(cardId, state.field);
   }
 

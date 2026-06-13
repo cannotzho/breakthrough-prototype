@@ -69,7 +69,7 @@ export default function HandArea({ state, onPlayCard, onPlaceShield, onEndTurn, 
     if (awaitingShieldChoice) return false;
     const card = CARDS[cardId];
     if (!card) return false;
-    const isInstantCard = card.type === 'instant' || !!card.effects.isInstant;
+    const isInstantCard = card.type === 'instant' || !!card.effects.isInterrupt;
     // During defense: only BotM instants are playable
     if (phase === 'defense') {
       return isInstantCard && state.backOfMind.includes(cardId);
@@ -209,7 +209,7 @@ export default function HandArea({ state, onPlayCard, onPlaceShield, onEndTurn, 
           const isStaged = cardId === stagedCardId;
           const isMenuOpen = contextMenu?.cardId === cardId;
           const isInBotM = backOfMind.includes(cardId);
-          const isInstantCard = card.type === 'instant' || !!card.effects.isInstant;
+          const isInstantCard = card.type === 'instant' || !!card.effects.isInterrupt;
           const showInstantBadge = phase === 'defense' && isInstantCard && isInBotM;
           const showBotMBadge = phase === 'defense' && isInBotM && !isInstantCard;
           const dimInDefense = phase === 'defense' && !isInBotM;
@@ -259,7 +259,7 @@ export default function HandArea({ state, onPlayCard, onPlaceShield, onEndTurn, 
                   whiteSpace: 'nowrap',
                   pointerEvents: 'none',
                 }}>
-                  INSTANT
+                  INTERRUPT
                 </div>
               )}
               {isComboSource && (
@@ -347,7 +347,7 @@ export default function HandArea({ state, onPlayCard, onPlaceShield, onEndTurn, 
               {!isPlayable(contextMenu.cardId) && (
                 <span className="text-[10px] ml-1 text-[#2a2a4a]">
                   {phase === 'defense'
-                    ? (contextCard.type !== 'instant' && !contextCard.effects.isInstant
+                    ? (contextCard.type !== 'instant' && !contextCard.effects.isInterrupt
                         ? '(opponent\'s turn)'
                         : '(not in Back of Mind)')
                     : `(need ${getActualCost(contextMenu.cardId)} priority)`}

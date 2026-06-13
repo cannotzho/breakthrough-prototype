@@ -285,8 +285,8 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       const card = resolveCardDef(action.cardId, state.cardOverrides) ?? CARDS[action.cardId];
       if (!card || !state.hand.includes(action.cardId)) return state;
 
-      if (state.phase === 'defense' && card.type !== 'instant' && !card.effects.isInstant) {
-        return addLog(state, 'Only Instant cards can be played in Defense Phase!');
+      if (state.phase === 'defense' && card.type !== 'instant' && !card.effects.isInterrupt) {
+        return addLog(state, 'Only Interrupt cards can be played in Defense Phase!');
       }
       // EXPERIMENTAL (BotM #84): during defense, only Back of Mind cards are playable
       if (state.phase === 'defense' && !state.backOfMind.includes(action.cardId)) {
@@ -295,8 +295,8 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
 
       const actualCost = computeCardCost(action.cardId, state.field);
 
-      // Instant cards bypass the priority cost requirement and are played for free
-      if (!card.effects.isInstant && state.priority < actualCost) {
+      // Interrupt cards bypass the priority cost requirement and are played for free
+      if (!card.effects.isInterrupt && state.priority < actualCost) {
         return addLog(state, 'Not enough Priority to play this card!');
       }
 
@@ -308,7 +308,7 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       let s: CombatState = {
         ...state,
         hand: handAfterPlay,
-        priority: card.effects.isInstant ? state.priority : clamp(state.priority - actualCost),
+        priority: card.effects.isInterrupt ? state.priority : clamp(state.priority - actualCost),
         selectedCardId: null,
         activeDialogue: null,
         // #100: playing a card reveals its effect text for the rest of this encounter

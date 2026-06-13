@@ -16,7 +16,7 @@ function BotMPickerInline({ hand, onConfirm }: { hand: string[]; onConfirm: (ids
   return (
     <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 200, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 }}>
       <p style={{ color: '#c4b5fd', fontFamily: 'monospace', fontSize: 13, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 2, margin: 0 }}>Back of Mind — choose up to 3</p>
-      <p style={{ color: '#777', fontFamily: 'monospace', fontSize: 11, margin: 0 }}>Kept cards are playable during opponent's turn only if Instant. You draw 5 when you regain priority.</p>
+      <p style={{ color: '#777', fontFamily: 'monospace', fontSize: 11, margin: 0 }}>Kept cards are playable during opponent's turn only if Interrupt. You draw 5 when you regain priority.</p>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
         {hand.map((id, i) => {
           const card = CARDS[id]; if (!card) return null;

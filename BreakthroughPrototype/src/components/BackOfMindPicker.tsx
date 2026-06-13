@@ -21,7 +21,7 @@ export default function BackOfMindPicker({ hand, onConfirm }: { hand: string[]; 
           <p className="text-[#c4b5fd] text-xs uppercase tracking-[0.2em] font-mono mb-1">Back of Mind</p>
           <h2 className="text-white text-lg font-bold font-mono mb-1">Choose up to 3 cards to keep</h2>
           <p className="text-[#888] text-xs leading-relaxed">
-            The rest are discarded. Kept cards can only be played if they're Instants.
+            The rest are discarded. Kept cards can only be played if they're Interrupts.
             You'll draw 5 new cards when you regain priority.
           </p>
         </div>
@@ -34,7 +34,7 @@ export default function BackOfMindPicker({ hand, onConfirm }: { hand: string[]; 
               const card = CARDS[cardId];
               if (!card) return null;
               const isSelected = selected.includes(cardId);
-              const isInstant = !!card.effects.isInstant;
+              const isInterrupt = !!card.effects.isInterrupt;
               return (
                 <div
                   key={idx}
@@ -58,13 +58,13 @@ export default function BackOfMindPicker({ hand, onConfirm }: { hand: string[]; 
                       fontSize: 11, fontWeight: 'bold', pointerEvents: 'none',
                     }}>✓</div>
                   )}
-                  {isInstant && (
+                  {isInterrupt && (
                     <div style={{
                       position: 'absolute', bottom: -8, left: '50%', transform: 'translateX(-50%)',
                       background: '#d97706', color: '#fff', borderRadius: 3,
                       fontSize: 8, fontWeight: 'bold', padding: '2px 5px', whiteSpace: 'nowrap',
                       pointerEvents: 'none',
-                    }}>INSTANT</div>
+                    }}>INTERRUPT</div>
                   )}
                 </div>
               );
