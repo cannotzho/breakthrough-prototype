@@ -41,8 +41,10 @@ interface NpcDef {
   encounterId: string; lockedUntil?: string; lockedUntilCompendium?: string;
 }
 const NPCS: NpcDef[] = [
-  { id: 'gutterfang', x: 500, y: 430, color: '#8B4513', name: 'Gutterfang',       encounterId: 'gutterfang' },
-  { id: 'maryann',   x: 800, y: 500, color: '#9b30d0', name: 'Mary-Ann Mariposa', encounterId: 'maryann',   lockedUntil: 'gutterfang', lockedUntilCompendium: 'bloodAnalysis' },
+  { id: 'pettyCriminal', x: 340, y: 560, color: '#aaa', name: 'Petty Criminal',    encounterId: 'pettyCriminal' },
+  { id: 'mumPhoneCall',  x: 440, y: 380, color: '#e0c080', name: 'Mum (Phone Call)', encounterId: 'mumPhoneCall', lockedUntil: 'pettyCriminal' },
+  { id: 'gutterfang',   x: 600, y: 430, color: '#8B4513', name: 'Gutterfang',       encounterId: 'gutterfang',  lockedUntil: 'mumPhoneCall' },
+  { id: 'maryann',      x: 800, y: 500, color: '#9b30d0', name: 'Mary-Ann Mariposa', encounterId: 'maryann',    lockedUntil: 'gutterfang', lockedUntilCompendium: 'bloodAnalysis' },
 ];
 
 /* ── Items / Interaction points ──────────────────────────────── */

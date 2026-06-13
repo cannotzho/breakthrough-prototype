@@ -573,6 +573,128 @@ export const CARDS: Record<string, CardDef> = {
     },
     color: '#e94560',
   },
+
+  // ── Tutorial cards ────────────────────────────────────────────────────────────
+
+  slap: {
+    id: 'slap',
+    name: 'Slap',
+    supertype: 'Personal',
+    type: 'instant',
+    cost: 0,
+    effectText: 'Interrupt: Restore Priority. Opponent Patience −4.',
+    flavorText: "Sometimes the conversation has to end.",
+    effects: { priority: 10, opponentPatience: -4, isInterrupt: true },
+    color: '#e94560',
+  },
+
+  dominate: {
+    id: 'dominate',
+    name: 'Dominate',
+    supertype: 'Personal',
+    type: 'sorcery',
+    cost: 4,
+    effectText: 'Break a Shield.',
+    flavorText: "There is no room for a second opinion here.",
+    effects: { breakShield: true },
+    color: '#e94560',
+  },
+
+  whiteDeerPD: {
+    id: 'whiteDeerPD',
+    name: 'White Deer P.D.',
+    supertype: 'Information',
+    type: 'sorcery',
+    cost: 2,
+    effectText: 'Break a Shield. Effective Shield.',
+    flavorText: "The badge has weight — and not everyone wants to find out how much.",
+    effects: { breakShield: true, effectiveShield: true },
+    color: '#00d9ff',
+  },
+
+  feignIgnorance: {
+    id: 'feignIgnorance',
+    name: 'Feign Ignorance',
+    supertype: 'Information',
+    type: 'sorcery',
+    cost: 0,
+    effectText: 'OBTAINED: A deflection tactic used by someone with something to hide.',
+    flavorText: "A deflection tactic used by someone with something to hide.",
+    effects: {},
+    color: '#888888',
+  },
+
+  sampleBloodVial: {
+    id: 'sampleBloodVial',
+    name: 'Sample Blood Vial',
+    supertype: 'Information',
+    type: 'sorcery',
+    cost: 0,
+    effectText: 'OBTAINED: A used Blood Vial from a petty criminal — linked to violent crimes by Vampires in the harbour.',
+    flavorText: "Still sealed. A recent instrument of substance abuse circulating the harbour.",
+    effects: {},
+    color: '#e94560',
+  },
+
+  grovelling: {
+    id: 'grovelling',
+    name: 'Grovelling',
+    supertype: 'Personal',
+    type: 'sorcery',
+    cost: 0,
+    effectText: 'Opponent Patience −2.',
+    flavorText: "He folds. It costs him more than he expected.",
+    effects: { opponentPatience: -2 },
+    color: '#888888',
+  },
+
+  whiteLie: {
+    id: 'whiteLie',
+    name: 'White Lie',
+    supertype: 'Personal',
+    type: 'sorcery',
+    cost: 0,
+    effectText: 'A harmless deflection. Useful as a shield.',
+    flavorText: "Small lies are the mortar between the bricks of every relationship.",
+    effects: {},
+    color: '#4a4a6a',
+  },
+
+  howsWork: {
+    id: 'howsWork',
+    name: "How's Work?",
+    supertype: 'Personal',
+    type: 'sorcery',
+    cost: 0,
+    effectText: 'Break a Shield.',
+    flavorText: "She always asks like she doesn't already know something is wrong.",
+    effects: { breakShield: true },
+    color: '#888888',
+  },
+
+  worriedAboutMyBoy: {
+    id: 'worriedAboutMyBoy',
+    name: 'Worried About My Boy',
+    supertype: 'Personal',
+    type: 'sorcery',
+    cost: 0,
+    effectText: 'Break a Shield. Targets Effective Shield if available.',
+    flavorText: "She has a way of finding exactly the thing you were hoping she wouldn't.",
+    effects: { breakShield: true, targetEffectiveShield: true },
+    color: '#888888',
+  },
+
+  signOff: {
+    id: 'signOff',
+    name: 'Sign Off',
+    supertype: 'Personal',
+    type: 'sorcery',
+    cost: 0,
+    effectText: 'Break all own Shields — concludes the conversation.',
+    flavorText: "Alright, love. You take care of yourself.",
+    effects: { breakOwnShields: true },
+    color: '#4ecca3',
+  },
 };
 
 /** Card IDs the player owns at the start of a fresh game. */

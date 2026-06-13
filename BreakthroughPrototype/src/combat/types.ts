@@ -28,6 +28,12 @@ export interface CardEffects {
   autoBreakAfterPlays?: number;
   // #79 — can be played by the player even during the opponent's phase (negative priority)
   isInterrupt?: boolean;
+  // tutorial — when used as a player shield, gives +5 priority on break (vs default) and no patience loss
+  effectiveShield?: boolean;
+  // opponent card — breaks all of the opponent's own remaining shields (ends conversation)
+  breakOwnShields?: boolean;
+  // opponent card — prefers to target the player's effective shield when breaking
+  targetEffectiveShield?: boolean;
 }
 
 export interface CardDef {
@@ -65,6 +71,8 @@ export interface DeckState {
 export interface CombatState {
   phase: 'attack' | 'defense';
   priority: number;           // -10 to +10; positive = attack phase
+  tutorialMode: boolean;
+  tutorialScriptedOppQueue: string[];  // remaining scripted opponent plays (consumed in order)
   playerShields: ShieldSlot[];
   oppShields: ShieldSlot[];
   hand: string[];             // card IDs in player hand
@@ -136,6 +144,22 @@ export interface EncounterConfig {
   dialogue: { onVulnerable: string[]; onResistant: string[]; onShieldBreak?: string[] };
   fearless?: boolean; // #58 — patience-cost shield break cards have no effect against this opponent
   cardOverrides?: Record<string, CardOverride>; // #100 — per-card effect/text patches for this encounter
+  // Tutorial mode fields
+  tutorialMode?: boolean;
+  // Pre-ordered draw sequence; these card IDs are placed at the front of the shuffled deck in order.
+  scriptedDrawOrder?: string[];
+  // Scripted opponent play sequence; the opponent always plays these card IDs in order, ignoring their actual hand.
+  scriptedOpponentPlays?: string[];
+  // Starting priority value (defaults to 5, i.e. attack phase).
+  initialPriority?: number;
+  // If true, start with awaitingOpponentAck:true so the tutorial tooltip can appear before the first opponent action.
+  initialAwaitingOpponentAck?: boolean;
+  // Cards pre-seeded into understoodCards at combat init for this encounter.
+  preUnderstoodCards?: string[];
+  // Pre-placed player shields to use when bypassing ShieldSelector.
+  tutorialPreShields?: string[];
+  // Per-encounter overrides to the default CombatConfig values.
+  initialCombatConfig?: Partial<CombatConfig>;
 }
 
 export type CombatAction =

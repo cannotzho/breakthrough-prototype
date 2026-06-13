@@ -5,6 +5,7 @@ import ShieldSelector from './components/ShieldSelector';
 import CombatScreen from './components/CombatScreen';
 import DeckPreviewScreen from './components/DeckPreviewScreen';
 import { STARTER_COMPENDIUM, CARDS, DETECTIVE_PERSONAL_DECK } from './data/cards';
+import { ENCOUNTERS } from './data/encounters';
 
 const MAX_DECK = 15;
 import DevTools from './components/DevTools';
@@ -67,6 +68,15 @@ export default function App() {
   }, []);
 
   function openDeckBuilder(id: string) {
+    const enc = ENCOUNTERS[id];
+    if (enc?.tutorialMode) {
+      // Tutorial encounters bypass the deckbuilder/deckpreview/shieldselector flow entirely.
+      setEncounterId(id);
+      setChosenWorldDeck(enc.scriptedDrawOrder ?? []);
+      setPreShields(enc.tutorialPreShields ?? []);
+      setScreen('combat');
+      return;
+    }
     setEncounterId(id);
     const uniqueIds = [...new Set(compendium)].filter(cid => CARDS[cid]);
     if (uniqueIds.length <= MAX_DECK) {

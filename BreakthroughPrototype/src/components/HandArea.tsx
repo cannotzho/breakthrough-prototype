@@ -189,10 +189,11 @@ export default function HandArea({ state, onPlayCard, onPlaceShield, onEndTurn, 
       </div>
 
       {/* Hand */}
-      <div className="flex items-center gap-2 px-3 py-2 overflow-x-auto min-h-[158px]">
+      <div className="flex items-center gap-2 px-3 py-2 overflow-x-auto min-h-[158px]" data-tutorial-id="hand">
         {/* End Turn button — only in attack phase */}
         {phase === 'attack' && !awaitingShieldChoice && (
           <button
+            data-tutorial-id="end-turn-btn"
             onClick={(e) => { e.stopPropagation(); onEndTurn(); }}
             className="flex-shrink-0 flex flex-col items-center justify-center w-[76px] h-[106px] sm:w-[84px] sm:h-[114px] rounded-md border-2 border-dashed border-[#4ecca3] bg-[#0a2a1e] text-[#4ecca3] text-xs text-center leading-snug cursor-pointer hover:bg-[#0f3d2c] hover:border-[#6ee8c0] transition-colors"
           >
@@ -219,6 +220,7 @@ export default function HandArea({ state, onPlayCard, onPlaceShield, onEndTurn, 
           return (
             <div
               key={idx}
+              data-tutorial-id={`card-${cardId}`}
               draggable={!stagedCardId}
               onClick={(e) => handleCardClick(e, cardId)}
               onDragStart={(e) => {

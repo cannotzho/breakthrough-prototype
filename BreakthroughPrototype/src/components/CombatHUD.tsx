@@ -3,9 +3,10 @@ import type { CombatState } from '../combat/types';
 interface Props {
   state: CombatState;
   encounterName: string;
+  hidePatience?: boolean;
 }
 
-export default function CombatHUD({ state, encounterName }: Props) {
+export default function CombatHUD({ state, encounterName, hidePatience = false }: Props) {
   const { oppPatience, oppMaxPatience, phase, awaitingShieldChoice } = state;
 
   const patiencePct = Math.max(0, (oppPatience / oppMaxPatience) * 100);
@@ -23,15 +24,19 @@ export default function CombatHUD({ state, encounterName }: Props) {
       <div className="flex-1 min-w-[140px] bg-[#16213e] rounded p-2 border border-[#0f3460]">
         <p className="text-[#888] text-xs uppercase tracking-wider">Opponent</p>
         <p className="text-white font-bold text-base truncate">{encounterName}</p>
-        <p className="text-[#888] text-xs mt-1">
-          Patience <span className="text-white">{oppPatience}/{oppMaxPatience}</span>
-        </p>
-        <div className="w-full h-1.5 bg-[#333] rounded-full mt-1 overflow-hidden">
-          <div
-            className="h-full rounded-full bg-[#e94560] transition-all duration-300"
-            style={{ width: `${patiencePct}%` }}
-          />
-        </div>
+        {!hidePatience && (
+          <>
+            <p className="text-[#888] text-xs mt-1" data-tutorial-id="patience-meter">
+              Patience <span className="text-white">{oppPatience}/{oppMaxPatience}</span>
+            </p>
+            <div className="w-full h-1.5 bg-[#333] rounded-full mt-1 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-[#e94560] transition-all duration-300"
+                style={{ width: `${patiencePct}%` }}
+              />
+            </div>
+          </>
+        )}
         <p className="text-[#888] text-xs mt-1">
           Shields: {state.oppShields.filter(s => !s.broken).length} / {state.oppShields.length}
         </p>

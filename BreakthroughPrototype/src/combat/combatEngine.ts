@@ -139,7 +139,7 @@ export function triggerOpponentAction(state: CombatState): CombatState {
 export type InitArg = { encounter: EncounterConfig; chosenWorldDeck: string[]; preShields?: string[]; config?: Partial<CombatConfig>; personalDeck?: string[] };
 
 export function initCombat({ encounter, chosenWorldDeck, preShields = [], config, personalDeck }: InitArg): CombatState {
-  const combatConfig: CombatConfig = { ...DEFAULT_COMBAT_CONFIG, ...config };
+  const combatConfig: CombatConfig = { ...DEFAULT_COMBAT_CONFIG, ...encounter.initialCombatConfig, ...config };
   // Remove pre-selected shield cards from the world deck (one removal per shield card)
   const deckWithoutShields = [...chosenWorldDeck];
   const validPreShields: string[] = [];
@@ -174,12 +174,28 @@ export function initCombat({ encounter, chosenWorldDeck, preShields = [], config
     }
   }
 
-  // Merge personal + world cards into a single combined draw pile (shuffled together).
-  // personalDeck is kept for discard routing only; worldDeck holds the combined draw pile.
-  const combinedCards = shuffle([
-    ...(personalDeck ?? DETECTIVE_PERSONAL_DECK), ...(encounter.personalDeck ?? []),
-    ...convertedWorldDeck,
-  ]);
+  // Merge personal + world cards into a single combined draw pile.
+  // If scriptedDrawOrder is provided, those cards are placed at the front of the deck
+  // (ensuring the tutorial sees specific cards drawn first), with the rest shuffled after.
+  const allPersonal = [...(personalDeck ?? DETECTIVE_PERSONAL_DECK), ...(encounter.personalDeck ?? [])];
+  let combinedCards: string[];
+  if (encounter.scriptedDrawOrder && encounter.scriptedDrawOrder.length > 0) {
+    const scripted = encounter.scriptedDrawOrder;
+    // Remove scripted cards from the unordered pool (one copy each), then append remainder shuffled
+    const unordered = [...allPersonal, ...convertedWorldDeck];
+    const remaining = [...unordered];
+    const frontCards: string[] = [];
+    for (const sc of scripted) {
+      const idx = remaining.indexOf(sc);
+      if (idx !== -1) {
+        frontCards.push(sc);
+        remaining.splice(idx, 1);
+      }
+    }
+    combinedCards = [...frontCards, ...shuffle(remaining)];
+  } else {
+    combinedCards = shuffle([...allPersonal, ...convertedWorldDeck]);
+  }
 
   // #100 — understood cards: personal deck cards start understood (detective knows their own techniques);
   // world/info cards start as ??? until played. Also seeds from bt_understood_cards overworld pre-flags.
@@ -191,12 +207,25 @@ export function initCombat({ encounter, chosenWorldDeck, preShields = [], config
     try { return JSON.parse(localStorage.getItem('bt_understood_cards') ?? '[]') as string[]; }
     catch { return []; }
   })();
-  const understoodCards = new Set<string>([...personalCardSet, ...preUnderstood]);
+  const understoodCards = new Set<string>([
+    ...personalCardSet,
+    ...preUnderstood,
+    ...(encounter.preUnderstoodCards ?? []),
+  ]);
   const cardOverrides: Record<string, import('./types').CardOverride> = encounter.cardOverrides ?? {};
 
+  // Tutorial: scripted opponent play queue
+  const tutorialScriptedOppQueue: string[] = encounter.scriptedOpponentPlays ? [...encounter.scriptedOpponentPlays] : [];
+
+  // Starting priority and phase
+  const initialPriority = encounter.initialPriority ?? 5;
+  const initialPhase: 'attack' | 'defense' = initialPriority > 0 ? 'attack' : 'defense';
+
   let state: CombatState = {
-    phase: 'attack',
-    priority: 5,
+    phase: initialPhase,
+    priority: initialPriority,
+    tutorialMode: encounter.tutorialMode ?? false,
+    tutorialScriptedOppQueue,
     playerShields: playerShieldsInit,
     oppShields: encounter.shieldLinks.slice(0, encounter.oppShields).map((link, i) => {
       const req = encounter.shieldRequirements?.[i];
@@ -216,7 +245,8 @@ export function initCombat({ encounter, chosenWorldDeck, preShields = [], config
     oppPatience: encounter.patience,
     oppMaxPatience: encounter.patience,
     collectedInfo: [],
-    opponentActionTrigger: 0,
+    // If the encounter starts in defense phase, immediately queue the first opponent action.
+    opponentActionTrigger: initialPhase === 'defense' ? 1 : 0,
     disposition: encounter.disposition,
     valuableShields: encounter.valuableShields,
     activeDialogue: null,
@@ -230,7 +260,8 @@ export function initCombat({ encounter, chosenWorldDeck, preShields = [], config
     // BotM #84
     backOfMind: [],
     awaitingBackOfMindChoice: false,
-    awaitingOpponentAck: false,
+    // For encounters starting in defense, pause with awaitingOpponentAck so tutorial tooltip shows first.
+    awaitingOpponentAck: encounter.initialAwaitingOpponentAck ?? false,
     pendingShieldBreakLine: null,
     combatConfig,
     // #99
@@ -506,6 +537,8 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       const brokenSlot = s.playerShields[index];
       const isValuable = brokenSlot.usedCardId !== undefined &&
                          s.valuableShields.includes(brokenSlot.usedCardId);
+      const isEffective = brokenSlot.usedCardId !== undefined &&
+                          (CARDS[brokenSlot.usedCardId]?.effects.effectiveShield ?? false);
 
       const newShields = [...s.playerShields];
       newShields[index] = { ...newShields[index], broken: true };
@@ -523,9 +556,14 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
         if (drawn) s = { ...s, oppHand: [...s.oppHand, drawn] };
       }
 
-      // Tiered break bonuses: valuable shield → NPC surges (+4 over base), plain → base only (#91)
+      // Tiered break bonuses: effective shield → +5 priority, no patience change;
+      // valuable shield → +4 over base + opponent patience surges; plain → base only (#91)
       const shieldBreakPriority = s.combatConfig.priorityOnShieldBreak;
-      if (isValuable) {
+      if (isEffective) {
+        const cardName = CARDS[brokenSlot.usedCardId!]?.name ?? brokenSlot.usedCardId!;
+        s = addLog(s, `${cardName} absorbed the attack — Effective Shield! (+5 Priority)`);
+        s = { ...s, priority: clamp(5) };
+      } else if (isValuable) {
         const cardName = CARDS[brokenSlot.usedCardId!]?.name ?? brokenSlot.usedCardId!;
         s = addLog(s, `Opponent finds ${cardName} behind the shield — their patience surges!`);
         s = { ...s, oppPatience: Math.min(s.oppMaxPatience, s.oppPatience + 2), priority: clamp(shieldBreakPriority + 4) };
@@ -545,9 +583,18 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
 
       let s = { ...state, awaitingOpponentAck: false }; // clear ack gate when action actually fires
 
+      // Tutorial: consume the next scripted card from the queue, if any
+      let scriptedCardId: string | undefined;
+      if (s.tutorialScriptedOppQueue.length > 0) {
+        [scriptedCardId, ...s.tutorialScriptedOppQueue] = s.tutorialScriptedOppQueue;
+        s = { ...s, tutorialScriptedOppQueue: s.tutorialScriptedOppQueue };
+      }
+
+      const resolvedSpecificCardId = scriptedCardId ?? action.specificCardId;
+
       // Refill opponent hand from deck, reshuffling discard pile if needed
       // Only refill from deck if no specific card is being requested
-      if (!action.specificCardId && s.oppHand.length === 0) {
+      if (!resolvedSpecificCardId && s.oppHand.length === 0) {
         const [drawn, newDeck] = drawFromDeck(s.oppDeck);
         if (drawn) {
           s = { ...s, oppHand: [drawn], oppDeck: newDeck };
@@ -555,7 +602,7 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
         }
       }
 
-      if (s.oppHand.length === 0) {
+      if (s.oppHand.length === 0 && !resolvedSpecificCardId) {
         // Opponent has no cards — immediately return priority to the player (#101)
         s = addLog(s, 'Opponent has nothing to say — you regain the initiative.');
         s = { ...s, priority: 1 };
@@ -565,13 +612,17 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
         return s;
       }
 
-      // Playtest: a specific card from the hand can be chosen; otherwise play from front
+      // Playtest or tutorial scripted card: play a specific card from hand; otherwise play from front
       let playedId: string;
       let restHand: string[];
-      if (action.specificCardId && s.oppHand.includes(action.specificCardId)) {
-        playedId = action.specificCardId;
-        const idx = s.oppHand.indexOf(action.specificCardId);
+      if (resolvedSpecificCardId && s.oppHand.includes(resolvedSpecificCardId)) {
+        playedId = resolvedSpecificCardId;
+        const idx = s.oppHand.indexOf(resolvedSpecificCardId);
         restHand = [...s.oppHand.slice(0, idx), ...s.oppHand.slice(idx + 1)];
+      } else if (resolvedSpecificCardId && !s.oppHand.includes(resolvedSpecificCardId)) {
+        // Tutorial scripted card not in hand — play it directly as a virtual play
+        playedId = resolvedSpecificCardId;
+        restHand = [...s.oppHand];
       } else {
         [playedId, ...restHand] = s.oppHand;
       }
@@ -590,13 +641,50 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
 
       s = addLog(s, `Opponent plays [${playedCard.name}]`);
 
+      // breakOwnShields: opponent voluntarily breaks all their own remaining shields (e.g. Sign Off)
+      if (playedCard.effects.breakOwnShields) {
+        const newOppShields = s.oppShields.map(sh => {
+          if (sh.broken) return sh;
+          if (sh.linkedCardId) {
+            s = { ...s, collectedInfo: [...s.collectedInfo, sh.linkedCardId] };
+          }
+          return { ...sh, broken: true };
+        });
+        s = { ...s, oppShields: newOppShields };
+        s = addLog(s, 'Opponent breaks all their own shields!');
+        // Discard and draw
+        const deckWithDiscard = { ...s.oppDeck, discard: [...s.oppDeck.discard, playedId] };
+        const [drawn, finalDeck] = drawFromDeck(deckWithDiscard);
+        s = { ...s, oppDeck: finalDeck };
+        if (drawn) s = { ...s, oppHand: [...s.oppHand, drawn] };
+        s = checkEndCondition(s);
+        if (!s.gameOver) s = updatePhase(s);
+        s = recomputeCombinations(s);
+        return s;
+      }
+
       // Shield-break requires player to choose which shield to sacrifice
       if (playedCard.effects.breakShield) {
         const intactShields = s.playerShields.filter(sh => !sh.broken);
         // Shields with requiresCardId can only be broken by that specific card (#101)
         const validTargets = intactShields.filter(sh => !sh.requiresCardId || sh.requiresCardId === playedId);
 
+        // targetEffectiveShield: prefer a player shield backed by an effectiveShield card
+        const effectiveTargets = validTargets.filter(sh => sh.usedCardId && CARDS[sh.usedCardId]?.effects.effectiveShield);
+
         if (!s.playerShieldImmune && intactShields.length > 0 && validTargets.length > 0) {
+          // If the card targets effective shields and one exists, auto-select it; otherwise normal choice
+          if (playedCard.effects.targetEffectiveShield && effectiveTargets.length > 0) {
+            // Find the index of the first effective shield in playerShields
+            const effectiveIdx = s.playerShields.findIndex(
+              sh => !sh.broken && sh.usedCardId && CARDS[sh.usedCardId]?.effects.effectiveShield,
+            );
+            if (effectiveIdx !== -1) {
+              return { ...s, awaitingShieldChoice: true, pendingOppCardId: playedId,
+                // Pre-select effective shield so UI can highlight it
+              };
+            }
+          }
           // Normal case — ask player to choose which shield to sacrifice
           return { ...s, awaitingShieldChoice: true, pendingOppCardId: playedId };
         }

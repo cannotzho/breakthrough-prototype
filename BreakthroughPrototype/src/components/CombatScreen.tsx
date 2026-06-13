@@ -25,7 +25,7 @@ interface Props {
 export default function CombatScreen({ encounterId, chosenWorldDeck, preShields = [], personalDeck, addToCompendium, onEnd }: Props) {
   const encounter = ENCOUNTERS[encounterId];
   const { state, playCard, placeShield, endTurn, chooseShieldToBreak, chooseOppShieldToBreak, dismissDialogue, dismissReveal, resetCombat, combineCards, confirmBackOfMind, acknowledgeOpponent } = useCombat(encounter, chosenWorldDeck, preShields, false, personalDeck);
-  const { active: tutorialStep, dismiss: dismissTutorial } = useTutorial(encounterId, state);
+  const { active: tutorialStep, dismiss: dismissTutorial, revealPatience, revealPriorityBar } = useTutorial(encounterId, state, { acknowledgeOpponent });
   const animDelay = state.combatConfig.animDelay;
   const hasInstants = state.hand.some(id => { const c = CARDS[id]; return c && (c.type === 'instant' || c.effects.isInterrupt); });
 
@@ -216,7 +216,7 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
       `}</style>
 
       {/* HUD */}
-      <CombatHUD state={state} encounterName={encounter.name} />
+      <CombatHUD state={state} encounterName={encounter.name} hidePatience={!revealPatience && state.tutorialMode} />
 
       {/* Main area: battlefield + log side by side on larger screens */}
       <div className="flex flex-1 overflow-hidden">
@@ -233,6 +233,7 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
           justBrokenPlayerShieldIdx={justBrokenShieldIdx}
           encounterName={encounter.name}
           portraitUrl={encounter.portraitUrl}
+          hidePriorityBar={!revealPriorityBar && state.tutorialMode}
         />
 
         {/* Log — sidebar on desktop, hidden on very small screens */}
@@ -352,7 +353,7 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
       )}
 
       {/* Opponent-action acknowledgment — only shown when player has an instant to play; otherwise auto-resolved (#96) */}
-      {state.awaitingOpponentAck && !state.gameOver && !state.awaitingBackOfMindChoice && !state.awaitingShieldChoice && botmPickerReady && hasInstants && (
+      {state.awaitingOpponentAck && !state.gameOver && !state.awaitingBackOfMindChoice && !state.awaitingShieldChoice && botmPickerReady && hasInstants && !tutorialStep?.hidePassButton && (
         <div className="absolute bottom-[180px] left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-2 pointer-events-auto">
           <button
             onClick={acknowledgeOpponent}

@@ -18,9 +18,10 @@ interface Props {
   justBrokenPlayerShieldIdx?: number | null;
   encounterName: string;
   portraitUrl?: string;
+  hidePriorityBar?: boolean;
 }
 
-export default function Battlefield({ state, onChooseShield, onChooseOppShield, isDragging, onDropPlay, onDropShield, stagedCardId, onCancelStaged, oppStagedCardId, justBrokenPlayerShieldIdx, encounterName, portraitUrl }: Props) {
+export default function Battlefield({ state, onChooseShield, onChooseOppShield, isDragging, onDropPlay, onDropShield, stagedCardId, onCancelStaged, oppStagedCardId, justBrokenPlayerShieldIdx, encounterName, portraitUrl, hidePriorityBar = false }: Props) {
   const [playZoneOver, setPlayZoneOver] = useState(false);
   const [shieldZoneOver, setShieldZoneOver] = useState(false);
   const [inspectCardId, setInspectCardId] = useState<string | null>(null);
@@ -45,7 +46,7 @@ export default function Battlefield({ state, onChooseShield, onChooseOppShield, 
   return (
     <div className="flex flex-col items-center justify-center gap-4 py-4 flex-1">
       {/* Priority bar — center pip = 0, left = opponent's turn, right = player's turn */}
-      <div className="w-full max-w-sm px-2">
+      <div className="w-full max-w-sm px-2" data-tutorial-id="priority-bar" style={hidePriorityBar ? { visibility: 'hidden' } : undefined}>
         <div className="flex justify-between items-baseline mb-1">
           <span className="text-xs text-[#888] uppercase tracking-wider">Opponent</span>
           <span className={`text-xs font-bold tabular-nums ${state.priority > 0 ? 'text-[#4ecca3]' : state.priority < 0 ? 'text-[#e94560]' : 'text-[#666]'}`}>
@@ -90,6 +91,7 @@ export default function Battlefield({ state, onChooseShield, onChooseOppShield, 
       ) : (
         /* Play zone — enlarged natural drag target with opponent portrait background */
         <div
+          data-tutorial-id="play-zone"
           data-dropzone="play"
           className={[
             'w-full max-w-sm rounded-xl border-2 border-dashed transition-all select-none relative overflow-hidden',
@@ -140,7 +142,7 @@ export default function Battlefield({ state, onChooseShield, onChooseOppShield, 
       )}
 
       {/* Opponent shield row */}
-      <div className="flex flex-col items-center gap-1">
+      <div className="flex flex-col items-center gap-1" data-tutorial-id="opp-shields">
         <p className={`text-sm uppercase tracking-wider ${state.awaitingOppShieldBreakChoice ? 'text-[#f4d03f]' : 'text-[#888]'}`}>
           {state.awaitingOppShieldBreakChoice
             ? pendingBreakIdx !== null ? '⚠ Confirm your target' : '⚠ Choose a shield to break'
@@ -175,7 +177,7 @@ export default function Battlefield({ state, onChooseShield, onChooseOppShield, 
       </div>
 
       {/* Player shield row — also a drop zone for shield placement */}
-      <div className="flex flex-col items-center gap-1">
+      <div className="flex flex-col items-center gap-1" data-tutorial-id="player-shields">
         <p className="text-[#888] text-sm uppercase tracking-wider">
           {state.awaitingShieldChoice
             ? '⚠ Choose a Shield to sacrifice'
