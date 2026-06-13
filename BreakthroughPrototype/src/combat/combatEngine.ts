@@ -267,8 +267,7 @@ export function initCombat({ encounter, chosenWorldDeck, preShields = [], config
     pendingShieldBreakLine: null,
     combatConfig,
     // #99
-    awaitingOppShieldBreakChoice: false,
-    pendingBreakCardId: null,
+    shieldBreakOrder: encounter.shieldBreakOrder ?? Array.from({ length: encounter.oppShields }, (_, i) => i),
     // #100
     understoodCards,
     cardOverrides,
@@ -313,7 +312,7 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
     }
 
     case 'PLAY_CARD': {
-      if (state.awaitingShieldChoice || state.awaitingOppShieldBreakChoice) return state;
+      if (state.awaitingShieldChoice) return state;
       // #100: use encounter-specific card definition for effect resolution
       const card = resolveCardDef(action.cardId, state.cardOverrides) ?? CARDS[action.cardId];
       if (!card || !state.hand.includes(action.cardId)) return state;
@@ -354,11 +353,10 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       // Increment play count before resolvePlayerEffect so autoBreakAfterPlays can check it (#60)
       s = { ...s, cardPlayCounts: { ...s.cardPlayCounts, [action.cardId]: (s.cardPlayCounts[action.cardId] ?? 0) + 1 } };
 
-      // #99 — deterministic breakShield: pause so the player can choose which shield to target
+      // Auto-break: find next intact shield in shieldBreakOrder and break it immediately
       const hasIntactOppShields = s.oppShields.some(sh => !sh.broken);
       if (card.effects.breakShield && hasIntactOppShields) {
         s = resolvePlayerEffect(s, card, { skipBreak: true });
-        // Card not disposed yet — disposal handled in CHOOSE_OPP_SHIELD based on whether break succeeds
         if (state.phase !== 'defense') {
           const drawN = s.combatConfig.drawPerPlay;
           for (let i = 0; i < drawN; i++) {
@@ -370,7 +368,51 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
             for (let i = 0; i < extra; i++) s = drawOneCard(s);
           }
         }
-        s = { ...s, awaitingOppShieldBreakChoice: true, pendingBreakCardId: action.cardId };
+
+        // Find the next shield to break: prefer one requiring this card, then first unrestricted in order
+        let breakIdx = -1;
+        for (const idx of s.shieldBreakOrder) {
+          if (!s.oppShields[idx]?.broken && s.oppShields[idx]?.requiresCardId === action.cardId) {
+            breakIdx = idx; break;
+          }
+        }
+        if (breakIdx === -1) {
+          for (const idx of s.shieldBreakOrder) {
+            if (!s.oppShields[idx]?.broken && !s.oppShields[idx]?.requiresCardId) {
+              breakIdx = idx; break;
+            }
+          }
+        }
+
+        if (breakIdx !== -1) {
+          s = breakOppShieldAt(s, breakIdx, '');
+          const linkedId = s.oppShields[breakIdx].linkedCardId;
+          if (linkedId) {
+            s = { ...s, revealedShieldCard: linkedId };
+            if (!s.understoodCards.has(linkedId)) {
+              s = { ...s, understoodCards: new Set([...s.understoodCards, linkedId]) };
+            }
+          }
+          const breakLines = s.encounterDialogue.onShieldBreak;
+          if (breakLines && breakLines.length > 0) {
+            const brokenCount = s.oppShields.filter(sh => sh.broken).length;
+            const lineIdx = Math.min(brokenCount - 1, breakLines.length - 1);
+            s = { ...s, pendingShieldBreakLine: breakLines[lineIdx] };
+          }
+          // Information shield-breakers are consumed; all others go to discard
+          if (card.supertype !== 'Information') {
+            s = { ...s, worldDeck: { ...s.worldDeck, discard: [...s.worldDeck.discard, action.cardId] } };
+          }
+        } else {
+          s = { ...s, worldDeck: { ...s.worldDeck, discard: [...s.worldDeck.discard, action.cardId] } };
+        }
+
+        s = checkEndCondition(s);
+        if (s.gameOver) s = { ...s, revealedShieldCard: null };
+        if (!s.gameOver) s = updatePhase(s);
+        if (!s.gameOver && s.phase === 'defense' && s.phase === state.phase) {
+          s = triggerOpponentAction(s);
+        }
         return recomputeCombinations(s);
       }
 
@@ -434,49 +476,6 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
         s = triggerOpponentAction(s);
       }
 
-      s = recomputeCombinations(s);
-      return s;
-    }
-
-    // #99 — player confirms which opponent shield to break
-    case 'CHOOSE_OPP_SHIELD': {
-      if (!state.awaitingOppShieldBreakChoice || state.pendingBreakCardId === null) return state;
-      const { index } = action;
-      if (index < 0 || index >= state.oppShields.length || state.oppShields[index].broken) return state;
-
-      const pendingCardId = state.pendingBreakCardId;
-      const pendingCard = resolveCardDef(pendingCardId, state.cardOverrides) ?? CARDS[pendingCardId];
-
-      let s: CombatState = { ...state, awaitingOppShieldBreakChoice: false, pendingBreakCardId: null };
-      s = breakOppShieldAt(s, index, '');
-      const shieldWasBroken = !state.oppShields[index].broken && s.oppShields[index].broken;
-
-      if (shieldWasBroken) {
-        const linkedId = s.oppShields[index].linkedCardId;
-        if (linkedId) {
-          s = { ...s, revealedShieldCard: linkedId };
-          if (!s.understoodCards.has(linkedId)) {
-            s = { ...s, understoodCards: new Set([...s.understoodCards, linkedId]) };
-          }
-        }
-        const breakLines = s.encounterDialogue.onShieldBreak;
-        if (breakLines && breakLines.length > 0) {
-          const brokenCount = s.oppShields.filter(sh => sh.broken).length;
-          const lineIdx = Math.min(brokenCount - 1, breakLines.length - 1);
-          s = { ...s, pendingShieldBreakLine: breakLines[lineIdx] };
-        }
-      }
-
-      // Dispose pending card: Information shield-breakers are consumed; others go to discard
-      if (pendingCard && shieldWasBroken && pendingCard.supertype === 'Information') {
-        // consumed — stays out of game
-      } else if (pendingCardId) {
-        s = { ...s, worldDeck: { ...s.worldDeck, discard: [...s.worldDeck.discard, pendingCardId] } };
-      }
-
-      s = checkEndCondition(s);
-      if (s.gameOver) s = { ...s, revealedShieldCard: null };
-      if (!s.gameOver) s = updatePhase(s);
       s = recomputeCombinations(s);
       return s;
     }

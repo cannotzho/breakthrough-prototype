@@ -24,7 +24,7 @@ interface Props {
 
 export default function CombatScreen({ encounterId, chosenWorldDeck, preShields = [], personalDeck, addToCompendium, onEnd }: Props) {
   const encounter = ENCOUNTERS[encounterId];
-  const { state, playCard, placeShield, endTurn, chooseShieldToBreak, chooseOppShieldToBreak, dismissDialogue, dismissReveal, resetCombat, combineCards, confirmBackOfMind, acknowledgeOpponent } = useCombat(encounter, chosenWorldDeck, preShields, false, personalDeck);
+  const { state, playCard, placeShield, endTurn, chooseShieldToBreak, dismissDialogue, dismissReveal, resetCombat, combineCards, confirmBackOfMind, acknowledgeOpponent } = useCombat(encounter, chosenWorldDeck, preShields, false, personalDeck);
   const { active: tutorialStep, dismiss: dismissTutorial, revealPatience, revealPriorityBar } = useTutorial(encounterId, state, { acknowledgeOpponent });
   const animDelay = state.combatConfig.animDelay;
   const hasInstants = state.hand.some(id => { const c = CARDS[id]; return c && (c.type === 'instant' || c.effects.isInterrupt); });
@@ -223,7 +223,6 @@ export default function CombatScreen({ encounterId, chosenWorldDeck, preShields 
         <Battlefield
           state={state}
           onChooseShield={chooseShieldToBreak}
-          onChooseOppShield={chooseOppShieldToBreak}
           isDragging={draggingCardId !== null}
           onDropPlay={(cardId) => { setDraggingCardId(null); handlePlayCard(cardId); }}
           onDropShield={() => { setDraggingCardId(null); placeShield(); }}

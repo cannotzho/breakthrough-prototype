@@ -8,7 +8,6 @@ import CardInspectModal from './CardInspectModal';
 interface Props {
   state: CombatState;
   onChooseShield: (index: number) => void;
-  onChooseOppShield: (index: number) => void;
   isDragging: boolean;
   onDropPlay: (cardId: string) => void;
   onDropShield: () => void;
@@ -21,24 +20,13 @@ interface Props {
   hidePriorityBar?: boolean;
 }
 
-export default function Battlefield({ state, onChooseShield, onChooseOppShield, isDragging, onDropPlay, onDropShield, stagedCardId, onCancelStaged, oppStagedCardId, justBrokenPlayerShieldIdx, encounterName, portraitUrl, hidePriorityBar = false }: Props) {
+export default function Battlefield({ state, onChooseShield, isDragging, onDropPlay, onDropShield, stagedCardId, onCancelStaged, oppStagedCardId, justBrokenPlayerShieldIdx, encounterName, portraitUrl, hidePriorityBar = false }: Props) {
   const [playZoneOver, setPlayZoneOver] = useState(false);
   const [shieldZoneOver, setShieldZoneOver] = useState(false);
   const [inspectCardId, setInspectCardId] = useState<string | null>(null);
-  // #99 — local staging for break-target selection before confirm
-  const [pendingBreakIdx, setPendingBreakIdx] = useState<number | null>(null);
 
-  // Reset local pending selection when the engine clears the awaiting flag (#99)
-  if (!state.awaitingOppShieldBreakChoice && pendingBreakIdx !== null) {
-    setPendingBreakIdx(null);
-  }
-
-  const phaseLabel = state.awaitingShieldChoice
-    ? 'Choose Shield'
-    : state.awaitingOppShieldBreakChoice
-      ? 'Choose Target Shield'
-      : state.phase === 'attack' ? 'Your Turn' : "Opponent's Turn";
-  const phaseColor = (state.awaitingShieldChoice || state.awaitingOppShieldBreakChoice) ? '#f4d03f' : state.phase === 'attack' ? '#4ecca3' : '#e94560';
+  const phaseLabel = state.awaitingShieldChoice ? 'Choose Shield' : state.phase === 'attack' ? 'Your Turn' : "Opponent's Turn";
+  const phaseColor = state.awaitingShieldChoice ? '#f4d03f' : state.phase === 'attack' ? '#4ecca3' : '#e94560';
 
   const stagedCard = stagedCardId ? CARDS[stagedCardId] : null;
   const oppStagedCard = oppStagedCardId ? CARDS[oppStagedCardId] : null;
@@ -143,37 +131,11 @@ export default function Battlefield({ state, onChooseShield, onChooseOppShield, 
 
       {/* Opponent shield row */}
       <div className="flex flex-col items-center gap-1" data-tutorial-id="opp-shields">
-        <p className={`text-sm uppercase tracking-wider ${state.awaitingOppShieldBreakChoice ? 'text-[#f4d03f]' : 'text-[#888]'}`}>
-          {state.awaitingOppShieldBreakChoice
-            ? pendingBreakIdx !== null ? '⚠ Confirm your target' : '⚠ Choose a shield to break'
-            : 'Opponent Shields'}
-        </p>
+        <p className="text-[#888] text-sm uppercase tracking-wider">Opponent Shields</p>
         <ShieldRow
           shields={state.oppShields}
           owner="opponent"
-          awaitingBreakChoice={state.awaitingOppShieldBreakChoice}
-          pendingBreakIdx={pendingBreakIdx}
-          onSelectBreakTarget={setPendingBreakIdx}
         />
-        {/* #99 — Confirm / Cancel buttons during break-target selection */}
-        {state.awaitingOppShieldBreakChoice && (
-          <div className="flex gap-2 mt-2">
-            {pendingBreakIdx !== null && (
-              <button
-                onClick={() => { onChooseOppShield(pendingBreakIdx); setPendingBreakIdx(null); }}
-                className="px-4 py-1.5 bg-[#e94560] text-white rounded font-bold font-mono text-sm hover:bg-[#d03550] transition-colors shadow"
-              >
-                Break this shield
-              </button>
-            )}
-            <button
-              onClick={() => setPendingBreakIdx(null)}
-              className="px-4 py-1.5 bg-[#1a1a2e] border border-[#555] text-[#aaa] rounded font-mono text-sm hover:border-[#888] transition-colors"
-            >
-              {pendingBreakIdx !== null ? 'Cancel' : 'Deselect'}
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Player shield row — also a drop zone for shield placement */}

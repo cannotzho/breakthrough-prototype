@@ -106,9 +106,7 @@ export interface CombatState {
   awaitingOpponentAck: boolean;      // player must click "Pass" before each opponent action fires
   pendingShieldBreakLine: string | null; // NPC reaction queued to show after reveal modal dismisses
   combatConfig: CombatConfig;        // tunable params (dev tools)
-  // #99 — player chooses which opponent shield to break before confirming
-  awaitingOppShieldBreakChoice: boolean; // player must click an opponent shield then confirm
-  pendingBreakCardId: string | null;     // card that triggered the break choice
+  shieldBreakOrder: number[];              // computed from EncounterConfig; order in which opponent shields are broken
   // #100 — card effects hidden until understood
   understoodCards: Set<string>;          // card IDs whose effect text is visible this encounter
   cardOverrides: Record<string, CardOverride>; // encounter-specific card definition patches
@@ -143,6 +141,7 @@ export interface EncounterConfig {
   valuableShields: string[]; // World card IDs especially meaningful to this NPC
   dialogue: { onVulnerable: string[]; onResistant: string[]; onShieldBreak?: string[] };
   fearless?: boolean; // #58 — patience-cost shield break cards have no effect against this opponent
+  shieldBreakOrder?: number[]; // indices of opponent shields in the order they should be broken; defaults to 0,1,2,...
   cardOverrides?: Record<string, CardOverride>; // #100 — per-card effect/text patches for this encounter
   // Tutorial mode fields
   tutorialMode?: boolean;
@@ -168,7 +167,6 @@ export type CombatAction =
   | { type: 'PLACE_SHIELD' }
   | { type: 'END_TURN' }
   | { type: 'CHOOSE_SHIELD_TO_BREAK'; index: number }
-  | { type: 'CHOOSE_OPP_SHIELD'; index: number }
   | { type: 'OPPONENT_ACT'; specificCardId?: string }
   | { type: 'OPPONENT_END_TURN' }
   | { type: 'DISMISS_DIALOGUE' }

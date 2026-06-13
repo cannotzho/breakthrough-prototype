@@ -90,7 +90,8 @@ export function breakOppShieldAt(state: CombatState, index: number, prefix: stri
 }
 
 /**
- * Break the first intact opponent shield and log the result. `prefix` is prepended to the log message.
+ * Break the next opponent shield in `state.shieldBreakOrder` and log the result.
+ * `prefix` is prepended to the log message.
  * If a shield has `requiresCardId` set, only a card with that ID may break it.
  * Priority: shields that specifically require `breakingCardId` are targeted first; unrestricted
  * shields are broken only if no specifically-targeted shield is found.
@@ -98,14 +99,25 @@ export function breakOppShieldAt(state: CombatState, index: number, prefix: stri
 export function breakLowestOppShield(state: CombatState, prefix: string, breakingCardId?: string): CombatState {
   let s = state;
 
-  // Prefer a shield that specifically requires this card (e.g. promiseCard → locked shield)
-  let targetIdx = breakingCardId !== undefined
-    ? s.oppShields.findIndex(sh => !sh.broken && sh.requiresCardId === breakingCardId)
-    : -1;
+  // Prefer a shield in order that specifically requires this card (e.g. promiseCard → locked shield)
+  let targetIdx = -1;
+  if (breakingCardId !== undefined) {
+    for (const idx of s.shieldBreakOrder) {
+      if (!s.oppShields[idx]?.broken && s.oppShields[idx]?.requiresCardId === breakingCardId) {
+        targetIdx = idx;
+        break;
+      }
+    }
+  }
 
-  // Fall back to the first intact shield with no card requirement
+  // Fall back to the first intact unrestricted shield in order
   if (targetIdx === -1) {
-    targetIdx = s.oppShields.findIndex(sh => !sh.broken && !sh.requiresCardId);
+    for (const idx of s.shieldBreakOrder) {
+      if (!s.oppShields[idx]?.broken && !s.oppShields[idx]?.requiresCardId) {
+        targetIdx = idx;
+        break;
+      }
+    }
   }
 
   if (targetIdx === -1) {
