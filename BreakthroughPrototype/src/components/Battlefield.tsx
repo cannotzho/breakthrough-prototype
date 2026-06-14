@@ -24,6 +24,12 @@ export default function Battlefield({ state, onChooseShield, isDragging, onDropP
   const [playZoneOver, setPlayZoneOver] = useState(false);
   const [shieldZoneOver, setShieldZoneOver] = useState(false);
   const [inspectCardId, setInspectCardId] = useState<string | null>(null);
+  const [pendingShieldIdx, setPendingShieldIdx] = useState<number | null>(null);
+
+  // Reset pending selection when engine clears the awaiting flag
+  if (!state.awaitingShieldChoice && pendingShieldIdx !== null) {
+    setPendingShieldIdx(null);
+  }
 
   const phaseLabel = state.awaitingShieldChoice ? 'Choose Shield' : state.phase === 'attack' ? 'Your Turn' : "Opponent's Turn";
   const phaseColor = state.awaitingShieldChoice ? '#f4d03f' : state.phase === 'attack' ? '#4ecca3' : '#e94560';
@@ -140,9 +146,9 @@ export default function Battlefield({ state, onChooseShield, isDragging, onDropP
 
       {/* Player shield row — also a drop zone for shield placement */}
       <div className="flex flex-col items-center gap-1" data-tutorial-id="player-shields">
-        <p className="text-[#888] text-sm uppercase tracking-wider">
+        <p className={`text-sm uppercase tracking-wider ${state.awaitingShieldChoice ? 'text-[#f4d03f]' : 'text-[#888]'}`}>
           {state.awaitingShieldChoice
-            ? '⚠ Choose a Shield to sacrifice'
+            ? pendingShieldIdx !== null ? '⚠ Confirm your sacrifice' : '⚠ Choose a Shield to peek'
             : shieldZoneOver
               ? 'Drop to Place Shield'
               : isDragging
@@ -182,11 +188,41 @@ export default function Battlefield({ state, onChooseShield, isDragging, onDropP
             shields={state.playerShields}
             owner="player"
             awaitingChoice={state.awaitingShieldChoice}
-            onChoose={onChooseShield}
+            onSelectShield={(idx) => setPendingShieldIdx(idx < 0 ? null : idx)}
             onInspect={(cardId) => setInspectCardId(cardId)}
             justBrokenIdx={justBrokenPlayerShieldIdx}
+            pendingIdx={pendingShieldIdx}
           />
         </div>
+
+        {/* Peek/confirm panel — shown when player has selected a shield to sacrifice (#114) */}
+        {state.awaitingShieldChoice && pendingShieldIdx !== null && (() => {
+          const slot = state.playerShields[pendingShieldIdx];
+          const peekCard = slot?.usedCardId ? CARDS[slot.usedCardId] : null;
+          return (
+            <div className="mt-2 flex flex-col items-center gap-2">
+              {peekCard && (
+                <div style={{ transform: 'scale(0.9)', transformOrigin: 'center top' }}>
+                  <CardComponent card={peekCard} />
+                </div>
+              )}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { onChooseShield(pendingShieldIdx); setPendingShieldIdx(null); }}
+                  className="px-4 py-1.5 bg-[#e94560] text-white rounded font-bold font-mono text-sm hover:bg-[#d03550] transition-colors shadow"
+                >
+                  Sacrifice this shield
+                </button>
+                <button
+                  onClick={() => setPendingShieldIdx(null)}
+                  className="px-4 py-1.5 bg-[#1a1a2e] border border-[#555] text-[#aaa] rounded font-mono text-sm hover:border-[#888] transition-colors"
+                >
+                  Deselect
+                </button>
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Active enchantments on field */}

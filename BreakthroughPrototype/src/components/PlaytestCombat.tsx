@@ -409,7 +409,7 @@ function PlaytestActive({ encounter }: { encounter: EncounterConfig }) {
                 shields={state.playerShields}
                 owner="player"
                 awaitingChoice={state.awaitingShieldChoice}
-                onChoose={chooseShieldToBreak}
+                onSelectShield={(idx) => { if (idx >= 0) chooseShieldToBreak(idx); }}
               />
             </div>
           </div>
