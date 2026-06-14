@@ -28,6 +28,10 @@ export interface TutorialStep {
   forcedPlayCard?: string;
   // Override z-index for rendering above modals/pickers (e.g. 65 for reveal modal, 80 for BotM picker).
   overlayZIndex?: number;
+  // When true, this step is skipped entirely (definition kept for reference).
+  skip?: boolean;
+  // Override the default "Play the card to continue" CTA shown when forcedPlayCard is set.
+  forcedPlayCardLabel?: string;
 }
 
 // ── Gutterfang (original) steps ───────────────────────────────────────────────
@@ -125,18 +129,19 @@ const PC_STEPS: TutorialStep[] = [
     position: 'center',
     revealPatience: true,
     overlayZIndex: 65,
+    skip: true,
   },
   {
     id: 'pc_patience',
     title: 'Patience Meter',
-    body: "Intimidate was effective, but notice that the opponent's Patience dropped by 2. When Patience hits zero, the Conversation ends immediately.",
+    body: "Some cards reduce your opponent's Patience. Don't let Patience drop to zero, or the Conversation ends early!",
     position: 'top',
     highlightTarget: 'patience-meter',
   },
   {
     id: 'pc_priority_intro',
     title: 'Priority and Ponder',
-    body: 'Now the Priority bar is visible. Each card you play costs Priority. Try playing Ponder now — it costs 1 Priority and draws another card.',
+    body: 'Each card you play costs Priority. Try playing Ponder now — it costs 1 Priority and draws another card.',
     position: 'center',
     highlightTarget: 'priority-bar',
     revealPriorityBar: true,
@@ -146,8 +151,8 @@ const PC_STEPS: TutorialStep[] = [
   },
   {
     id: 'pc_ponder_played',
-    title: 'Ponder',
-    body: "Ponder is a Skill Card that costs 1 Priority and draws you another card from your Conversation Deck. Unlike Intimidate, most cards carry a Priority cost. When your Priority reaches zero or less, it becomes your opponent's turn to speak.",
+    title: 'Managing Priority',
+    body: "When your Priority reaches zero or less, it becomes your opponent's turn to speak.",
     position: 'center',
   },
   {
@@ -168,6 +173,7 @@ const PC_STEPS: TutorialStep[] = [
     highlightTarget: 'card-slap',
     hidePassButton: true,
     forcedPlayCard: 'slap',
+    forcedPlayCardLabel: "Choose 'Slap' to continue",
     overlayZIndex: 80,
   },
   {
@@ -382,6 +388,13 @@ export function useTutorial(
     setPcStepIdx(prev => prev + 1);
   }, []);
 
+  // Auto-advance past any step marked skip: true
+  useEffect(() => {
+    if (!isPettyCriminal || pcStepIdx >= PC_STEPS.length) return;
+    if (PC_STEPS[pcStepIdx].skip) setPcStepIdx(prev => prev + 1);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPettyCriminal, pcStepIdx]);
+
   // Auto-advance from pc_play_intimidate (step 2) as soon as the first shield breaks,
   // so playing Intimidate without first clicking "Got it" still moves the tutorial forward.
   useEffect(() => {
@@ -458,6 +471,7 @@ export function useTutorial(
   const pcCurrentStep: TutorialStep | null = (() => {
     if (!isPettyCriminal || pcStepIdx >= PC_STEPS.length) return null;
     const step = PC_STEPS[pcStepIdx];
+    if (step.skip) return null;
     // Some steps need to wait for a game condition to be true before displaying
     switch (step.id) {
       case 'pc_skill_card':

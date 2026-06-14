@@ -185,7 +185,7 @@ export default function TutorialTooltip({ step, onDismiss }: Props) {
           )}
           {step.forcedPlayCard && (
             <p className="text-[#4ecca3] text-[10px] uppercase tracking-widest font-mono text-center opacity-60">
-              Play the card to continue
+              {step.forcedPlayCardLabel ?? 'Play the card to continue'}
             </p>
           )}
         </div>
