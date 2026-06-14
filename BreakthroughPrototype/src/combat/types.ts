@@ -187,4 +187,5 @@ export interface CombatConfig {
   drawPerPlay: number;           // cards auto-drawn after playing a card (default 1; 0 = no auto-draw)
   priorityOnShieldBreak: number; // priority restored to player when their shield is broken (default 1; valuable break adds 4 more)
   animDelay: number;             // animation speed multiplier (0 = instant, 1 = normal, 2 = slow-motion)
+  backOfMindLimit: number;       // max cards kept in Back of Mind when losing priority (default 1)
 }

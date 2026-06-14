@@ -76,7 +76,7 @@ const LEGACY_STEPS: Record<string, TutorialStep> = {
   back_of_mind: {
     id: 'back_of_mind',
     title: 'Back of Mind',
-    body: "When the opponent takes the floor, choose up to 3 cards to keep in the back of your mind. The rest are discarded. Interrupt cards can still be played from here. You'll draw fresh cards when you regain priority.",
+    body: "When the opponent takes the floor, choose 1 card to keep in the back of your mind. The rest are discarded. Interrupt cards can still be played from here. You'll draw fresh cards when you regain priority.",
     position: 'center',
   },
 };
@@ -170,7 +170,7 @@ const PC_STEPS: TutorialStep[] = [
     title: 'Back of Mind',
     body: "Whenever Priority shifts to your opponent, the Detective is forced to discard all Hand cards — except for one, which you keep in the Back of Mind. Choose to keep Slap.",
     position: 'top',
-    highlightTarget: 'card-slap',
+    highlightTarget: 'botm-card-slap',
     hidePassButton: true,
     forcedPlayCard: 'slap',
     forcedPlayCardLabel: "Choose 'Slap' to continue",

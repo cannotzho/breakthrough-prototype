@@ -361,7 +361,7 @@ export default function HandArea({ state, onPlayCard, onPlaceShield, onEndTurn, 
                 </span>
               )}
             </button>
-            {canShield && (
+            {canShield && !tutorialForcedCard && (
               <button
                 className="w-full text-left px-3 py-2.5 text-sm text-[#e6a817] hover:bg-[#0f3460] transition-colors cursor-pointer border-b border-[#0f3460]"
                 onClick={() => { onPlaceShield(); setContextMenu(null); }}
@@ -369,7 +369,7 @@ export default function HandArea({ state, onPlayCard, onPlaceShield, onEndTurn, 
                 Place as Shield
               </button>
             )}
-            {validPartners.length > 0 && (
+            {validPartners.length > 0 && !tutorialForcedCard && (
               <button
                 className="w-full text-left px-3 py-2.5 text-sm text-[#c084fc] hover:bg-[#0f3460] transition-colors cursor-pointer border-b border-[#0f3460]"
                 onClick={() => { setCombinePrompt({ sourceCardId: contextMenu!.cardId, partners: validPartners }); setContextMenu(null); }}
@@ -377,12 +377,14 @@ export default function HandArea({ state, onPlayCard, onPlaceShield, onEndTurn, 
                 Combine…
               </button>
             )}
-            <button
-              className="w-full text-left px-3 py-2.5 text-sm text-[#888] hover:bg-[#0f3460] transition-colors cursor-pointer"
-              onClick={() => { setInspectCardId(contextMenu.cardId); setContextMenu(null); }}
-            >
-              Inspect
-            </button>
+            {!tutorialForcedCard && (
+              <button
+                className="w-full text-left px-3 py-2.5 text-sm text-[#888] hover:bg-[#0f3460] transition-colors cursor-pointer"
+                onClick={() => { setInspectCardId(contextMenu.cardId); setContextMenu(null); }}
+              >
+                Inspect
+              </button>
+            )}
           </div>
         </>
       )}

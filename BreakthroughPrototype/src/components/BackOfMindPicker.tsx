@@ -3,13 +3,13 @@ import { CARDS } from '../data/cards';
 import CardComponent from './CardComponent';
 
 // EXPERIMENTAL (BotM #84): picker shown when the player loses priority
-export default function BackOfMindPicker({ hand, onConfirm, forcedCard }: { hand: string[]; onConfirm: (keptIds: string[]) => void; forcedCard?: string }) {
+export default function BackOfMindPicker({ hand, onConfirm, forcedCard, limit = 1 }: { hand: string[]; onConfirm: (keptIds: string[]) => void; forcedCard?: string; limit?: number }) {
   const [selected, setSelected] = useState<string[]>([]);
 
   function toggle(cardId: string) {
     setSelected(prev => {
       if (prev.includes(cardId)) return prev.filter(id => id !== cardId);
-      if (prev.length >= 3) return prev;
+      if (prev.length >= limit) return prev;
       return [...prev, cardId];
     });
   }
@@ -19,7 +19,7 @@ export default function BackOfMindPicker({ hand, onConfirm, forcedCard }: { hand
       <div className="w-full max-w-sm flex flex-col items-center gap-4">
         <div className="text-center">
           <p className="text-[#c4b5fd] text-xs uppercase tracking-[0.2em] font-mono mb-1">Back of Mind</p>
-          <h2 className="text-white text-lg font-bold font-mono mb-1">Choose up to 3 cards to keep</h2>
+          <h2 className="text-white text-lg font-bold font-mono mb-1">Choose up to {limit} card{limit !== 1 ? 's' : ''} to keep</h2>
           <p className="text-[#888] text-xs leading-relaxed">
             The rest are discarded. Kept cards can only be played if they're Interrupts.
             You'll draw 5 new cards when you regain priority.
@@ -40,7 +40,7 @@ export default function BackOfMindPicker({ hand, onConfirm, forcedCard }: { hand
               return (
                 <div
                   key={idx}
-                  data-tutorial-id={`card-${cardId}`}
+                  data-tutorial-id={`botm-card-${cardId}`}
                   onClick={() => { if (!isLockedByTutorial) toggle(cardId); }}
                   style={{
                     cursor: isLockedByTutorial ? 'not-allowed' : 'pointer',
@@ -77,7 +77,7 @@ export default function BackOfMindPicker({ hand, onConfirm, forcedCard }: { hand
         )}
 
         <div className="flex items-center gap-3 mt-2">
-          <span className="text-[#888] text-xs font-mono">{selected.length}/3 selected</span>
+          <span className="text-[#888] text-xs font-mono">{selected.length}/{limit} selected</span>
           <button
             onClick={() => onConfirm(selected)}
             className="px-6 py-2.5 bg-[#7c3aed] text-white rounded font-bold font-mono text-sm hover:bg-[#6d28d9] transition-colors"

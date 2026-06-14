@@ -314,7 +314,8 @@ export function cardForDisplay(
 ): CardDef | undefined {
   const resolved = resolveCardDef(cardId, overrides);
   if (!resolved) return undefined;
-  const effectText = understood.has(cardId) ? resolved.effectText : '???';
+  // Personal (Skill) cards are always known to the Detective — never show '???' for them
+  const effectText = (understood.has(cardId) || resolved.supertype === 'Personal') ? resolved.effectText : '???';
   return costOverride !== undefined
     ? { ...resolved, effectText, cost: costOverride }
     : { ...resolved, effectText };

@@ -23,6 +23,7 @@ export const DEFAULT_COMBAT_CONFIG: CombatConfig = {
   drawPerPlay: 1,             // was hardcoded 2 (one pair) before #91
   priorityOnShieldBreak: 1,   // was hardcoded 1/5 (plain/valuable) before #91
   animDelay: 1,               // 1× = normal speed; 0 = instant; 2 = slow-motion (#96)
+  backOfMindLimit: 1,         // max cards kept when losing priority (closes #112)
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -745,8 +746,8 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
     case 'CONFIRM_BACK_OF_MIND': {
       if (!state.awaitingBackOfMindChoice) return state;
 
-      // Only keep cards that are actually in hand (guard against stale IDs), clamp to 3
-      const validKept = action.keptIds.filter(id => state.hand.includes(id)).slice(0, 3);
+      // Only keep cards that are actually in hand (guard against stale IDs), clamp to limit
+      const validKept = action.keptIds.filter(id => state.hand.includes(id)).slice(0, state.combatConfig.backOfMindLimit);
       const keptSet = new Set<string>();
       const newHand: string[] = [];
       const handCopy = [...state.hand];
