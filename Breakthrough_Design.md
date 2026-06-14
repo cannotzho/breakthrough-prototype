@@ -1,6 +1,6 @@
 # Breakthrough — Game Design Document
 
-> **Status:** Draft v0.5 — Core combat state machine, encounter/NPC configuration, card discovery, persistent state. Sections on card types/subtypes, modifiers, and combinations are placeholders pending design.
+> **Status:** Draft v0.6 — Core combat state machine, encounter/NPC configuration, card discovery, persistent state. Sections on card types/subtypes, modifiers, and combinations are placeholders pending design.
 
 ---
 
@@ -20,6 +20,7 @@ This game is keyword-driven. All mechanical terms should be used precisely and c
 |---|---|
 | **Priority** | A signed integer tracking who controls the conversation. Positive = Detective's turn; zero or negative = NPC's turn. |
 | **Patience** | The NPC's tolerance for the conversation. Reaching zero or below ends the encounter as a loss. |
+| **Counter** | A keyword on certain cards used as Player Shields. When a shield with Counter is broken, its printed effects resolve before the break outcome fires. |
 | **Opponent Shield** | A face-down card belonging to the NPC. Breaking all opponent shields wins the encounter. |
 | **Player Shield** | A face-down card placed by the Detective for protection. Breaking all player shields loses the encounter (if applicable). |
 | **Hint** | A special type of Opponent Shield. When broken, displays lore text but adds no cards to the player's deck. Hint text remains visible in the shield zone after breaking. |
@@ -27,14 +28,17 @@ This game is keyword-driven. All mechanical terms should be used precisely and c
 | **Information Card** | A card type representing knowledge about the world. Effects are unknown until discovered and vary across encounters — the effect is defined per-encounter in the encounter's `relevantCards` config, not globally. Kept in the Collection. |
 | **Back of Mind (BotM)** | A card held over from the player's hand when Priority shifts to the NPC. |
 | **Interrupt** | A keyword on certain cards. Cards with Interrupt may be played during the NPC's turn, before the NPC's staged card resolves. They have no Priority cost. |
+| **Lie** | A keyword on certain Black cards. When a card with Lie is played, the encounter's Lie Counter increases by 1. If the Lie Counter exceeds the encounter's `lieThreshold`, the encounter ends immediately as a loss. Some NPC Traits and cards interact with the Lie Counter to impose additional penalties. |
 | **Safety** | A keyword on certain cards used as Player Shields. When a Safety shield is broken by the NPC, the NPC does not lose Patience. |
 | **Assemble** | A keyword on certain cards. Cards with Assemble may be combined with other Assemble cards. Combining is performed from the player's hand and does not trigger a state machine transition, but does change the state of the hand. |
+| **Color Identity** | The color or colors assigned to a card, determining its mechanical and thematic character. Cards may be single-colored or colorless. Color identity affects deck-building, dynamic combination naming, and certain Trait interactions. |
 | **Trait** | A passive modifier on an NPC that affects combat behaviour throughout the encounter. Applied via encounter configuration. Traits are **discoverable**: before a trait's effect is triggered for the first time, it appears as a question mark icon in the UI. Once triggered, the icon changes to the trait's proper icon and hovering over it displays its passive effect description. |
 | **Relevant Cards** | Information Cards listed in an encounter's config, each paired with an encounter-specific effect definition. Only Relevant Cards reveal their effects when first played in that encounter. |
 | **Conversation Deck** | The deck the player prepares upon entering an encounter. Consists of the player's Skill Deck combined with a selection of Information Cards taken from the Collection. |
 | **Collection** | A database of all cards the player has obtained. Cards are divided into Skill Cards and Information Cards. The Collection is the source from which the player builds their Conversation Deck. |
 | **Skill Deck** | A 20-card deck built from Skill Cards chosen by the player. Combined with Information Cards to form the Conversation Deck. |
 | **Discovered** | The state of an Information Card whose effect has been revealed. Discovery persists across encounters. |
+| **Impression** | A card subtype native to Orange. When played, an Impression card is placed on the field rather than discarded, providing a persistent passive effect for the remainder of the encounter. |
 | **Priority Restore** | The event that occurs whenever Priority transitions from ≤ 0 to > 0. Always triggers a fresh hand draw and sets Priority to the encounter's default restore value. |
 | **Staged Card** | The NPC's currently loaded card, pending resolution. Exists between Enemy Pending and the end of Enemy Play. |
 | **Retryable** | An encounter property. If true, the player may restart the encounter after losing. |
@@ -143,14 +147,15 @@ The routing hub. Never blocks. Transitions evaluated top to bottom; first match 
 1. All opponent shields broken → **WIN**
 2. All player shields broken *(unless `unbreakablePlayerShields` is set)* → **LOSE**
 3. NPC Patience ≤ 0 → **LOSE**
-4. Priority > 0 → move any staged enemy card to NPC discard → **Player Pending**
-5. Priority ≤ 0 AND staged enemy card exists → **Enemy Play**
-6. Priority ≤ 0 AND no staged card AND hand not empty → **BotM Select**
-7. Priority ≤ 0 AND no staged card AND hand empty → **Enemy Pending**
+4. Lie Counter > encounter's `lieThreshold` → **LOSE**
+5. Priority > 0 → move any staged enemy card to NPC discard → **Player Pending**
+6. Priority ≤ 0 AND staged enemy card exists → **Enemy Play**
+7. Priority ≤ 0 AND no staged card AND hand not empty → **BotM Select**
+8. Priority ≤ 0 AND no staged card AND hand empty → **Enemy Pending**
 
-> **Win before loss:** Rule 1 is checked before rules 2–3 so that simultaneously breaking the last opponent shield and draining Patience to zero resolves as a win.
+> **Win before loss:** Rule 1 is checked before rules 2–4 so that simultaneously breaking the last opponent shield and draining Patience to zero resolves as a win.
 >
-> **Staged card on Priority Restore (rule 4):** When Priority transitions to > 0, the NPC's staged card is cancelled. It is moved to the NPC's discard pile — not removed from the encounter.
+> **Staged card on Priority Restore (rule 5):** When Priority transitions to > 0, the NPC's staged card is cancelled. It is moved to the NPC's discard pile — not removed from the encounter.
 
 ---
 
@@ -197,11 +202,12 @@ Triggered when the NPC's card effect breaks a player shield. This state suspends
 Sequence:
 1. Player clicks a shield to select it (the card behind it is previewed).
 2. Player confirms the choice.
-3. Resolve break outcome:
+3. If the sacrificed shield has the **Counter** keyword: resolve its printed effects as a sub-sequence. If a Counter effect breaks an opponent shield, Reveal Pending fires and suspends this sequence until acknowledged.
+4. Resolve break outcome:
    - **Effective Break** *(Safety keyword present)*: NPC loses 0 Patience. Priority Restore fires.
    - **Plain Break** *(all others)*: NPC loses 1 Patience. Priority Restore fires.
-4. Remove shield from player's shield zone.
-5. Resume the suspended Enemy Play effect sequence from the step after the break.
+5. Remove shield from player's shield zone.
+6. Resume the suspended Enemy Play effect sequence from the step after the break.
 
 ---
 
@@ -289,6 +295,7 @@ stateDiagram-v2
     Check --> WIN : all opp shields broken
     Check --> LOSE : all player shields broken
     Check --> LOSE : patience ≤ 0
+    Check --> LOSE : lie counter exceeded
     Check --> PlayerPending : priority > 0\n(staged card → NPC discard)
     Check --> EnemyPlay : priority ≤ 0\nstaged card exists
     Check --> BotMSelect : priority ≤ 0\nno staged card, hand not empty
@@ -370,6 +377,7 @@ Each encounter corresponds to a specific NPC. The encounter config and NPC defin
 | `tutorialMode` | boolean | Enables scripted draw and NPC plays |
 | `scriptedDrawOrder` | string[][] | Fixed hands per draw step (tutorialMode only) |
 | `scriptedOpponentPlays` | string[] | Fixed NPC play sequence (tutorialMode only) |
+| `lieThreshold` | number | Maximum Lie Counter value before the encounter ends as a loss. Set to 0 or omit to disable the Lie mechanic for this encounter. |
 
 ### ShieldSlot
 
@@ -432,7 +440,103 @@ The `discovered` flag on each `RelevantCard` entry is stored globally (not per-e
 
 ## 7. Card Types and Subtypes
 
-*(Placeholder — Skill vs Information supertypes, card keywords, effect vocabulary, color identity)*
+### 7.1 Supertypes
+
+Every card belongs to exactly one supertype.
+
+**Skill Cards** represent the Detective's learned conversational abilities. Their effects are always visible. Skill cards are chosen from the player's Skill Deck and form the backbone of every Conversation Deck. Skill cards have a fixed color identity.
+
+**Information Cards** represent knowledge the Detective has gathered about the world and its inhabitants. Their effects are hidden until discovered in a relevant encounter (see §3). Information Cards are colorless by default. Their effect is defined per-encounter in `relevantCards` config, not globally.
+
+### 7.2 Subtypes
+
+Subtypes are supplemental classifications within a supertype.
+
+**Impression** (subtype of Skill): When played, an Impression card is placed on the field rather than being discarded. It provides a persistent passive effect for the remainder of the encounter. Impressions are removed from the field when the encounter ends. Impressions are native to Orange.
+
+Additional subtypes will be defined as the card vocabulary expands.
+
+### 7.3 Keywords
+
+Keywords are mechanical terms that appear on card text. All keywords expose their definitions via tooltip on hover (see §10.2).
+
+| Keyword | Applies to | Effect |
+|---|---|---|
+| **Interrupt** | Skill | May be played during the NPC's turn before the staged card resolves. No Priority cost. |
+| **Safety** | Skill (Player Shield) | When this shield is broken, triggers an Effective Break — NPC loses 0 Patience instead of 1. |
+| **Assemble** | Skill / Information | This card may participate in a combination with another Assemble card. |
+| **Counter** | Skill (Player Shield) | When this shield is broken, its printed effects resolve before the break outcome fires. |
+| **Lie** | Skill (Black) | Playing this card increments the encounter's Lie Counter by 1. If the counter exceeds the encounter's `lieThreshold`, the encounter ends as a loss. |
+
+### 7.4 Color Identities
+
+Color identity is a property of Skill Cards (and a small number of rare cards) that reflects the Detective's personality and conversational style. Information Cards and Ponder are colorless. Color identity informs mechanical theme, Trait interactions, and dynamic combination naming (see §9.4).
+
+---
+
+#### Red
+
+Red represents a passionate, impulsive person who speaks before thinking and imposes their will with little consideration. Red gets straight to the point and hates waiting.
+
+Mechanically, Red cards have low Priority costs and are fast to play. Red excels at eroding the NPC's Patience quickly and has the largest pool of Interrupt cards, enabling an aggressive playstyle that gives opponents little opportunity to respond. Red players go after shields by burning through Patience and maintaining constant pressure.
+
+---
+
+#### Blue
+
+Blue represents a logical, collected person who relies on reason and can articulate complex ideas convincingly — but tends to ignore the human element and can come across as cold.
+
+Mechanically, Blue cards have higher average Priority costs but greater effects. Blue has deep access to the **Counter** keyword, reflecting the color's defensive intelligence. **Assemble** is native to Blue, representing the assembly of complex arguments from simpler components. Blue also has cards that increase BotM capacity, representing superior memory and long-term planning. Blue players invest heavily upfront for outsized payoffs.
+
+---
+
+#### Green
+
+Green represents an empathetic, emotional person who cares deeply about how others feel. Considerate and patient, Green is the best listener — and understands that understanding someone takes time.
+
+Mechanically, Green emphasizes preservation and restoration of NPC Patience, and has the best tools for discovering opponent Traits and Hints early. Green players place their own shields frequently and have access to cards with incremental effects that grow stronger the more times they are played in an encounter. Green expects long conversations and is built to sustain them.
+
+---
+
+#### White
+
+White represents a spiritual or religious person whose reasoning is rooted in faith and conviction. White's perspective can seem unfathomable to outsiders, but those who share the same beliefs find White deeply resonant.
+
+Mechanically, White has cards that allow the player to ignore the effects of certain enemy cards entirely. White also has cards that leverage low NPC Patience — their effectiveness increases as the NPC grows less tolerant. White has increased effectiveness against NPCs with the **Spiritual** Trait. White meshes well with other White cards but may struggle to convince certain personality types.
+
+---
+
+#### Black
+
+Black represents an unscrupulous, cunning person who believes the ends justify the means. Black speakers manipulate, lie, and implicate others without hesitation to achieve their goals.
+
+Mechanically, Black houses some of the strongest individual card effects in the game, offset by heavy penalties for repeated use. Black cards frequently carry the **Lie** keyword, incrementing the encounter's Lie Counter — exceeding the threshold ends the encounter as a loss. Black also has cards that reverse the negative effects of incoming enemy cards and cards that steal enemy cards within an encounter for the player's use. Black rewards risk and punishes recklessness.
+
+---
+
+#### Orange
+
+Orange represents a person who appeals to authority, leverages their associations, and cultivates a specific image of themselves in the world. At their best they command an imposing presence; at their worst they are followers incapable of original thought.
+
+Mechanically, Orange is built around **Impressions** — a card subtype that remains on the field when played, providing persistent passive effects (see §7.2). The Orange playstyle requires setup time and is context-dependent: the player performs Overworld quests to acquire Impression cards tailored to specific NPCs, building an advantageous image before the encounter begins. Orange also has powerful Skill cards that strip away enemy Traits, and is effective at detecting and countering Lie cards.
+
+---
+
+#### Purple
+
+Purple represents a chaotic, theatrical, and unpredictable person — a jester, a joker, or simply someone whose behavior defies logic.
+
+Mechanically, Purple cards lean into random chance effects. Purple also has the unique ability to permanently remove cards from both the player's Conversation Deck and the NPC's deck during an encounter, resulting in smaller deck sizes than normally possible. This is a temporary change scoped to the encounter.
+
+---
+
+#### Colorless
+
+Colorless is the default identity for Information Cards and Ponder. A small number of rare Skill Cards are also colorless, representing the dry, apathetic person who offers no opinions and dampens every room they enter — difficult to get along with, yet their detachment can be tactically useful.
+
+Colorless Skill cards (excluding Ponder and Information Cards) are characterized by effects that can end encounters early, convert both player and opponent cards into low-value filler (reducing the potential of both decks), and other effects that impose mutual costs. These cards are rare and often difficult to obtain.
+
+---
 
 ---
 
@@ -448,8 +552,8 @@ The combining mechanic allows Assemble cards in the player's hand to be merged i
 
 ### 9.1 Combining Rules
 
-- Only cards with the **Assemble** keyword may participate in a combination.
-- Combining is initiated by the player from the hand during Player Pending. The player selects two or more Assemble cards and attempts to combine them.
+- Only cards with the **Assemble** keyword may participate in a combination. A combination always involves **exactly two** Assemble cards.
+- Combining is initiated by the player from the hand during Player Pending. The player selects exactly two Assemble cards and attempts to combine them.
 - A combination **succeeds** if a valid recipe exists for the selected components (see §9.2).
 - On success: the component cards are removed from the Conversation Deck and replaced in the hand by a single new combined card with its own effects and name.
 - A combination **fails** if no valid recipe exists for the selected components. The component cards remain in hand unchanged. The player is notified that the combination failed.
@@ -534,4 +638,4 @@ When adding new UI elements, default to the minimum visible representation (icon
 
 ---
 
-*End of document — v0.5*
+*End of document — v0.6*
