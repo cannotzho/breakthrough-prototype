@@ -1,6 +1,6 @@
 # Breakthrough — Game Design Document
 
-> **Status:** Draft v0.3 — Core combat state machine, encounter/NPC configuration, card discovery, persistent state. Sections on card types/subtypes, modifiers, and combinations are placeholders pending design.
+> **Status:** Draft v0.4 — Core combat state machine, encounter/NPC configuration, card discovery, persistent state. Sections on card types/subtypes, modifiers, and combinations are placeholders pending design.
 
 ---
 
@@ -28,7 +28,7 @@ This game is keyword-driven. All mechanical terms should be used precisely and c
 | **Back of Mind (BotM)** | A card held over from the player's hand when Priority shifts to the NPC. |
 | **Interrupt** | A keyword on certain cards. Cards with Interrupt may be played during the NPC's turn, before the NPC's staged card resolves. They have no Priority cost. |
 | **Safety** | A keyword on certain cards used as Player Shields. When a Safety shield is broken by the NPC, the NPC does not lose Patience. |
-| **Trait** | A passive modifier on an NPC that affects combat behaviour throughout the encounter. Applied via encounter configuration. |
+| **Trait** | A passive modifier on an NPC that affects combat behaviour throughout the encounter. Applied via encounter configuration. Traits are **discoverable**: before a trait's effect is triggered for the first time, it appears as a question mark icon in the UI. Once triggered, the icon changes to the trait's proper icon and hovering over it displays its passive effect description. |
 | **Relevant Cards** | Information Cards listed in an encounter's config, each paired with an encounter-specific effect definition. Only Relevant Cards reveal their effects when first played in that encounter. |
 | **Conversation Deck** | The deck the player prepares upon entering an encounter. Consists of the player's Skill Deck combined with a selection of Information Cards taken from the Collection. |
 | **Collection** | A database of all cards the player has obtained. Cards are divided into Skill Cards and Information Cards. The Collection is the source from which the player builds their Conversation Deck. |
@@ -394,14 +394,22 @@ When an undiscovered Relevant Card is played in this encounter for the first tim
 
 ### Traits
 
-Traits are named passive modifiers. They are evaluated at the points in the state machine where they apply. Examples:
+Traits are named passive modifiers. They are evaluated at the points in the state machine where they apply.
+
+**Discoverability:** Each trait has two UI states:
+- **Undiscovered** — displayed as a `?` icon in the NPC trait zone. The player knows the NPC has a special behaviour but not what it is.
+- **Discovered** — displayed as the trait's proper icon. Hovering over the icon shows the trait's passive effect description. Discovery is triggered the first time the trait's effect fires during an encounter.
+
+Discovery of traits is persistent: once a trait is discovered on a given NPC, it is shown as discovered in all future encounters with that NPC.
+
+Examples:
 
 | Trait | Effect |
 |---|---|
 | `Fearless` | Cards with the Intimidate effect deal no damage / have no effect |
 | `Sensitive` | Cards that cause Patience loss deal 1 additional Patience loss |
 
-*(Full trait vocabulary defined in §7 — Modifiers)*
+*(Full trait vocabulary defined in §8 — NPC Traits and Modifiers)*
 
 ---
 
@@ -439,4 +447,49 @@ The `discovered` flag on each `RelevantCard` entry is stored globally (not per-e
 
 ---
 
-*End of document — v0.3*
+## 10. UI Design Principles
+
+These rules apply across all game screens and take precedence over convenience shortcuts in implementation. New UI work should be checked against these principles before it is considered done.
+
+### 10.1 State Changes Are Never Silent
+
+Any change to a quantity that affects the player's decision-making must be communicated through a visible animation or transition. Animations for separate events must play sequentially — never concurrently. The player must be able to read each change before the next one begins.
+
+Quantities that always require animated feedback include, but are not limited to:
+
+- **Priority** — cost deduction and any restoration
+- **Patience** — any increase or decrease
+- **Shield break** — opponent or player shield being broken
+- **Information Card discovery** — reveal animation on first play
+- **Priority Restore** — the transition event itself, distinct from the Priority value change
+- **Deck Recycle** — discard pile reshuffling into draw pile
+- **Priority costs** — the deduction shown at the moment a card is played
+- **Trait discovery** — transition from `?` icon to proper trait icon
+- **Keyword interactions** — when a keyword modifies or nullifies an effect
+
+This list is non-exhaustive. When in doubt, animate it.
+
+### 10.2 Important Information Must Be Easily Accessible
+
+The player should never have to guess what a mechanic does. All mechanical terms, keywords, and icons should expose their definitions on demand — without navigating away from the current screen.
+
+- **Keyword tooltips:** Keywords appearing in card text and UI copy are rendered as interactive rich text. Hovering or tapping a keyword displays its definition inline.
+- **Trait tooltips:** Discovered trait icons display a description of their passive effect on hover or tap.
+- **Shield contents:** Player shields may be peeked before sacrifice (see §4.3 — Player Shield Choice).
+
+Information should be reachable in at most one interaction from wherever the player currently is.
+
+### 10.3 Detail on Demand — Keep the Screen Clean
+
+The game is information-rich. Surfacing all information at once would create clutter that harms readability. Information should be visible by default only if it is needed for every decision; otherwise it should be accessible on demand.
+
+Guidelines:
+- **Favour icons over text** in the primary game view. Labels and descriptions belong in tooltips and inspect panels, not in the default layout.
+- **Do not display secondary or contextual information passively.** Card effect text, trait descriptions, and keyword definitions are revealed on hover/tap, not always visible.
+- **Keep numerical displays minimal.** Show the current value; show changes via animation; do not show historical values or verbose breakdowns in the main view.
+
+When adding new UI elements, default to the minimum visible representation (icon or number) and attach detail to a hover or tap interaction.
+
+---
+
+*End of document — v0.4*
