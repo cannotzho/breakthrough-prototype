@@ -73,6 +73,7 @@ export interface CombatState {
   priority: number;           // -10 to +10; positive = attack phase
   tutorialMode: boolean;
   tutorialScriptedOppQueue: string[];  // remaining scripted opponent plays (consumed in order)
+  unbreakablePlayerShields: boolean;   // opponent cannot break player shields when true
   playerShields: ShieldSlot[];
   oppShields: ShieldSlot[];
   hand: string[];             // card IDs in player hand
@@ -145,6 +146,8 @@ export interface EncounterConfig {
   cardOverrides?: Record<string, CardOverride>; // #100 — per-card effect/text patches for this encounter
   // Tutorial mode fields
   tutorialMode?: boolean;
+  // When true, opponent shield-break effects are no-ops (player shields cannot be broken).
+  unbreakablePlayerShields?: boolean;
   // Pre-ordered draw sequence; these card IDs are placed at the front of the shuffled deck in order.
   scriptedDrawOrder?: string[];
   // Scripted opponent play sequence; the opponent always plays these card IDs in order, ignoring their actual hand.

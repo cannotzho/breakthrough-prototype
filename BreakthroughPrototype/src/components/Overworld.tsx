@@ -45,17 +45,18 @@ interface NpcDef {
   id: string; x: number; y: number;
   color: string; name: string;
   encounterId: string; lockedUntil?: string; lockedUntilCompendium?: string;
+  lockHint?: string;
 }
 const NPCS: NpcDef[] = [
-  { id: 'pettyCriminal', x: 340, y: 560, color: '#aaa', name: 'Petty Criminal',    encounterId: 'pettyCriminal' },
-  { id: 'mumPhoneCall',  x: 440, y: 380, color: '#e0c080', name: 'Mum (Phone Call)', encounterId: 'mumPhoneCall', lockedUntil: 'pettyCriminal' },
-  { id: 'gutterfang',   x: 600, y: 430, color: '#8B4513', name: 'Gutterfang',       encounterId: 'gutterfang',  lockedUntil: 'mumPhoneCall' },
-  { id: 'maryann',      x: 800, y: 500, color: '#9b30d0', name: 'Mary-Ann Mariposa', encounterId: 'maryann',    lockedUntil: 'gutterfang', lockedUntilCompendium: 'bloodAnalysis' },
+  { id: 'gutterfang', x: 600, y: 430, color: '#8B4513', name: 'Gutterfang',       encounterId: 'gutterfang',  lockedUntil: 'tutorial3', lockHint: 'Complete the alley tutorials first.' },
+  { id: 'maryann',    x: 800, y: 500, color: '#9b30d0', name: 'Mary-Ann Mariposa', encounterId: 'maryann',    lockedUntil: 'gutterfang', lockedUntilCompendium: 'bloodAnalysis', lockHint: 'Find Gutterfang first.' },
 ];
 
-// Alley-mode NPC set — only the Petty Criminal, repositioned to alley coordinates
+// Alley-mode NPC set — all three tutorial encounters, unlocked sequentially
 const ALLEY_NPCS: NpcDef[] = [
-  { id: 'pettyCriminal', x: 500, y: 280, color: '#aaa', name: 'Petty Criminal', encounterId: 'pettyCriminal' },
+  { id: 'tutorial1', x: 500, y: 280, color: '#aaa',    name: 'Tutorial 1', encounterId: 'tutorial1' },
+  { id: 'tutorial2', x: 500, y: 420, color: '#e0c080', name: 'Tutorial 2', encounterId: 'tutorial2', lockedUntil: 'tutorial1' },
+  { id: 'tutorial3', x: 500, y: 560, color: '#4ecca3', name: 'Tutorial 3', encounterId: 'tutorial3', lockedUntil: 'tutorial2' },
 ];
 
 /* ── Items / Interaction points ──────────────────────────────── */
@@ -192,7 +193,9 @@ const INTRO_PANELS = [
 
 /* ── Dialog text ─────────────────────────────────────────────── */
 const DIALOG_TEXT: Record<string, string> = {
-  pettyCriminal: 'A thin figure wedged into the alley mouth, pupils blown wide and black. His eyes keep darting to something behind you. He hasn\'t clocked you yet — but he will.',
+  tutorial1: 'A thin figure wedged into the alley mouth, pupils blown wide and black. His eyes keep darting to something behind you. He hasn\'t clocked you yet — but he will.',
+  tutorial2: 'The same figure, steadier now. He knows you\'re coming. So do you.',
+  tutorial3: 'Someone\'s waiting at the far end of the alley. The conversation isn\'t going to be easy.',
   gutterfang: 'A rough figure in a blood-stained coat. He\'s trying to act casual — but his hands won\'t stop moving.',
   maryann:    'She greets you with a smile that doesn\'t reach her eyes. There\'s steel beneath the silk.',
 };
@@ -243,9 +246,9 @@ function btnStyle(bg: string): React.CSSProperties {
 export default function Overworld({ completedEncounters, onStartCombat, onResetGame, collectedCards, compendium, onCollectItem, personalDeck, onUpdatePersonalDeck }: Props) {
   const canvasRef   = useRef<HTMLCanvasElement>(null);
   const keysRef     = useRef(new Set<string>());
-  // Alley mode is active until the Petty Criminal encounter is completed
-  const isAlleyModeRef = useRef(!completedEncounters.has('pettyCriminal'));
-  isAlleyModeRef.current = !completedEncounters.has('pettyCriminal');
+  // Alley mode is active until all three tutorial encounters are completed
+  const isAlleyModeRef = useRef(!completedEncounters.has('tutorial3'));
+  isAlleyModeRef.current = !completedEncounters.has('tutorial3');
   const playerRef   = useRef(
     isAlleyModeRef.current ? { x: 500, y: 820 } : { x: 576, y: 600 }
   );
@@ -373,10 +376,10 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
     const encounterLock  = !!npc.lockedUntil && !completedRef.current.has(npc.lockedUntil);
     const compendiumLock = !!npc.lockedUntilCompendium && !compendiumRef.current.includes(npc.lockedUntilCompendium);
     const locked  = encounterLock || compendiumLock;
-    const lockHint = encounterLock
-      ? 'Find Gutterfang first.'
-      : compendiumLock
+    const lockHint = compendiumLock
       ? "Visit Larkgrove Women's College first."
+      : encounterLock
+      ? (npc.lockHint ?? 'Come back later.')
       : undefined;
     const done   = completedRef.current.has(npc.encounterId);
     setDialog({ npc, locked, done, lockHint });
@@ -466,34 +469,41 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
       ctx.fillStyle = topHaze;
       ctx.fillRect(ALLEY_X1, ALLEY_TOP, ALLEY_X2 - ALLEY_X1, 80);
 
-      // Petty Criminal NPC
-      const crimNpc = ALLEY_NPCS[0];
-      const ddxC = px - crimNpc.x, ddyC = py - crimNpc.y;
-      const inRangeC = Math.sqrt(ddxC * ddxC + ddyC * ddyC) < I_R;
-      const doneC = completedRef.current.has('pettyCriminal');
+      // Tutorial NPCs (sequential — locked until previous is completed)
+      for (const tnpc of ALLEY_NPCS) {
+        const tLocked = !!tnpc.lockedUntil && !completedRef.current.has(tnpc.lockedUntil);
+        const tDone = completedRef.current.has(tnpc.encounterId);
+        const tDdx = px - tnpc.x, tDdy = py - tnpc.y;
+        const tInRange = Math.sqrt(tDdx * tDdx + tDdy * tDdy) < I_R;
 
-      if (inRangeC) {
-        ctx.strokeStyle = '#ffffff66';
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([4, 4]);
-        ctx.globalAlpha = 0.6;
-        ctx.beginPath(); ctx.arc(crimNpc.x, crimNpc.y, I_R, 0, Math.PI * 2); ctx.stroke();
-        ctx.setLineDash([]); ctx.globalAlpha = 1;
-      }
-      drawPerson(ctx, crimNpc.x, crimNpc.y, '#777', '#c5a080', '#111');
-      ctx.font = '11px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillStyle = doneC ? '#4ecca3' : '#cccccc';
-      ctx.fillText(doneC ? '✓ ' + crimNpc.name : crimNpc.name, crimNpc.x, crimNpc.y - 33);
-      if (doneC) {
-        ctx.font = '9px monospace';
-        ctx.fillStyle = '#4ecca3';
-        ctx.fillText('✓ Interrogated', crimNpc.x, crimNpc.y - 21);
-      }
-      if (inRangeC && !doneC) {
-        ctx.font = '10px monospace';
-        ctx.fillStyle = '#ffffffcc';
-        ctx.fillText('[E] Talk', crimNpc.x, crimNpc.y + 32);
+        if (tInRange) {
+          ctx.strokeStyle = tLocked ? '#44444488' : '#ffffff66';
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([4, 4]);
+          ctx.globalAlpha = 0.6;
+          ctx.beginPath(); ctx.arc(tnpc.x, tnpc.y, I_R, 0, Math.PI * 2); ctx.stroke();
+          ctx.setLineDash([]); ctx.globalAlpha = 1;
+        }
+
+        const coat = tLocked ? '#2a2a2a' : '#777';
+        const skin = tLocked ? '#1e1e1e' : '#c5a080';
+        const hat  = tLocked ? '#141414' : '#111';
+        drawPerson(ctx, tnpc.x, tnpc.y, coat, skin, hat);
+
+        ctx.font = '11px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = tDone ? '#4ecca3' : tLocked ? '#444' : '#cccccc';
+        ctx.fillText(tLocked ? '???' : (tDone ? '✓ ' + tnpc.name : tnpc.name), tnpc.x, tnpc.y - 33);
+        if (tDone) {
+          ctx.font = '9px monospace';
+          ctx.fillStyle = '#4ecca3';
+          ctx.fillText('✓ Done', tnpc.x, tnpc.y - 21);
+        }
+        if (tInRange && !tDone && !tLocked) {
+          ctx.font = '10px monospace';
+          ctx.fillStyle = '#ffffffcc';
+          ctx.fillText('[E] Talk', tnpc.x, tnpc.y + 32);
+        }
       }
 
       // Player
@@ -573,11 +583,9 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
       const encounterLock  = !!npc.lockedUntil && !completed.has(npc.lockedUntil);
       const compendiumLock = !!npc.lockedUntilCompendium && !compendiumRef.current.includes(npc.lockedUntilCompendium);
       const locked  = encounterLock || compendiumLock;
-      const npcLockHint = encounterLock
-        ? 'Find Gutterfang first'
-        : compendiumLock
+      const npcLockHint = compendiumLock
         ? 'Visit Larkgrove College first'
-        : '';
+        : (npc.lockHint ?? 'Come back later');
       const done    = completed.has(npc.encounterId);
       const ddx     = px - npc.x, ddy = py - npc.y;
       const inRange = Math.sqrt(ddx * ddx + ddy * ddy) < I_R;
@@ -829,7 +837,9 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
   }
 
   /* ── Objective text ───────────────────────────────────────── */
-  const isAlleyMode = !completedEncounters.has('pettyCriminal');
+  const isAlleyMode = !completedEncounters.has('tutorial3');
+  const t1Done = completedEncounters.has('tutorial1');
+  const t2Done = completedEncounters.has('tutorial2');
   const gDone = completedEncounters.has('gutterfang');
   const mDone = completedEncounters.has('maryann');
   const hasLoanLedger      = compendium.includes('loanLedger');
@@ -837,7 +847,7 @@ export default function Overworld({ completedEncounters, onStartCombat, onResetG
   const hasLarkgroveLead   = compendium.includes('larkgroveLead');
   const hasCollegeVisit    = compendium.includes('bloodAnalysis');
   const objective = isAlleyMode
-    ? 'Approach the suspect.'
+    ? (!t1Done ? 'Approach the suspect.' : !t2Done ? 'Continue the interrogation.' : 'Finish the interrogation.')
     : mDone
     ? 'Case closed.'
     : !gDone

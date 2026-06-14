@@ -229,6 +229,7 @@ export function initCombat({ encounter, chosenWorldDeck, preShields = [], config
     priority: initialPriority,
     tutorialMode: encounter.tutorialMode ?? false,
     tutorialScriptedOppQueue,
+    unbreakablePlayerShields: encounter.unbreakablePlayerShields ?? false,
     playerShields: playerShieldsInit,
     oppShields: encounter.shieldLinks.slice(0, encounter.oppShields).map((link, i) => {
       const req = encounter.shieldRequirements?.[i];
@@ -667,6 +668,11 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
 
       // Shield-break requires player to choose which shield to sacrifice
       if (playedCard.effects.breakShield) {
+        // Tutorial: opponent cannot break player shields in this encounter
+        if (s.unbreakablePlayerShields) {
+          s = addLog(s, "Opponent's attack has no effect here.");
+          // fall through to standard action cost below
+        } else {
         const intactShields = s.playerShields.filter(sh => !sh.broken);
         // Shields with requiresCardId can only be broken by that specific card (#101)
         const validTargets = intactShields.filter(sh => !sh.requiresCardId || sh.requiresCardId === playedId);
@@ -710,6 +716,7 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
 
         // intactShields.length === 0: no shields to attack, fall through to standard action cost
         s = addLog(s, 'No shields to break.');
+        } // end else (!unbreakablePlayerShields)
       }
 
       // Apply other opponent card effects

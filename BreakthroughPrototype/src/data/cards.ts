@@ -343,7 +343,7 @@ export const CARDS: Record<string, CardDef> = {
   ponder: {
     id: 'ponder',
     name: 'Ponder',
-    supertype: 'Information',
+    supertype: 'Personal',
     type: 'sorcery',
     cost: 1,
     effectText: 'Draw a card',

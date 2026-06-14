@@ -96,26 +96,26 @@ function saveSeen(seen: Set<string>): void {
   } catch {}
 }
 
-// ── Petty Criminal tutorial steps (sequential) ───────────────────────────────
+// ── Tutorial 1 steps (sequential) ────────────────────────────────────────────
 
-const PC_STEPS: TutorialStep[] = [
+const T1_STEPS: TutorialStep[] = [
   {
-    id: 'pc_intro',
-    title: 'Conversations as Cards',
-    body: 'In Breakthrough, conversations become a card game. Every opponent has information you need, and/or a decision you want them to make.',
+    id: 't1_intro',
+    title: 'Breakthrough',
+    body: 'In Breakthrough, conversations become a card game. Break all of your opponent\'s Shields to win.',
     position: 'center',
   },
   {
-    id: 'pc_shields',
-    title: "The Opponent's Shields",
-    body: "That information hides behind Shield cards. In every conversation, your goal is to break all of your opponent's Shields.",
+    id: 't1_shields',
+    title: 'Opponent Shields',
+    body: 'Your opponent hides information behind Shields. Break them all to win.',
     position: 'upper-center',
     highlightTarget: 'opp-shields',
   },
   {
-    id: 'pc_play_intimidate',
+    id: 't1_play_intimidate',
     title: 'Your Hand',
-    body: 'This is your hand — where you play cards from. Try playing Intimidate now by dragging it into the Play zone, or by clicking the card to open its context menu.',
+    body: 'Play a card by dragging it to the Play zone, or clicking it for options.',
     position: 'bottom',
     highlightTarget: 'hand',
     showGhostDrag: true,
@@ -123,123 +123,82 @@ const PC_STEPS: TutorialStep[] = [
     forcedPlayCard: 'intimidate',
   },
   {
-    id: 'pc_skill_card',
-    title: 'Skill Cards',
-    body: "You just played a Skill Card — Intimidate — which breaks Shield cards against weak-willed opponents. Skill Cards always have the same effects and come from the Detective's Self Deck. As you play Breakthrough, the Detective meets new people and obtains more Skill Cards that shape his approach.",
-    position: 'center',
-    revealPatience: true,
-    overlayZIndex: 65,
-    skip: true,
-  },
-  {
-    id: 'pc_patience',
-    title: 'Patience Meter',
-    body: "Some cards reduce your opponent's Patience. Don't let Patience drop to zero, or the Conversation ends early!",
+    id: 't1_patience',
+    title: 'Patience',
+    body: "Some cards reduce your opponent's Patience. Let it reach zero and the conversation ends early.",
     position: 'top',
     highlightTarget: 'patience-meter',
+    revealPatience: true,
+    overlayZIndex: 65,
   },
   {
-    id: 'pc_priority_intro',
-    title: 'Priority and Ponder',
-    body: 'Each card you play costs Priority. Try playing Ponder now — it costs 1 Priority and draws another card.',
+    id: 't1_priority',
+    title: 'Priority',
+    body: 'Priority determines whose turn it is. Spending it all passes the turn to your opponent.',
     position: 'center',
     highlightTarget: 'priority-bar',
     revealPriorityBar: true,
+  },
+  {
+    id: 't1_play_ponder',
+    title: '',
+    body: '',
+    position: 'bottom',
     showGhostDrag: true,
     ghostDragCardId: 'ponder',
     forcedPlayCard: 'ponder',
   },
   {
-    id: 'pc_ponder_played',
-    title: 'Managing Priority',
-    body: "When your Priority reaches zero or less, it becomes your opponent's turn to speak.",
-    position: 'center',
-  },
-  {
-    id: 'pc_dominate_hint',
+    id: 't1_play_dominate',
     title: 'Dominate',
-    body: 'Playing Ponder drew Dominate. Use your remaining Priority to play it now.',
+    body: 'Play Dominate to break the final shield.',
     position: 'bottom',
     highlightTarget: 'card-dominate',
     showGhostDrag: true,
     ghostDragCardId: 'dominate',
     forcedPlayCard: 'dominate',
   },
-  {
-    id: 'pc_botm',
-    title: 'Back of Mind',
-    body: "Whenever Priority shifts to your opponent, the Detective is forced to discard all Hand cards — except for one, which you keep in the Back of Mind. Choose to keep Slap.",
-    position: 'top',
-    highlightTarget: 'botm-card-slap',
-    hidePassButton: true,
-    forcedPlayCard: 'slap',
-    forcedPlayCardLabel: "Choose 'Slap' to continue",
-    overlayZIndex: 80,
-  },
-  {
-    id: 'pc_interrupt_intro',
-    title: 'Interrupt Cards',
-    body: "In negative Priority, the Detective doesn't normally get to play cards. However, Slap has a special property: Interrupt. As long as you have Interrupt cards in your Back of Mind, you'll be given a chance to respond to each opponent card. Interrupts always resolve before the opponent's card.",
-    position: 'center',
-    hidePassButton: true,
-  },
-  {
-    id: 'pc_play_slap',
-    title: 'Play Slap',
-    body: 'Play Slap now in response to his Grovelling. If an Interrupt restores Priority back to you, the opponent\'s card effect is cancelled entirely.',
-    position: 'bottom',
-    highlightTarget: 'card-slap',
-    hidePassButton: true,
-    showGhostDrag: true,
-    ghostDragCardId: 'slap',
-    forcedPlayCard: 'slap',
-  },
-  {
-    id: 'pc_white_deer',
-    title: 'White Deer P.D.',
-    body: "Restoring Priority means you draw a fresh hand. You drew a new type of card: an Information Card called White Deer P.D. This card represents your association with the city's police department. Hover over it for more info.",
-    position: 'bottom',
-    highlightTarget: 'card-whiteDeerPD',
-  },
-  {
-    id: 'pc_play_white_deer',
-    title: 'Play White Deer P.D.',
-    body: "Notice that this card's effect is Unknown — you don't yet know how this person will react to it. Play it now to find out.",
-    position: 'bottom',
-    highlightTarget: 'card-whiteDeerPD',
-    showGhostDrag: true,
-    ghostDragCardId: 'whiteDeerPD',
-    forcedPlayCard: 'whiteDeerPD',
-  },
-  {
-    id: 'pc_victory',
-    title: 'Breakthrough!',
-    body: "This opponent caved under pressure from the authorities. Information Cards also break Shields — but unlike Skill Cards, their effects vary by opponent. By default they're Unknown, but studying your opponents or learning more about the world lets you discover their effects in advance.",
-    position: 'center',
-  },
 ];
 
-// ── Mum Phone Call tutorial steps (sequential) ───────────────────────────────
+// ── Tutorial 2 contextual steps ───────────────────────────────────────────────
 
-const MUM_STEPS: TutorialStep[] = [
+const T2_BOTM_STEP: TutorialStep = {
+  id: 't2_botm',
+  title: 'Back of Mind',
+  body: 'When you lose Priority, keep one card in the Back of Mind.',
+  position: 'center',
+  overlayZIndex: 80,
+};
+
+const T2_INTERRUPT_STEP: TutorialStep = {
+  id: 't2_interrupt',
+  title: 'Interrupt',
+  body: "Some cards have Interrupt. You can play them during your opponent's turn — they resolve first.",
+  position: 'center',
+  hidePassButton: true,
+};
+
+// ── Tutorial 3 steps (sequential, based on former mumPhoneCall) ───────────────
+
+const T3_STEPS: TutorialStep[] = [
   {
-    id: 'mum_intro',
-    title: "Mum's Phone Call",
-    body: "Before each encounter, you can place up to 3 of your own Shields, chosen from your Conversation Deck. The Detective has been keeping the fact that he's a PI from his mum — losing all your Shields means leaking your secret. Your White Lie shields are already placed. Protect them well.",
+    id: 't3_intro',
+    title: 'Protect Your Shields',
+    body: 'Your shields are set. The opponent acts first — defend what\'s behind them.',
     position: 'center',
     hidePassButton: true,
   },
   {
-    id: 'mum_shield_broken',
+    id: 't3_shield_broken',
     title: 'Shield Broken',
-    body: "Whenever your opponent breaks a Shield, you choose which one to reveal. Since you only have White Lie, choose any and hit Confirm. Your opponent also loses 1 Patience and Priority is restored to +3. When all your Shields are broken, the Conversation also ends.",
+    body: 'Choose which shield to reveal. Opponent loses Patience and you regain Priority.',
     position: 'center',
     highlightTarget: 'player-shields',
   },
   {
-    id: 'mum_place_shield',
+    id: 't3_place_shield',
     title: 'Place a Shield',
-    body: "While you have Priority, you can place new Shields. Try placing White Deer P.D. as a Shield by dragging it to the Shield zone or using the context menu. Placing a Shield costs 2 Priority.",
+    body: 'While you have Priority, you can place cards as Shields. Drag White Deer P.D. to the Shield zone or use the context menu.',
     position: 'bottom',
     highlightTarget: 'card-whiteDeerPD',
     showGhostDrag: true,
@@ -248,22 +207,22 @@ const MUM_STEPS: TutorialStep[] = [
     forcedPlayCard: 'whiteDeerPD',
   },
   {
-    id: 'mum_end_turn',
+    id: 't3_end_turn',
     title: 'End Your Turn',
-    body: "You have some Priority remaining but nothing else to do. Click End Turn to pass Priority back to your opponent.",
+    body: 'Click End Turn to pass Priority back to your opponent.',
     position: 'center',
     highlightTarget: 'end-turn-btn',
   },
   {
-    id: 'mum_effective_shield',
+    id: 't3_effective_shield',
     title: 'Effective Shield',
-    body: "White Deer P.D. had the Effective Shield effect — it restored you to +5 Priority instead of +3, and caused no Patience loss. Any card can be used as a Shield, but cards with Effective Shield do a better job of protecting you. Notice that the same card's effect was known this time — the Detective understands his mum.",
+    body: 'White Deer P.D. has the Effective Shield effect — more Priority on break, no Patience loss. Some cards make better shields than others.',
     position: 'center',
   },
   {
-    id: 'mum_sign_off',
-    title: 'Conclude the Conversation',
-    body: "Hit End Turn again to conclude the Conversation.",
+    id: 't3_sign_off',
+    title: 'Conclude',
+    body: 'Hit End Turn to conclude the conversation.',
     position: 'center',
     highlightTarget: 'end-turn-btn',
   },
@@ -278,8 +237,9 @@ export function useTutorial(
 ) {
   const isGutterfang = encounterId === 'gutterfang';
   const isMaryann = encounterId === 'maryann';
-  const isPettyCriminal = encounterId === 'pettyCriminal';
-  const isMumPhoneCall = encounterId === 'mumPhoneCall';
+  const isT1 = encounterId === 'tutorial1';
+  const isT2 = encounterId === 'tutorial2';
+  const isT3 = encounterId === 'tutorial3';
 
   // ── Gutterfang / Mary-Ann (legacy queue-based) ────────────────────────────
   const seenRef = useRef<Set<string>>(loadSeen());
@@ -360,159 +320,74 @@ export function useTutorial(
     if (state.availableCombinations.length > 0) enqueue('card_combination');
   }, [state.availableCombinations, isMaryann, state.gameOver, enqueue]);
 
-  // ── Petty Criminal (sequential state machine) ─────────────────────────────
-  const [pcStepIdx, setPcStepIdx] = useState(0);
-  const [pcRevealPatience, setPcRevealPatience] = useState(false);
-  const [pcRevealPriorityBar, setPcRevealPriorityBar] = useState(false);
-  const pcPonderPlayedRef = useRef(false);
-  const pcOppBrokenCount = useRef(0);
-  const pcStepIdxRef = useRef(0);
-  pcStepIdxRef.current = pcStepIdx;
+  // ── Tutorial 1 (sequential state machine) ────────────────────────────────
+  const [t1StepIdx, setT1StepIdx] = useState(0);
+  const [t1RevealPatience, setT1RevealPatience] = useState(false);
+  const [t1RevealPriorityBar, setT1RevealPriorityBar] = useState(false);
+  const t1PonderPlayedRef = useRef(false);
+  const t1StepIdxRef = useRef(0);
+  t1StepIdxRef.current = t1StepIdx;
 
-  // Track ponder being played: ponder enters worldDeck discard when played.
-  // Hand-based detection fails because drawPerPlay immediately draws another ponder back.
+  // Track ponder played via discard
   useEffect(() => {
-    if (!isPettyCriminal || pcPonderPlayedRef.current) return;
+    if (!isT1 || t1PonderPlayedRef.current) return;
     if (state.worldDeck.discard.includes('ponder')) {
-      pcPonderPlayedRef.current = true;
+      t1PonderPlayedRef.current = true;
     }
-  }, [state.worldDeck.discard, isPettyCriminal]);
+  }, [state.worldDeck.discard, isT1]);
 
-  // Track shields broken for petty criminal
-  useEffect(() => {
-    if (!isPettyCriminal) return;
-    pcOppBrokenCount.current = state.oppShields.filter(s => s.broken).length;
-  }, [state.oppShields, isPettyCriminal]);
-
-  const dismissPc = useCallback(() => {
-    setPcStepIdx(prev => prev + 1);
+  const dismissT1 = useCallback(() => {
+    setT1StepIdx(prev => prev + 1);
   }, []);
 
-  // Auto-advance past any step marked skip: true
+  // Auto-advance from t1_play_intimidate (idx 2) when first shield breaks
   useEffect(() => {
-    if (!isPettyCriminal || pcStepIdx >= PC_STEPS.length) return;
-    if (PC_STEPS[pcStepIdx].skip) setPcStepIdx(prev => prev + 1);
+    if (!isT1 || t1StepIdxRef.current !== 2) return;
+    if (state.oppShields.filter(s => s.broken).length >= 1) setT1StepIdx(3);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPettyCriminal, pcStepIdx]);
+  }, [isT1, state.oppShields]);
 
-  // Auto-advance from pc_play_intimidate (step 2) as soon as the first shield breaks,
-  // so playing Intimidate without first clicking "Got it" still moves the tutorial forward.
+  // Auto-advance from t1_play_ponder (idx 5) when ponder is in discard
   useEffect(() => {
-    if (!isPettyCriminal || pcStepIdxRef.current !== 2) return;
-    if (state.oppShields.filter(s => s.broken).length >= 1) {
-      setPcStepIdx(3);
-    }
+    if (!isT1 || t1StepIdxRef.current !== 5) return;
+    if (state.worldDeck.discard.includes('ponder')) setT1StepIdx(6);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPettyCriminal, state.oppShields]);
+  }, [isT1, state.worldDeck.discard, t1StepIdx]);
 
-  // Auto-advance from pc_priority_intro (step 5) when ponder is played.
-  // Use discard presence — hand check is unreliable because drawPerPlay draws another ponder back.
+  // Auto-advance from t1_play_dominate (idx 6) when dominate leaves hand or game over
   useEffect(() => {
-    if (!isPettyCriminal || pcStepIdxRef.current !== 5) return;
-    if (state.worldDeck.discard.includes('ponder')) {
-      setPcStepIdx(6);
-    }
+    if (!isT1 || t1StepIdxRef.current !== 6) return;
+    if (!state.hand.includes('dominate') || state.gameOver) setT1StepIdx(7);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPettyCriminal, state.worldDeck.discard, pcStepIdx]);
+  }, [isT1, state.hand, state.gameOver, t1StepIdx]);
 
-  // Auto-advance from pc_dominate_hint (step 7) when dominate is played.
+  // Reveal patience when first shield broken
   useEffect(() => {
-    if (!isPettyCriminal || pcStepIdxRef.current !== 7) return;
-    if (!state.hand.includes('dominate')) {
-      setPcStepIdx(8);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPettyCriminal, state.hand, pcStepIdx]);
+    if (!isT1) return;
+    if (state.oppShields.filter(s => s.broken).length >= 1) setT1RevealPatience(true);
+  }, [isT1, state.oppShields]);
 
-  // Auto-advance from pc_botm (step 8) when BotM choice is confirmed.
+  // Reveal priority bar at step 4+
   useEffect(() => {
-    if (!isPettyCriminal || pcStepIdxRef.current !== 8) return;
-    if (!state.awaitingBackOfMindChoice) {
-      setPcStepIdx(9);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPettyCriminal, state.awaitingBackOfMindChoice, pcStepIdx]);
+    if (!isT1) return;
+    if (t1StepIdx >= 4) setT1RevealPriorityBar(true);
+  }, [isT1, t1StepIdx]);
 
-  // Auto-advance from pc_play_slap (step 10) when slap is played and priority returns.
-  useEffect(() => {
-    if (!isPettyCriminal || pcStepIdxRef.current !== 10) return;
-    if (state.phase === 'attack') {
-      setPcStepIdx(11);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPettyCriminal, state.phase, pcStepIdx]);
-
-  // Auto-advance from pc_play_white_deer (step 12) when whiteDeerPD is played or game is won.
-  // gameOver path: playing whiteDeerPD breaks the final shield, ending the game atomically —
-  // the hand never transitions to "no whiteDeerPD" because no further actions are processed.
-  useEffect(() => {
-    if (!isPettyCriminal || pcStepIdxRef.current !== 12) return;
-    if (!state.hand.includes('whiteDeerPD') || state.gameOver) {
-      setPcStepIdx(13);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPettyCriminal, state.hand, state.gameOver, pcStepIdx]);
-
-  // Reveal patience meter when pc_skill_card (step 3) becomes active
-  useEffect(() => {
-    if (!isPettyCriminal) return;
-    if (pcStepIdx >= 3 && state.oppShields.filter(s => s.broken).length >= 1) {
-      setPcRevealPatience(true);
-    }
-  }, [isPettyCriminal, pcStepIdx, state.oppShields]);
-
-  // Reveal priority bar when pc_priority_intro (step 5) is reached
-  useEffect(() => {
-    if (!isPettyCriminal) return;
-    if (pcStepIdx >= 5) setPcRevealPriorityBar(true);
-  }, [isPettyCriminal, pcStepIdx]);
-
-  // Determine which PC step should show
-  const pcCurrentStep: TutorialStep | null = (() => {
-    if (!isPettyCriminal || pcStepIdx >= PC_STEPS.length) return null;
-    const step = PC_STEPS[pcStepIdx];
-    if (step.skip) return null;
-    // Some steps need to wait for a game condition to be true before displaying
+  const t1CurrentStep: TutorialStep | null = (() => {
+    if (!isT1 || t1StepIdx >= T1_STEPS.length) return null;
+    const step = T1_STEPS[t1StepIdx];
     switch (step.id) {
-      case 'pc_skill_card':
-        // Wait for at least 1 opp shield broken
+      case 't1_patience':
+        // Show only after first shield breaks
         if (state.oppShields.filter(s => s.broken).length < 1) return null;
         break;
-      case 'pc_ponder_played':
-        // Wait for ponder to have been played (dominate drawn)
-        if (!pcPonderPlayedRef.current) return null;
+      case 't1_play_ponder':
+        // Show only after patience/priority steps passed
+        if (t1StepIdx < 5) return null;
         break;
-      case 'pc_priority_intro':
-        // Hide once ponder has been played (detected via discard); auto-advance fires on next render
-        if (pcPonderPlayedRef.current) return null;
-        break;
-      case 'pc_dominate_hint':
-        // Hide once dominate has been played (auto-advance fires on next render)
+      case 't1_play_dominate':
+        // Show only when dominate in hand; hide once played
         if (!state.hand.includes('dominate')) return null;
-        break;
-      case 'pc_botm':
-        // Wait for BotM picker
-        if (!state.awaitingBackOfMindChoice) return null;
-        break;
-      case 'pc_interrupt_intro':
-        // Wait for opponent ack (opponent about to play)
-        if (!state.awaitingOpponentAck || state.awaitingBackOfMindChoice) return null;
-        break;
-      case 'pc_play_slap':
-        // Hide once priority returns to attack (auto-advance fires on next render)
-        if (state.phase === 'attack') return null;
-        break;
-      case 'pc_white_deer':
-        // Wait for whiteDeerPD to be in hand and in attack phase
-        if (!state.hand.includes('whiteDeerPD') || state.phase !== 'attack') return null;
-        break;
-      case 'pc_play_white_deer':
-        // Hide once whiteDeerPD has been played (auto-advance fires on next render)
-        if (!state.hand.includes('whiteDeerPD')) return null;
-        break;
-      case 'pc_victory':
-        // Wait for game won
-        if (!state.gameOver || state.winner !== 'player') return null;
         break;
       default:
         break;
@@ -520,82 +395,101 @@ export function useTutorial(
     return step;
   })();
 
-  // ── Mum Phone Call (sequential state machine) ─────────────────────────────
-  const [mumStepIdx, setMumStepIdx] = useState(0);
-  const mumStepIdxRef = useRef(0);
-  mumStepIdxRef.current = mumStepIdx;
-  const mumShieldPlacedRef = useRef(false);
+  // ── Tutorial 2 (contextual, lightweight) ─────────────────────────────────
+  const [t2BotmShown, setT2BotmShown] = useState(false);
+  const [t2BotmDismissed, setT2BotmDismissed] = useState(false);
+  const [t2InterruptDismissed, setT2InterruptDismissed] = useState(false);
+
+  // Mark BotM as shown when first triggered
+  useEffect(() => {
+    if (!isT2 || t2BotmShown) return;
+    if (state.awaitingBackOfMindChoice) setT2BotmShown(true);
+  }, [isT2, state.awaitingBackOfMindChoice, t2BotmShown]);
+
+  // Auto-dismiss BotM tooltip when choice is confirmed
+  useEffect(() => {
+    if (!isT2 || !t2BotmShown || t2BotmDismissed) return;
+    if (!state.awaitingBackOfMindChoice) setT2BotmDismissed(true);
+  }, [isT2, t2BotmShown, t2BotmDismissed, state.awaitingBackOfMindChoice]);
+
+  const t2ShowBotm = isT2 && t2BotmShown && !t2BotmDismissed;
+  const t2ShowInterrupt = isT2 && t2BotmDismissed && !t2InterruptDismissed &&
+    state.awaitingOpponentAck && !state.awaitingBackOfMindChoice;
+
+  const t2CurrentStep: TutorialStep | null =
+    isT2 ? (t2ShowBotm ? T2_BOTM_STEP : t2ShowInterrupt ? T2_INTERRUPT_STEP : null) : null;
+
+  const dismissT2 = useCallback(() => {
+    if (t2ShowBotm) setT2BotmDismissed(true);
+    else if (t2ShowInterrupt) setT2InterruptDismissed(true);
+  }, [t2ShowBotm, t2ShowInterrupt]);
+
+  // ── Tutorial 3 (sequential state machine, based on former mumPhoneCall) ───
+  const [t3StepIdx, setT3StepIdx] = useState(0);
+  const t3StepIdxRef = useRef(0);
+  t3StepIdxRef.current = t3StepIdx;
+  const t3ShieldPlacedRef = useRef(false);
 
   // Track whiteDeerPD being placed as a shield
   useEffect(() => {
-    if (!isMumPhoneCall) return;
+    if (!isT3) return;
     const hasWhiteDeerShield = state.playerShields.some(s => s.usedCardId === 'whiteDeerPD' && !s.broken);
-    if (hasWhiteDeerShield) mumShieldPlacedRef.current = true;
-  }, [state.playerShields, isMumPhoneCall]);
+    if (hasWhiteDeerShield) t3ShieldPlacedRef.current = true;
+  }, [state.playerShields, isT3]);
 
-  const dismissMum = useCallback(() => {
-    setMumStepIdx(prev => prev + 1);
+  const dismissT3 = useCallback(() => {
+    setT3StepIdx(prev => prev + 1);
   }, []);
 
-  // When intro is dismissed, acknowledge opponent so first action fires
-  const mumPrevStepIdx = useRef(-1);
+  // When T3 intro is dismissed, acknowledge opponent so first action fires
+  const t3PrevStepIdx = useRef(-1);
   useEffect(() => {
-    if (!isMumPhoneCall) return;
-    if (mumPrevStepIdx.current === 0 && mumStepIdx === 1) {
-      // Intro dismissed → let first opponent action run
+    if (!isT3) return;
+    if (t3PrevStepIdx.current === 0 && t3StepIdx === 1) {
       callbacks?.acknowledgeOpponent?.();
     }
-    mumPrevStepIdx.current = mumStepIdx;
+    t3PrevStepIdx.current = t3StepIdx;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mumStepIdx, isMumPhoneCall]);
+  }, [t3StepIdx, isT3]);
 
-  // Track player shield breaks in mum encounter
-  const mumPrevBrokenCount = useRef(0);
+  // Track player shield breaks in T3
+  const t3PrevBrokenCount = useRef(0);
   useEffect(() => {
-    if (!isMumPhoneCall) return;
+    if (!isT3) return;
     const broken = state.playerShields.filter(s => s.broken).length;
-    if (broken > mumPrevBrokenCount.current) {
-      mumPrevBrokenCount.current = broken;
-      // Advance to shield_broken step if we haven't yet
-      if (mumStepIdxRef.current < 1) setMumStepIdx(1);
+    if (broken > t3PrevBrokenCount.current) {
+      t3PrevBrokenCount.current = broken;
+      if (t3StepIdxRef.current < 1) setT3StepIdx(1);
     }
-  }, [state.playerShields, isMumPhoneCall]);
+  }, [state.playerShields, isT3]);
 
-  // Auto-advance from mum_place_shield (step 2) when whiteDeerPD is placed as shield.
+  // Auto-advance from t3_place_shield (idx 2) when whiteDeerPD is placed as shield
   useEffect(() => {
-    if (!isMumPhoneCall || mumStepIdxRef.current !== 2) return;
-    if (mumShieldPlacedRef.current) {
-      setMumStepIdx(3);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMumPhoneCall, state.playerShields, mumStepIdx]);
+    if (!isT3 || t3StepIdxRef.current !== 2) return;
+    if (t3ShieldPlacedRef.current) setT3StepIdx(3);
+  }, [isT3, state.playerShields, t3StepIdx]);
 
-  const mumCurrentStep: TutorialStep | null = (() => {
-    if (!isMumPhoneCall || mumStepIdx >= MUM_STEPS.length) return null;
-    const step = MUM_STEPS[mumStepIdx];
+  const t3CurrentStep: TutorialStep | null = (() => {
+    if (!isT3 || t3StepIdx >= T3_STEPS.length) return null;
+    const step = T3_STEPS[t3StepIdx];
     switch (step.id) {
-      case 'mum_shield_broken':
-        // Wait until first player shield is broken (then show during shield choice)
+      case 't3_shield_broken':
         if (state.playerShields.filter(s => s.broken).length < 1 && !state.awaitingShieldChoice) return null;
         break;
-      case 'mum_place_shield':
-        // Wait until player has priority and whiteDeerPD in hand
+      case 't3_place_shield':
         if (state.phase !== 'attack') return null;
         if (!state.hand.includes('whiteDeerPD')) return null;
         break;
-      case 'mum_end_turn':
-        // After whiteDeerPD is placed as shield
-        if (!mumShieldPlacedRef.current) return null;
+      case 't3_end_turn':
+        if (!t3ShieldPlacedRef.current) return null;
         break;
-      case 'mum_effective_shield': {
-        // After whiteDeerPD shield is broken
+      case 't3_effective_shield': {
         const effectiveBroken = state.playerShields.some(s => s.usedCardId === 'whiteDeerPD' && s.broken);
         if (!effectiveBroken) return null;
         break;
       }
-      case 'mum_sign_off':
-        // After effective shield explained
-        if (mumStepIdx < 5) return null;
+      case 't3_sign_off':
+        if (t3StepIdx < 5) return null;
         break;
       default:
         break;
@@ -605,19 +499,28 @@ export function useTutorial(
 
   // ── Return the active step ────────────────────────────────────────────────
 
-  if (isPettyCriminal) {
+  if (isT1) {
     return {
-      active: pcCurrentStep,
-      dismiss: dismissPc,
-      revealPatience: pcRevealPatience,
-      revealPriorityBar: pcRevealPriorityBar,
+      active: t1CurrentStep,
+      dismiss: dismissT1,
+      revealPatience: t1RevealPatience,
+      revealPriorityBar: t1RevealPriorityBar,
     };
   }
 
-  if (isMumPhoneCall) {
+  if (isT2) {
     return {
-      active: mumCurrentStep,
-      dismiss: dismissMum,
+      active: t2CurrentStep,
+      dismiss: dismissT2,
+      revealPatience: true,
+      revealPriorityBar: true,
+    };
+  }
+
+  if (isT3) {
+    return {
+      active: t3CurrentStep,
+      dismiss: dismissT3,
       revealPatience: true,
       revealPriorityBar: true,
     };

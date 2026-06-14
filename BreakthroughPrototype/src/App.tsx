@@ -72,11 +72,17 @@ export default function App() {
   function openDeckBuilder(id: string) {
     const enc = ENCOUNTERS[id];
     if (enc?.tutorialMode) {
-      // Tutorial encounters bypass the deckbuilder/deckpreview/shieldselector flow entirely.
+      // Tutorial encounters bypass deckbuilder and deckpreview.
+      // If tutorialPreShields is set, also bypass shieldselector (shields are pre-placed).
+      // Otherwise route through shieldselector so the player chooses their own shields.
       setEncounterId(id);
       setChosenWorldDeck(enc.scriptedDrawOrder ?? []);
-      setPreShields(enc.tutorialPreShields ?? []);
-      setScreen('combat');
+      if (enc.tutorialPreShields && enc.tutorialPreShields.length > 0) {
+        setPreShields(enc.tutorialPreShields);
+        setScreen('combat');
+      } else {
+        setScreen('shieldselector');
+      }
       return;
     }
     setEncounterId(id);

@@ -14,39 +14,34 @@ import type { EncounterConfig } from '../combat/types';
  */
 export const ENCOUNTERS: Record<string, EncounterConfig> = {
 
-  // ── Tutorial Encounter 1 ────────────────────────────────────────────────────
-  pettyCriminal: {
-    id: 'pettyCriminal',
-    name: 'Petty Criminal',
-    patience: 10,        // raised from 6: intimidate−2 + slap−4 = 6 total drain; need headroom so patience never hits 0 before whiteDeerPD wins
-    playerShields: 0,    // no player shields in this encounter (spec: simplified UI)
-    oppShields: 3,
-    shieldLinks: ['feignIgnorance', 'theRustyTap', 'sampleBloodVial'],
-    // Draw positions (with drawCards:1 fixed to draw exactly 1 + drawPerPlay:1):
-    //   [0-2] initial deal: intimidate, slap, ponder
-    //   [3]   after intimidate drawPerPlay:    dominate
-    //   [4]   after ponder drawOneCard effect: ponder (filler — ponder in discard triggers step advance)
-    //   [5]   after ponder drawPerPlay:        ponder (filler)
-    //   [6]   after dominate drawPerPlay:      ponder (filler, discarded in BotM)
-    //   [7-8] drawOnPriority=3 after Slap:    whiteDeerPD, ponder
-    //   (9th draw reshuffles the discard pile — random, doesn't matter)
+  // ── Tutorial 1 — Priority and Opponent Shields ──────────────────────────────
+  tutorial1: {
+    id: 'tutorial1',
+    name: 'Tutorial 1',
+    patience: 10,
+    playerShields: 0,
+    unbreakablePlayerShields: true,
+    oppShields: 2,
+    shieldLinks: ['feignIgnorance', 'theRustyTap'],
+    // Starting hand (startingCards: 3): intimidate, ponder, dominate
+    // After intimidate (drawPerPlay:1): ponder filler
+    // After ponder (drawCards:1 + drawPerPlay:1): two ponder fillers
     worldDeck: [
-      'intimidate', 'slap', 'ponder', 'dominate',
-      'ponder', 'ponder', 'ponder', 'whiteDeerPD', 'ponder',
+      'intimidate', 'ponder', 'dominate',
+      'ponder', 'ponder', 'ponder',
     ],
     scriptedDrawOrder: [
-      'intimidate', 'slap', 'ponder', 'dominate',
-      'ponder', 'ponder', 'ponder', 'whiteDeerPD', 'ponder',
+      'intimidate', 'ponder', 'dominate',
+      'ponder', 'ponder', 'ponder',
     ],
-    scriptedOpponentPlays: ['grovelling'],
-    personalDeck: [],   // override: no standard detective deck — hand is fully scripted
-    oppDeck: ['grovelling'],   // single-card deck so oppHand[0] is always grovelling (correct staged card)
+    scriptedOpponentPlays: [],
+    personalDeck: [],
+    oppDeck: ['ponder'],
     disposition: { vulnerable: [], resistant: [] },
     valuableShields: [],
     fearless: false,
     tutorialMode: true,
     initialCombatConfig: { startingCards: 3, drawPerPlay: 1, drawOnPriority: 3 },
-    // Intimidate costs 2 patience (not the default 3) so tutorial numbers match spec.
     cardOverrides: {
       intimidate: {
         effectText: 'Cost 2 opponent patience to force open a shield. No effect on fearless opponents.',
@@ -58,21 +53,63 @@ export const ENCOUNTERS: Record<string, EncounterConfig> = {
       onResistant: [],
       onShieldBreak: [
         "Oi — what the hell…",
+        "…aight. Fine. I'll talk.",
+      ],
+    },
+  },
+
+  // ── Tutorial 2 — Interrupts, BotM, and Patience ─────────────────────────────
+  tutorial2: {
+    id: 'tutorial2',
+    name: 'Tutorial 2',
+    patience: 10,
+    playerShields: 0,
+    unbreakablePlayerShields: true,
+    oppShields: 2,
+    shieldLinks: ['feignIgnorance', 'sampleBloodVial'],
+    // Starting hand (startingCards: 3): dominate, slap, ponder
+    // After dominate (drawPerPlay:1): ponder
+    // After ponder (drawCards:1 + drawPerPlay:1): ponder x2
+    // After Slap restores priority (drawOnPriority:3): whiteDeerPD, ponder, ponder
+    worldDeck: [
+      'dominate', 'slap', 'ponder',
+      'ponder', 'ponder', 'ponder',
+      'whiteDeerPD', 'ponder', 'ponder',
+    ],
+    scriptedDrawOrder: [
+      'dominate', 'slap', 'ponder',
+      'ponder', 'ponder', 'ponder',
+      'whiteDeerPD', 'ponder', 'ponder',
+    ],
+    scriptedOpponentPlays: ['grovelling'],
+    personalDeck: [],
+    oppDeck: ['grovelling'],
+    disposition: { vulnerable: [], resistant: [] },
+    valuableShields: [],
+    fearless: false,
+    tutorialMode: true,
+    initialCombatConfig: { startingCards: 3, drawPerPlay: 1, drawOnPriority: 3 },
+    dialogue: {
+      onVulnerable: [],
+      onResistant: [],
+      onShieldBreak: [
         "You're relentless, you know that?",
         "…aight. Aight. I'll talk.",
       ],
     },
   },
 
-  // ── Tutorial Encounter 2 ────────────────────────────────────────────────────
-  mumPhoneCall: {
-    id: 'mumPhoneCall',
-    name: "Mum's Phone Call",
+  // ── Tutorial 3 — Defensive Shields ──────────────────────────────────────────
+  tutorial3: {
+    id: 'tutorial3',
+    name: 'Tutorial 3',
     patience: 10,
-    playerShields: 3,   // player starts with 3 White Lie shields (pre-placed via tutorialPreShields)
-    oppShields: 2,      // mum has 2 shields — broken by Sign Off when she's satisfied
-    shieldLinks: ['whiteLie', 'whiteLie'],  // placeholder links (Sign Off breaks them voluntarily)
-    tutorialPreShields: ['whiteLie', 'whiteLie', 'whiteLie'],
+    playerShields: 3,
+    oppShields: 2,
+    shieldLinks: ['whiteLie', 'whiteLie'],
+    // No tutorialPreShields — player selects shields via ShieldSelector.
+    // scriptedDrawOrder front-loads whiteLie so if player picks whiteLie x3 as shields,
+    // those are removed from the deck and whiteDeerPD lands in the opening hand.
     worldDeck: ['whiteLie', 'whiteLie', 'whiteLie', 'whiteDeerPD', 'ponder', 'ponder'],
     scriptedDrawOrder: ['whiteLie', 'whiteLie', 'whiteLie', 'whiteDeerPD', 'ponder', 'ponder'],
     scriptedOpponentPlays: ['howsWork', 'worriedAboutMyBoy', 'signOff'],
@@ -82,25 +119,21 @@ export const ENCOUNTERS: Record<string, EncounterConfig> = {
     valuableShields: [],
     fearless: false,
     tutorialMode: true,
-    // Starts in negative priority so the opponent acts first.
     initialPriority: -5,
-    // Pause before first opponent action so the tutorial tooltip shows.
     initialAwaitingOpponentAck: true,
-    // White Deer PD is already understood: its effect in this encounter is known.
     preUnderstoodCards: ['whiteDeerPD'],
     initialCombatConfig: { startingCards: 3, drawPerPlay: 0, drawOnPriority: 2, priorityOnShieldBreak: 3 },
     cardOverrides: {
       whiteDeerPD: {
-        effectText: 'Effective Shield (+5 Priority on break, no Patience loss). The badge carries weight with her.',
+        effectText: 'Break a Shield. Effective Shield (+5 Priority on break, no Patience loss).',
       },
     },
     dialogue: {
       onVulnerable: [],
       onResistant: [],
       onShieldBreak: [
-        "Oh don't tell me you're keeping secrets again…",
-        "You never could lie to your mum.",
-        "I know something's going on, love.",
+        "That one landed.",
+        "I know something's going on.",
       ],
     },
   },
