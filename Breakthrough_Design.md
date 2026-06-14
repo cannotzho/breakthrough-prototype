@@ -1,6 +1,6 @@
 # Breakthrough — Game Design Document
 
-> **Status:** Draft v0.4 — Core combat state machine, encounter/NPC configuration, card discovery, persistent state. Sections on card types/subtypes, modifiers, and combinations are placeholders pending design.
+> **Status:** Draft v0.5 — Core combat state machine, encounter/NPC configuration, card discovery, persistent state. Sections on card types/subtypes, modifiers, and combinations are placeholders pending design.
 
 ---
 
@@ -28,6 +28,7 @@ This game is keyword-driven. All mechanical terms should be used precisely and c
 | **Back of Mind (BotM)** | A card held over from the player's hand when Priority shifts to the NPC. |
 | **Interrupt** | A keyword on certain cards. Cards with Interrupt may be played during the NPC's turn, before the NPC's staged card resolves. They have no Priority cost. |
 | **Safety** | A keyword on certain cards used as Player Shields. When a Safety shield is broken by the NPC, the NPC does not lose Patience. |
+| **Assemble** | A keyword on certain cards. Cards with Assemble may be combined with other Assemble cards. Combining is performed from the player's hand and does not trigger a state machine transition, but does change the state of the hand. |
 | **Trait** | A passive modifier on an NPC that affects combat behaviour throughout the encounter. Applied via encounter configuration. Traits are **discoverable**: before a trait's effect is triggered for the first time, it appears as a question mark icon in the UI. Once triggered, the icon changes to the trait's proper icon and hovering over it displays its passive effect description. |
 | **Relevant Cards** | Information Cards listed in an encounter's config, each paired with an encounter-specific effect definition. Only Relevant Cards reveal their effects when first played in that encounter. |
 | **Conversation Deck** | The deck the player prepares upon entering an encounter. Consists of the player's Skill Deck combined with a selection of Information Cards taken from the Collection. |
@@ -443,7 +444,48 @@ The `discovered` flag on each `RelevantCard` entry is stored globally (not per-e
 
 ## 9. Combinations
 
-*(Placeholder — combination recipe system, ingredient resolution, combined card effects)*
+The combining mechanic allows Assemble cards in the player's hand to be merged into a new, composite card. Combining does not trigger any state machine transition — the state remains in Player Pending — but the change to the hand must be communicated with a clear animation.
+
+### 9.1 Combining Rules
+
+- Only cards with the **Assemble** keyword may participate in a combination.
+- Combining is initiated by the player from the hand during Player Pending. The player selects two or more Assemble cards and attempts to combine them.
+- A combination **succeeds** if a valid recipe exists for the selected components (see §9.2).
+- On success: the component cards are removed from the Conversation Deck and replaced in the hand by a single new combined card with its own effects and name.
+- A combination **fails** if no valid recipe exists for the selected components. The component cards remain in hand unchanged. The player is notified that the combination failed.
+- Combining does not consume Priority.
+
+### 9.2 Recipe-Based Combinations
+
+Recipes are predetermined pairings (or larger groupings) of card IDs that produce a specific combined card. Recipes are defined globally — they are not encounter-specific unless otherwise noted.
+
+A recipe specifies:
+- The required component card IDs (order-independent)
+- The resulting combined card definition (name, effects, cost, keywords)
+
+### 9.3 Combined Card Lifecycle
+
+When a combined card is played:
+
+1. The combined card is removed from the Conversation Deck.
+2. Each component card is placed in the discard pile.
+3. The combined card's effects resolve normally in Player Play State.
+
+The component cards are not permanently lost — they will return to the draw pile via Deck Recycle and may be drawn and combined again in a later turn.
+
+### 9.4 Dynamic Combining (Skill Cards with Assemble)
+
+A Skill card that acquires the **Assemble** keyword through a card effect or modifier becomes eligible to combine. Dynamic combinations follow different rules from recipe-based combinations:
+
+- **Skill + any Assemble card:** The Skill card's effects are appended to the other card's existing effects. The resulting card retains the other card's name, cost, and base effects, with the Skill's effects added after them.
+- **Skill + Skill (both with acquired Assemble):** The two Skill cards' effects are merged. The resulting card's name is determined by the color identities of the component cards. *(Color identity is defined in §7 — Card Types and Subtypes, pending.)* As a placeholder, all such combinations are named **"Rhetoric"**.
+
+Dynamic combinations do not require a recipe. If a Skill card with Assemble is among the selected cards, the dynamic combining rules apply. If neither card is a Skill with acquired Assemble, a recipe is required (§9.2).
+
+### 9.5 Open Design Questions
+
+- Whether recipes can be encounter-specific (i.e., certain combinations only work in certain contexts) is not yet defined.
+- The color identity system referenced in §9.4 is pending §7.
 
 ---
 
@@ -492,4 +534,4 @@ When adding new UI elements, default to the minimum visible representation (icon
 
 ---
 
-*End of document — v0.4*
+*End of document — v0.5*
