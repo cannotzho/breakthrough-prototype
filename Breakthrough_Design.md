@@ -1,6 +1,6 @@
 # Breakthrough — Game Design Document
 
-> **Status:** Draft v0.2 — Core combat state machine, encounter/NPC configuration, card discovery, persistent state. Sections on card types/subtypes, modifiers, and combinations are placeholders pending design.
+> **Status:** Draft v0.3 — Core combat state machine, encounter/NPC configuration, card discovery, persistent state. Sections on card types/subtypes, modifiers, and combinations are placeholders pending design.
 
 ---
 
@@ -24,12 +24,15 @@ This game is keyword-driven. All mechanical terms should be used precisely and c
 | **Player Shield** | A face-down card placed by the Detective for protection. Breaking all player shields loses the encounter (if applicable). |
 | **Hint** | A special type of Opponent Shield. When broken, displays lore text but adds no cards to the player's deck. Hint text remains visible in the shield zone after breaking. |
 | **Skill Card** | A card type representing the Detective's learned abilities. Effects are always known. Kept in the Skill Deck. |
-| **Information Card** | A card type representing knowledge about the world. Effects are unknown until discovered. Kept in the Information Bank. |
+| **Information Card** | A card type representing knowledge about the world. Effects are unknown until discovered and vary across encounters — the effect is defined per-encounter in the encounter's `relevantCards` config, not globally. Kept in the Collection. |
 | **Back of Mind (BotM)** | A card held over from the player's hand when Priority shifts to the NPC. |
 | **Interrupt** | A keyword on certain cards. Cards with Interrupt may be played during the NPC's turn, before the NPC's staged card resolves. They have no Priority cost. |
 | **Safety** | A keyword on certain cards used as Player Shields. When a Safety shield is broken by the NPC, the NPC does not lose Patience. |
 | **Trait** | A passive modifier on an NPC that affects combat behaviour throughout the encounter. Applied via encounter configuration. |
-| **Relevant Cards** | Information Cards listed in an encounter's config. Only Relevant Cards reveal their effects when first played in that encounter. |
+| **Relevant Cards** | Information Cards listed in an encounter's config, each paired with an encounter-specific effect definition. Only Relevant Cards reveal their effects when first played in that encounter. |
+| **Conversation Deck** | The deck the player prepares upon entering an encounter. Consists of the player's Skill Deck combined with a selection of Information Cards taken from the Collection. |
+| **Collection** | A database of all cards the player has obtained. Cards are divided into Skill Cards and Information Cards. The Collection is the source from which the player builds their Conversation Deck. |
+| **Skill Deck** | A 20-card deck built from Skill Cards chosen by the player. Combined with Information Cards to form the Conversation Deck. |
 | **Discovered** | The state of an Information Card whose effect has been revealed. Discovery persists across encounters. |
 | **Priority Restore** | The event that occurs whenever Priority transitions from ≤ 0 to > 0. Always triggers a fresh hand draw and sets Priority to the encounter's default restore value. |
 | **Staged Card** | The NPC's currently loaded card, pending resolution. Exists between Enemy Pending and the end of Enemy Play. |
@@ -83,7 +86,7 @@ Skill cards represent the Detective's learned abilities. Their effects are alway
 
 Information cards represent knowledge about the world. Their combat effects are hidden by default, displayed as "Unknown Effect." An Information Card's effect is **Discovered** when:
 
-1. The card is played for the first time in an encounter where it appears in that encounter's `relevantCards` list. A reveal animation plays and the effect is shown. Discovery persists globally.
+1. The card is played for the first time in an encounter where it appears in that encounter's `relevantCards` list. Each encounter defines the card's effect independently — the same card may behave differently in different encounters. A reveal animation plays and the effect is shown. Discovery persists globally.
 2. An external trigger from the overworld marks the card as discovered ahead of time.
 
 Once Discovered, the card's effect is visible in all future encounters. If an Information Card is in the player's Conversation Deck for an encounter where it does not appear in `relevantCards`, it is replaced in the Conversation Deck entirely with a Ponder card (pay 1 Priority, draw 1 card). This substitution happens at deck construction time, not at play time — the Information Card is removed from the Conversation Deck and Ponder is inserted in its place. The player's global ownership of the Information Card in their Compendium is unaffected.
@@ -166,7 +169,7 @@ Waits for player input. Available actions:
 
 Effect resolution sequence:
 
-1. Deduct the card's Priority cost from current Priority. *(This step is never repeated.)*
+1. Deduct the card's Priority cost: pay min(cost, currentPriority) from Priority, then pay max(0, cost − currentPriority) from NPC Patience. Both deductions are atomic and this step is never repeated. If NPC Patience reaches ≤ 0 after this deduction, the game proceeds to Check State after all effects resolve — the loss condition (rule 3) is evaluated there, after rule 1 (win condition), consistent with the win-before-loss invariant.
 2. For each effect in the card's effect list, in order:
    a. Resolve the effect.
    b. If the effect breaks an **opponent shield** → suspend here → **Reveal Pending**. After acknowledgement, resume from step 2c.
@@ -341,6 +344,8 @@ stateDiagram-v2
 
 8. **Effect resolution sequences are never restarted.** Blocking sub-states (Reveal Pending, Player Shield Choice) suspend and resume a sequence; they do not restart it. Priority costs are always the first step and are never repeated.
 
+9. **Patience overflow is deducted in step 0 of Player Play, not checked mid-resolution.** If paying Patience overflow brings NPC Patience to ≤ 0, the loss condition is not evaluated until Check State after all effects resolve. The win-before-loss invariant (rule 4 before rule 5) still applies.
+
 ---
 
 ## 5. Encounter / NPC Configuration
@@ -361,7 +366,6 @@ Each encounter corresponds to a specific NPC. The encounter config and NPC defin
 | `relevantCards` | RelevantCard[] | Information Cards this NPC recognises (see below) |
 | `traits` | Trait[] | Passive combat modifiers applied throughout the encounter |
 | `retryable` | boolean | Whether the player may restart after losing |
-| `cardOverrides` | Record\<CardId, Partial\<CardEffects\>\> | Per-card effect overrides for this encounter |
 | `tutorialMode` | boolean | Enables scripted draw and NPC plays |
 | `scriptedDrawOrder` | string[][] | Fixed hands per draw step (tutorialMode only) |
 | `scriptedOpponentPlays` | string[] | Fixed NPC play sequence (tutorialMode only) |
@@ -379,12 +383,14 @@ Each encounter corresponds to a specific NPC. The encounter config and NPC defin
 
 ```
 {
-  cardId: string       // Must match an Information Card ID
-  discovered: boolean  // Whether the effect has already been revealed
+  cardId: string             // Must match an Information Card ID
+  effects: CardEffect[]      // This card's effect definition in this encounter
+  effectDescription: string  // Human-readable description shown on discovery
+  discovered: boolean        // Whether the effect has already been revealed
 }
 ```
 
-When an undiscovered Relevant Card is played in this encounter for the first time, a reveal animation plays and `discovered` is set to true, persisting globally.
+When an undiscovered Relevant Card is played in this encounter for the first time, a reveal animation plays showing `effectDescription`, and `discovered` is set to true, persisting globally. The same card may have different `effects` and `effectDescription` in different encounters.
 
 ### Traits
 
@@ -433,4 +439,4 @@ The `discovered` flag on each `RelevantCard` entry is stored globally (not per-e
 
 ---
 
-*End of document — v0.2*
+*End of document — v0.3*
