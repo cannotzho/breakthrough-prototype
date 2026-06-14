@@ -410,9 +410,10 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
 
         s = checkEndCondition(s);
         if (s.gameOver) s = { ...s, revealedShieldCard: null };
-        if (!s.gameOver) s = updatePhase(s);
-        if (!s.gameOver && s.phase === 'defense' && s.phase === state.phase) {
-          s = triggerOpponentAction(s);
+        // Defer phase transition until the reveal popup is acknowledged (DISMISS_REVEAL handles it).
+        if (!s.gameOver && !s.revealedShieldCard) {
+          s = updatePhase(s);
+          if (s.phase === 'defense' && s.phase === state.phase) s = triggerOpponentAction(s);
         }
         return recomputeCombinations(s);
       }
@@ -470,11 +471,10 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       s = checkEndCondition(s);
       // Win screen takes priority over the reveal dialog on the final shield break.
       if (s.gameOver) s = { ...s, revealedShieldCard: null };
-      if (!s.gameOver) s = updatePhase(s);
-
-      // If still in defense phase after player plays, re-trigger opponent
-      if (!s.gameOver && s.phase === 'defense' && s.phase === state.phase) {
-        s = triggerOpponentAction(s);
+      // Defer phase transition until the reveal popup is acknowledged (DISMISS_REVEAL handles it).
+      if (!s.gameOver && !s.revealedShieldCard) {
+        s = updatePhase(s);
+        if (s.phase === 'defense' && s.phase === state.phase) s = triggerOpponentAction(s);
       }
 
       s = recomputeCombinations(s);
@@ -825,8 +825,11 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       if (s.pendingShieldBreakLine) {
         s = { ...s, activeDialogue: s.pendingShieldBreakLine, pendingShieldBreakLine: null };
       }
-      // Re-trigger opponent action if combat should resume in defense phase.
-      if (!s.gameOver && s.phase === 'defense' && !s.awaitingShieldChoice) {
+      // Process the phase transition deferred from PLAY_CARD (closes #113).
+      // updatePhase handles: attack→defense (sets BotM or triggers opponent), defense→attack (draws cards).
+      if (!s.gameOver) s = updatePhase(s);
+      // If phase didn't change (stayed in defense, e.g. interrupt-card break), re-trigger opponent.
+      if (!s.gameOver && s.phase === 'defense' && !s.awaitingShieldChoice && !s.awaitingBackOfMindChoice) {
         s = triggerOpponentAction(s);
       }
       return s;
