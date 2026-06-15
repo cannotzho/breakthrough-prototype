@@ -111,6 +111,8 @@ export const DEFAULT_COMBAT_CONFIG: CombatConfig = {
   maxPlayerShields: 3,
 };
 
+export const SHIELD_PLACEMENT_COST = 2;
+
 // ─── Combat Phase ──────────────────────────────────────────────
 export type CombatPhase =
   | 'Check'

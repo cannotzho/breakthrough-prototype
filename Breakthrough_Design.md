@@ -29,7 +29,7 @@ This game is keyword-driven. All mechanical terms should be used precisely and c
 | **Back of Mind (BotM)** | A card held over from the player's hand when Priority shifts to the NPC. |
 | **Interrupt** | A keyword on certain cards. Cards with Interrupt may be played during the NPC's turn, before the NPC's staged card resolves. They have no Priority cost. |
 | **Lie** | A keyword on certain Black cards. When a card with Lie is played, the encounter's Lie Counter increases by 1. If the Lie Counter exceeds the encounter's `lieThreshold`, the encounter ends immediately as a loss. Some NPC Traits and cards interact with the Lie Counter to impose additional penalties. |
-| **Safety** | A keyword on certain cards used as Player Shields. When a Safety shield is broken by the NPC, the NPC does not lose Patience. |
+| **Safety** | A keyword on certain cards. Has no effect when played normally. When a card with Safety is used as a Player Shield and that shield is broken, a more favourable break outcome resolves (Effective Break — NPC loses 0 Patience instead of 1). |
 | **Assemble** | A keyword on certain cards. Cards with Assemble may be combined with other Assemble cards. Combining is performed from the player's hand and does not trigger a state machine transition, but does change the state of the hand. |
 | **Color Identity** | The color or colors assigned to a card, determining its mechanical and thematic character. Cards may be single-colored or colorless. Color identity affects deck-building, dynamic combination naming, and certain Trait interactions. |
 | **Trait** | A passive modifier on an NPC that affects combat behaviour throughout the encounter. Applied via encounter configuration. Traits are **discoverable**: before a trait's effect is triggered for the first time, it appears as a question mark icon in the UI. Once triggered, the icon changes to the trait's proper icon and hovering over it displays its passive effect description. |
@@ -74,14 +74,18 @@ When an opponent shield is broken:
 
 ### Player Shields
 
-Player shields are cards placed face-down by the Detective during their turn. Placing a shield is resolved as a card effect within Player Play State (see §4).
+Player shields are cards placed by the Detective during their turn. **Shield Placement** is a universal Player action available for any hand card — it is not gated by card type, keyword, or supertype. Placing a card as a shield costs **2 Priority** (a fixed cost, independent of the card's printed cost) and does not resolve the card's printed effects. Under the hood, the state machine resolves Shield Placement as a unique effect sequence within Player Play State (the card moves from hand to a shield slot; no other effects fire).
+
+The player can always see their own shields face-up (the card's name, cost, keywords, and type are visible).
 
 When the NPC breaks a player shield, the player enters Player Shield Choice State and selects which shield to sacrifice. Two break outcomes exist:
 
 - **Effective Break** — triggered if the chosen shield has the **Safety** keyword. Outcome: NPC loses no Patience; **Priority Restore** fires.
-- **Plain Break** — all other shields. Outcome: NPC loses 1 Patience; **Priority Restore** fires.
+- **Plain Break** — all other shields (including shields that happen to have no keywords at all). Outcome: NPC loses 1 Patience; **Priority Restore** fires.
 
 In both cases, Priority Restore fires and the player draws a fresh hand.
+
+> **Safety keyword clarification:** The Safety keyword has no mechanical effect when a card bearing it is played normally (i.e. not placed as a shield). Its sole purpose is to upgrade the break outcome from Plain Break to Effective Break when the card is used as a shield and that shield is subsequently broken.
 
 ### Skill Cards
 
@@ -180,10 +184,10 @@ The routing hub. Never blocks. Transitions evaluated top to bottom; first match 
 Waits for player input. Available actions:
 
 - **Play a card** → load card → **Player Play**
-- **Place a shield** → load card as shield placement → **Player Play**
+- **Place a shield** (any hand card; costs 2 Priority) → load card as shield placement → **Player Play**
 - **End Turn** (sets Priority to 0) → **Check**
 
-> Shield placement is not a special action; it is resolved as a card effect in Player Play State. The "place this card into a shield slot" is the effect of the placement action.
+> Shield Placement is a distinct Player action. Any hand card may be placed as a shield. The fixed cost of 2 Priority is deducted (with Patience overflow, same as card play). The card's printed effects do NOT resolve — only the placement itself happens (card moves from hand to a shield slot). This is resolved as a unique effect sequence in Player Play State, separate from the card's own effect list.
 
 ---
 
@@ -232,9 +236,9 @@ Sequence:
 Triggered when Priority is ≤ 0 and the player has cards in hand (not yet discarded this transition).
 
 Sequence:
-1. Player selects one card from hand to keep.
-2. All other hand cards are discarded.
-3. Selected card is placed in the BotM zone.
+1. Player selects up to one card from hand to keep, or passes (keeps no cards).
+2. All other hand cards (or all hand cards, if the player passed) are discarded.
+3. If a card was selected, it is placed in the BotM zone.
 4. → **Enemy Pending**
 
 ---
@@ -463,12 +467,12 @@ This stage is deferred until the Collection mechanic is fully designed. It is li
 
 ### 6.2 Shield Card Selection
 
-Before the encounter begins, the player selects which cards from their Skill Deck to place as starting Player Shields.
+Before the encounter begins, the player selects which cards from their Conversation Deck to place as starting Player Shields. Any card may be placed as a shield — this is not restricted by supertype, keyword, or color.
 
 - The encounter config's `playerShields` field may pre-populate shield slots (used in tutorial encounters and any encounter that pre-sets shields by design).
-- When `playerShields` does not fully populate all available shield slots, the player is prompted to fill the remaining slots from their Skill Deck.
+- When `playerShields` does not fully populate all available shield slots, the player is prompted to fill the remaining slots from their Conversation Deck.
 - The player may leave shield slots empty.
-- Cards placed as starting shields are removed from the draw pile before the Conversation Deck is shuffled. They are placed face-down in the player's shield zone.
+- Cards placed as starting shields are removed from the draw pile before the Conversation Deck is shuffled. They are placed face-up in the player's shield zone (the player can always see their own shields).
 - This stage is always shown (unless the encounter has `unbreakablePlayerShields` set, in which case the stage may be simplified or skipped depending on design intent).
 
 ---
@@ -522,7 +526,7 @@ Keywords are mechanical terms that appear on card text. All keywords expose thei
 | Keyword | Applies to | Effect |
 |---|---|---|
 | **Interrupt** | Skill | May be played during the NPC's turn before the staged card resolves. No Priority cost. |
-| **Safety** | Skill (Player Shield) | When this shield is broken, triggers an Effective Break — NPC loses 0 Patience instead of 1. |
+| **Safety** | Skill | No effect when played normally. When a card with Safety is used as a Player Shield and that shield is broken, triggers an Effective Break — NPC loses 0 Patience instead of 1. |
 | **Assemble** | Skill / Information | This card may participate in a combination with another Assemble card. |
 | **Counter** | Skill (Player Shield) | When a shield with Counter is broken, its printed effects resolve as a sub-sequence before the break outcome fires. Counter effects do not trigger an intermediate Check State evaluation — see Invariant 10. Counter cards must contain at most one shield-break effect (see Invariant 11). |
 | **Lie** | Skill (Black) | Playing this card increments the encounter's Lie Counter by 1. If the counter exceeds the encounter's `lieThreshold`, the encounter ends as a loss. |

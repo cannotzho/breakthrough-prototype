@@ -2,7 +2,7 @@ import { useReducer, useEffect, useCallback, useState, useRef } from 'react';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { combatReducer } from '../combat/combatReducer';
 import { buildInitialCombatState, TEST_ENCOUNTER } from '../data/encounterDefs';
-import { CardInstance, CombatState, Keyword } from '../combat/types';
+import { CardInstance, CombatState, Keyword, SHIELD_PLACEMENT_COST } from '../combat/types';
 import DevPanel from '../components/dev/DevPanel';
 import PriorityBar from '../components/combat/PriorityBar';
 import PatienceDisplay from '../components/combat/PatienceDisplay';
@@ -33,10 +33,9 @@ const COLOR_BG: Record<string, string> = {
   Colorless: 'bg-zinc-900',
 };
 
-// §8.3 keyword definitions (Gap #10)
 const KEYWORD_DEFINITIONS: Record<Keyword, string> = {
   Interrupt: 'May be played during the NPC\'s turn before the staged card resolves. No Priority cost.',
-  Safety: 'When this shield is broken, the NPC loses 0 Patience instead of 1.',
+  Safety: 'No effect when played normally. When this card is used as a shield and that shield is broken, the NPC loses 0 Patience instead of 1.',
   Assemble: 'This card may be combined with another Assemble card.',
   Counter: 'When broken as a shield, its printed effects resolve before the break outcome fires.',
   Lie: 'Playing this card increments the Lie Counter. Exceeding the threshold loses the encounter.',
@@ -80,7 +79,7 @@ function CardView({
   onCardDragEnd,
 }: {
   card: CardInstance;
-  onClick?: () => void;
+  onClick?: (e: React.MouseEvent) => void;
   onRightClick?: (x: number, y: number) => void;
   selected?: boolean;
   dimmed?: boolean;
@@ -175,38 +174,56 @@ function ShieldBack({ broken, loreText, hintText, isHint }: {
   );
 }
 
-function PlayerShieldSlot({ slot, idx, selectable, selected, onSelect }: {
+function PlayerShieldSlot({ slot, idx, selectable, selected, onSelect, isDropTarget, onDrop }: {
   slot: CombatState['playerShields'][0];
   idx: number;
   selectable?: boolean;
   selected?: boolean;
   onSelect?: () => void;
+  isDropTarget?: boolean;
+  onDrop?: () => void;
 }) {
+  const [dragOver, setDragOver] = useState(false);
+
   return (
     <motion.div
       layout
-      className={`w-24 h-32 rounded-lg border-2 flex items-center justify-center cursor-pointer
+      className={`w-24 h-32 rounded-lg border-2 flex flex-col items-center justify-center cursor-pointer transition-all
         ${slot ? 'border-blue-400 bg-blue-950' : 'border-zinc-700 bg-zinc-900/40 border-dashed'}
         ${selectable ? 'hover:border-yellow-400' : ''}
         ${selected ? 'border-yellow-400 ring-2 ring-yellow-400' : ''}
+        ${isDropTarget && !slot ? 'border-amber-400 border-solid bg-amber-950/30' : ''}
+        ${dragOver && isDropTarget && !slot ? 'ring-2 ring-amber-400 bg-amber-950/50' : ''}
       `}
       onClick={onSelect}
+      onDragOver={isDropTarget && !slot ? (e) => { e.preventDefault(); setDragOver(true); } : undefined}
+      onDragLeave={isDropTarget ? () => setDragOver(false) : undefined}
+      onDrop={isDropTarget && !slot ? (e) => { e.preventDefault(); setDragOver(false); onDrop?.(); } : undefined}
     >
       {slot ? (
-        <div className="text-center p-2">
-          <div className="text-white text-xs font-semibold">{slot.card.definition.name}</div>
-          {slot.card.definition.keywords.map(kw => (
-            <KeywordBadge key={kw} keyword={kw} />
-          ))}
+        <div className="text-center p-1">
+          <div className="text-white text-xs font-semibold leading-tight">{slot.card.definition.name}</div>
+          <div className="text-zinc-400 text-[10px] mt-0.5">Cost {slot.card.definition.cost}</div>
+          {slot.card.definition.keywords.length > 0 && (
+            <div className="flex flex-wrap gap-0.5 justify-center mt-1">
+              {slot.card.definition.keywords.map(kw => (
+                <KeywordBadge key={kw} keyword={kw} />
+              ))}
+            </div>
+          )}
         </div>
       ) : (
-        <span className="text-zinc-600 text-xs">Slot {idx + 1}</span>
+        <div className="text-center">
+          <span className="text-zinc-600 text-xs">Slot {idx + 1}</span>
+          {isDropTarget && (
+            <div className="text-amber-500/60 text-[10px] mt-1">Drop here</div>
+          )}
+        </div>
       )}
     </motion.div>
   );
 }
 
-// Trait display component (Gap #8, #14)
 function TraitZone({ traits }: { traits: CombatState['config']['traits'] }) {
   if (traits.length === 0) return null;
   return (
@@ -293,13 +310,15 @@ function PlayZone({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-20"
-          style={{ width: 480, height: 220 }}
+          className="w-full flex justify-center pointer-events-none"
+          style={{ height: 220 }}
         >
           <div
             ref={zoneRef}
-            className="w-full h-full rounded-[50%] flex items-center justify-center transition-all duration-150"
+            className="rounded-[50%] flex items-center justify-center transition-all duration-150"
             style={{
+              width: 480,
+              height: 220,
               border: isHovered
                 ? '2px solid rgba(251,191,36,0.8)'
                 : '1px dashed rgba(161,161,170,0.28)',
@@ -333,16 +352,13 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
     buildInitialCombatState(TEST_ENCOUNTER)
   );
   const [devOpen, setDevOpen] = useState(false);
-  const [selectedShieldSlot, setSelectedShieldSlot] = useState<number | null>(null);
-  const [placeShieldMode, setPlaceShieldMode] = useState(false);
-  const [placeShieldCardId, setPlaceShieldCardId] = useState<string | null>(null);
   const [playZoneHovered, setPlayZoneHovered] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ cardId: string; x: number; y: number; source: 'hand' | 'botm' } | null>(null);
   const [priorityRestoreFlash, setPriorityRestoreFlash] = useState(false);
+  const [draggingCardId, setDraggingCardId] = useState<string | null>(null);
   const playZoneRef = useRef<HTMLDivElement | null>(null);
   const prevPriorityRef = useRef(state.priority);
 
-  // Priority Restore visual event (Gap #18)
   useEffect(() => {
     const prev = prevPriorityRef.current;
     prevPriorityRef.current = state.priority;
@@ -353,14 +369,12 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
     }
   }, [state.priority]);
 
-  // Auto-resolve Check phase
   useEffect(() => {
     if (state.phase === 'Check') {
       dispatch({ type: 'CHECK' });
     }
   }, [state.phase]);
 
-  // Auto-resolve EnemyPending
   useEffect(() => {
     if (state.phase === 'EnemyPending') {
       const t = setTimeout(() => dispatch({ type: 'TRIGGER_ENEMY_ACTION' }), 600);
@@ -368,7 +382,6 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
     }
   }, [state.phase]);
 
-  // Auto-resolve InterruptCheck
   useEffect(() => {
     if (state.phase === 'InterruptCheck') {
       const t = setTimeout(() => {
@@ -378,7 +391,6 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
     }
   }, [state.phase]);
 
-  // Auto-resolve EnemyPlay
   useEffect(() => {
     if (state.phase === 'EnemyPlay' && state.stagedEnemyCard) {
       const t = setTimeout(() => {
@@ -400,8 +412,8 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
     return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
   }, []);
 
-  const handleCardDragStart = useCallback((_instanceId: string) => {
-    // drag start — play zone hover tracked via handleCardDrag
+  const handleCardDragStart = useCallback((instanceId: string) => {
+    setDraggingCardId(instanceId);
   }, []);
 
   const handleCardDrag = useCallback((event: MouseEvent | TouchEvent | PointerEvent) => {
@@ -411,7 +423,6 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
     });
   }, [isOverZone]);
 
-  // Unified drag end: dispatches PLAY_CARD or PLAY_INTERRUPT based on phase (Gap #4)
   const handleCardDragEnd = useCallback((instanceId: string, event: MouseEvent | TouchEvent | PointerEvent) => {
     if (isOverZone(event)) {
       if (state.phase === 'Interrupt') {
@@ -421,12 +432,18 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
       }
     }
     setPlayZoneHovered(false);
+    setDraggingCardId(null);
   }, [isOverZone, state.phase]);
 
-  const cancelShieldMode = useCallback(() => {
-    setPlaceShieldMode(false);
-    setPlaceShieldCardId(null);
-    setSelectedShieldSlot(null);
+  const handleShieldDrop = useCallback((slotIdx: number) => {
+    if (!draggingCardId) return;
+    dispatch({ type: 'PLACE_SHIELD', cardInstanceId: draggingCardId, slotIdx });
+    setDraggingCardId(null);
+    setPlayZoneHovered(false);
+  }, [draggingCardId]);
+
+  const openContextMenu = useCallback((cardId: string, x: number, y: number, source: 'hand' | 'botm') => {
+    setContextMenu({ cardId, x, y, source });
   }, []);
 
   const { phase, priority, patience, lieCounter, playerHand, playerShields,
@@ -441,12 +458,8 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
   const isTerminal = phase === 'WIN' || phase === 'LOSE';
 
   const hasEmptyShieldSlot = playerShields.some(s => s === null);
-  const placeShieldCardName = placeShieldCardId
-    ? playerHand.find(c => c.instanceId === placeShieldCardId)?.definition.name
-    : null;
-
-  // Show play zone for both player turn and interrupt phase (Gap #4)
   const showPlayZone = isPlayerTurn || isInterrupt;
+  const isDragging = draggingCardId !== null;
 
   return (
     <div className="relative min-h-screen overflow-hidden">
@@ -458,7 +471,7 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
         aria-hidden
       />
 
-      {/* Priority Restore flash (Gap #18) */}
+      {/* Priority Restore flash */}
       <AnimatePresence>
         {priorityRestoreFlash && (
           <motion.div
@@ -471,13 +484,6 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
           />
         )}
       </AnimatePresence>
-
-      {/* Play zone — visible during PlayerPending AND Interrupt (Gap #4) */}
-      <PlayZone
-        isHovered={playZoneHovered}
-        visible={showPlayZone}
-        zoneRef={playZoneRef}
-      />
 
       {/* Context menu dismiss overlay */}
       {contextMenu && (
@@ -497,9 +503,36 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
             exit={{ opacity: 0, scale: 0.92 }}
             transition={{ duration: 0.1 }}
             className="fixed z-40 bg-zinc-900 border border-zinc-700 rounded-lg shadow-2xl py-1 min-w-[168px]"
-            style={{ left: contextMenu.x, top: contextMenu.y }}
+            style={{ left: contextMenu.x, top: contextMenu.y, transform: 'translate(-50%, -100%)' }}
           >
-            {/* Play Interrupt via context menu (Gap #4) */}
+            {/* Header */}
+            {(() => {
+              const ctxCard = contextMenu.source === 'botm'
+                ? backOfMind.find(c => c.instanceId === contextMenu.cardId)
+                : playerHand.find(c => c.instanceId === contextMenu.cardId);
+              if (!ctxCard) return null;
+              return (
+                <div className="px-3 py-1.5 border-b border-zinc-700">
+                  <div className="text-white text-xs font-semibold">{ctxCard.definition.name}</div>
+                  <div className="text-zinc-500 text-[10px]">{ctxCard.definition.supertype} · cost {ctxCard.definition.cost}</div>
+                </div>
+              );
+            })()}
+
+            {/* Play action */}
+            {isPlayerTurn && (
+              <button
+                className="w-full text-left px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-700 transition-colors"
+                onClick={() => {
+                  dispatch({ type: 'PLAY_CARD', cardInstanceId: contextMenu.cardId });
+                  setContextMenu(null);
+                }}
+              >
+                Play
+              </button>
+            )}
+
+            {/* Play Interrupt */}
             {isInterrupt && (() => {
               const ctxCard = contextMenu.source === 'botm'
                 ? backOfMind.find(c => c.instanceId === contextMenu.cardId)
@@ -516,18 +549,24 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
                 </button>
               ) : null;
             })()}
-            {isPlayerTurn && !placeShieldMode && hasEmptyShieldSlot && (
+
+            {/* Place as Shield — available for ALL cards during PlayerPending */}
+            {isPlayerTurn && hasEmptyShieldSlot && (
               <button
-                className="w-full text-left px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-700 transition-colors"
+                className="w-full text-left px-4 py-2 text-sm text-amber-300 hover:bg-zinc-700 transition-colors"
                 onClick={() => {
-                  setPlaceShieldCardId(contextMenu.cardId);
-                  setPlaceShieldMode(true);
+                  const emptySlotIdx = playerShields.findIndex(s => s === null);
+                  if (emptySlotIdx !== -1) {
+                    dispatch({ type: 'PLACE_SHIELD', cardInstanceId: contextMenu.cardId, slotIdx: emptySlotIdx });
+                  }
                   setContextMenu(null);
                 }}
               >
-                Place as Shield
+                Place as Shield ({SHIELD_PLACEMENT_COST} priority)
               </button>
             )}
+
+            {/* BotM selection */}
             {isBotMSelect && (
               <button
                 className="w-full text-left px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-700 transition-colors"
@@ -539,6 +578,7 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
                 Set as Back of Mind
               </button>
             )}
+
             {!isPlayerTurn && !isBotMSelect && !isInterrupt && (
               <div className="px-4 py-2 text-xs text-zinc-500 italic">No actions available</div>
             )}
@@ -559,165 +599,197 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
             onClick={() => setDevOpen(v => !v)}
             className="text-xs bg-zinc-800 border border-zinc-600 text-zinc-400 hover:text-white px-2 py-1 rounded transition-colors"
           >
-            ⚙ DEV
+            DEV
           </button>
         </div>
 
-        {/* Main layout */}
-        <div className="flex-1 flex flex-col gap-4 p-4 overflow-auto">
+        {/* Main layout: top area (opponent + play zone) expands, stats + hand anchored bottom */}
+        <div className="flex-1 flex flex-col overflow-auto">
 
-          {/* Opponent shields + traits */}
-          <div className="flex justify-center">
-            <div className="bg-zinc-950/70 backdrop-blur-sm rounded-xl p-4 inline-flex flex-col items-center gap-2">
-              <div className="text-xs text-zinc-500 uppercase tracking-widest">{TEST_ENCOUNTER.displayName}</div>
-              <div className="flex gap-3">
-                <AnimatePresence mode="popLayout">
-                  {opponentShields.map((shield, i) => (
-                    <motion.div key={i} layout>
-                      <ShieldBack
-                        broken={shield.broken}
-                        loreText={shield.loreDescription}
-                        hintText={shield.hintText}
-                        isHint={shield.isHint}
-                      />
-                    </motion.div>
+          {/* ═══ TOP: Opponent area + staged card + play zone ═══ */}
+          <div className="flex-1 flex flex-col gap-4 p-4">
+
+            {/* Opponent shields + traits */}
+            <div className="flex justify-center">
+              <div className="bg-zinc-950/70 backdrop-blur-sm rounded-xl p-4 inline-flex flex-col items-center gap-2">
+                <div className="text-xs text-zinc-500 uppercase tracking-widest">{TEST_ENCOUNTER.displayName}</div>
+                <div className="flex gap-3">
+                  <AnimatePresence mode="popLayout">
+                    {opponentShields.map((shield, i) => (
+                      <motion.div key={i} layout>
+                        <ShieldBack
+                          broken={shield.broken}
+                          loreText={shield.loreDescription}
+                          hintText={shield.hintText}
+                          isHint={shield.isHint}
+                        />
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </div>
+                <TraitZone traits={state.config.traits} />
+              </div>
+            </div>
+
+            {/* Staged enemy card */}
+            <div className="flex justify-center min-h-[5rem]">
+              <AnimatePresence>
+                {stagedEnemyCard && (
+                  <motion.div
+                    key={stagedEnemyCard.instanceId}
+                    initial={{ opacity: 0, y: -30, scale: 0.85 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, x: 60, scale: 0.7, transition: { duration: 0.3 } }}
+                    transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+                    className="flex flex-col items-center gap-1"
+                  >
+                    <span className="text-xs text-red-400 uppercase tracking-widest">NPC plays</span>
+                    <CardView card={stagedEnemyCard} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Field impressions */}
+            {state.fieldImpressions.length > 0 && (
+              <div className="flex justify-center gap-2">
+                <AnimatePresence>
+                  {state.fieldImpressions.map(c => (
+                    <CardView key={c.instanceId} card={c} label="Field" />
                   ))}
                 </AnimatePresence>
               </div>
-              {/* Trait display (Gap #8, #14) */}
-              <TraitZone traits={state.config.traits} />
-            </div>
-          </div>
+            )}
 
-          {/* Staged enemy card */}
-          <div className="flex justify-center min-h-[5rem]">
-            <AnimatePresence>
-              {stagedEnemyCard && (
-                <motion.div
-                  key={stagedEnemyCard.instanceId}
-                  initial={{ opacity: 0, y: -30, scale: 0.85 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, x: 60, scale: 0.7, transition: { duration: 0.3 } }}
-                  transition={{ type: 'spring', stiffness: 200, damping: 20 }}
-                  className="flex flex-col items-center gap-1"
-                >
-                  <span className="text-xs text-red-400 uppercase tracking-widest">NPC plays</span>
-                  <CardView card={stagedEnemyCard} />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* Field impressions */}
-          {state.fieldImpressions.length > 0 && (
-            <div className="flex justify-center gap-2">
-              <AnimatePresence>
-                {state.fieldImpressions.map(c => (
-                  <CardView key={c.instanceId} card={c} label="Field" />
-                ))}
-              </AnimatePresence>
-            </div>
-          )}
-
-          {/* Hints */}
-          {state.pendingPlaceAsShield && (
-            <div className="text-center text-xs text-yellow-400 py-1">Choose a shield slot to place the card</div>
-          )}
-          {placeShieldMode && !state.pendingPlaceAsShield && (
-            <div className="text-center text-xs text-yellow-400 py-1">
-              Click a shield slot to place{placeShieldCardName ? ` "${placeShieldCardName}"` : ' the card'}
-            </div>
-          )}
-          {/* Player shields */}
-          <div className="flex justify-center gap-3">
-            <AnimatePresence mode="popLayout">
-              {playerShields.map((slot, i) => (
-                <PlayerShieldSlot
-                  key={i}
-                  slot={slot}
-                  idx={i}
-                  selectable={(state.pendingPlaceAsShield && slot === null) || (placeShieldMode && slot === null)}
-                  selected={selectedShieldSlot === i}
-                  onSelect={() => {
-                    if (state.pendingPlaceAsShield && slot === null) {
-                      dispatch({ type: 'CONFIRM_PLACE_AS_SHIELD', slotIdx: i });
-                    } else if (placeShieldMode && placeShieldCardId && slot === null) {
-                      dispatch({ type: 'PLACE_SHIELD', cardInstanceId: placeShieldCardId, slotIdx: i });
-                      cancelShieldMode();
-                    }
-                    if (isShieldChoice && slot !== null) {
-                      dispatch({ type: 'SELECT_SHIELD_SACRIFICE', slotIdx: i });
-                    }
-                  }}
-                />
-              ))}
-            </AnimatePresence>
-          </div>
-
-          {/* ── Priority bar — central UI element ── */}
-          <div className="py-2">
-            <PriorityBar
-              priority={priority}
-              maxPriority={state.config.defaultRestorePriority}
+            {/* Play zone (above the stats row) */}
+            <PlayZone
+              isHovered={playZoneHovered}
+              visible={showPlayZone}
+              zoneRef={playZoneRef}
             />
+
+            {/* Placement hint */}
+            {state.pendingPlaceAsShield && (
+              <div className="text-center text-xs text-yellow-400 py-1">Choose a shield slot to place the card</div>
+            )}
           </div>
 
-          {/* Patience + Lie counter row */}
-          <PatienceDisplay
-            patience={patience}
-            maxPatience={state.config.opponentPatience}
-            lieCounter={lieCounter}
-            lieThreshold={state.config.lieThreshold}
-          />
+          {/* ═══ BOTTOM: Stats row (Priority + Patience + Player Shields) + Hand ═══ */}
+          <div className="flex flex-col">
 
-          {/* Back of Mind — interrupt cards are draggable, no single-click play (Gap #4) */}
-          {backOfMind.length > 0 && !isBotMSelect && (
-            <div className="flex justify-center gap-2 items-center">
-              <span className="text-xs text-zinc-500">Back of Mind:</span>
-              <AnimatePresence>
-                {backOfMind.map(card => {
-                  const isInterruptCard = card.definition.keywords.includes('Interrupt');
-                  const canDragInterrupt = isInterrupt && isInterruptCard;
-                  return (
-                    <CardView
-                      key={card.instanceId}
-                      card={card}
-                      onRightClick={isInterrupt && isInterruptCard
-                        ? (x, y) => setContextMenu({ cardId: card.instanceId, x, y, source: 'botm' })
-                        : undefined}
-                      isDraggable={canDragInterrupt}
-                      onCardDragStart={canDragInterrupt ? () => handleCardDragStart(card.instanceId) : undefined}
-                      onCardDrag={canDragInterrupt ? (e) => handleCardDrag(e) : undefined}
-                      onCardDragEnd={canDragInterrupt ? (e) => handleCardDragEnd(card.instanceId, e) : undefined}
-                      dimmed={isInterrupt && !isInterruptCard}
-                    />
-                  );
-                })}
-              </AnimatePresence>
+            {/* Central stats row */}
+            <div className="bg-zinc-950/80 backdrop-blur-sm border-t border-zinc-800 px-4 py-3">
+              <div className="flex items-center justify-center gap-6 flex-wrap">
+
+                {/* Priority bar */}
+                <div className="flex-1 max-w-md">
+                  <PriorityBar
+                    priority={priority}
+                    maxPriority={state.config.defaultRestorePriority}
+                  />
+                </div>
+
+                {/* Patience + Lie counter */}
+                <PatienceDisplay
+                  patience={patience}
+                  maxPatience={state.config.opponentPatience}
+                  lieCounter={lieCounter}
+                  lieThreshold={state.config.lieThreshold}
+                />
+
+                {/* Player shields — also the drop zone for shield placement */}
+                <div className="flex gap-2">
+                  <AnimatePresence mode="popLayout">
+                    {playerShields.map((slot, i) => (
+                      <PlayerShieldSlot
+                        key={i}
+                        slot={slot}
+                        idx={i}
+                        selectable={state.pendingPlaceAsShield && slot === null}
+                        selected={false}
+                        isDropTarget={isPlayerTurn && isDragging}
+                        onDrop={() => handleShieldDrop(i)}
+                        onSelect={() => {
+                          if (state.pendingPlaceAsShield && slot === null) {
+                            dispatch({ type: 'CONFIRM_PLACE_AS_SHIELD', slotIdx: i });
+                          }
+                          if (isShieldChoice && slot !== null) {
+                            dispatch({ type: 'SELECT_SHIELD_SACRIFICE', slotIdx: i });
+                          }
+                        }}
+                      />
+                    ))}
+                  </AnimatePresence>
+                </div>
+              </div>
             </div>
-          )}
 
-          {/* Player hand */}
-          <div className="flex flex-col items-center gap-2 mt-auto">
-            <div className="bg-zinc-950/60 backdrop-blur-sm rounded-xl p-3">
+            {/* Back of Mind cards (shown during non-BotM phases when BotM has cards) */}
+            {backOfMind.length > 0 && !isBotMSelect && (
+              <div className="flex justify-center gap-2 items-center px-4 py-2 bg-zinc-950/60">
+                <span className="text-xs text-zinc-500">Back of Mind</span>
+                <AnimatePresence>
+                  {backOfMind.map(card => {
+                    const isInterruptCard = card.definition.keywords.includes('Interrupt');
+                    const canDragInterrupt = isInterrupt && isInterruptCard;
+                    return (
+                      <CardView
+                        key={card.instanceId}
+                        card={card}
+                        onClick={(e: React.MouseEvent) => {
+                          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                          openContextMenu(card.instanceId, rect.left + rect.width / 2, rect.top, 'botm');
+                        }}
+                        onRightClick={isInterrupt && isInterruptCard
+                          ? (x, y) => openContextMenu(card.instanceId, x, y, 'botm')
+                          : undefined}
+                        isDraggable={canDragInterrupt}
+                        onCardDragStart={canDragInterrupt ? () => handleCardDragStart(card.instanceId) : undefined}
+                        onCardDrag={canDragInterrupt ? (e) => handleCardDrag(e) : undefined}
+                        onCardDragEnd={canDragInterrupt ? (e) => handleCardDragEnd(card.instanceId, e) : undefined}
+                        dimmed={isInterrupt && !isInterruptCard}
+                      />
+                    );
+                  })}
+                </AnimatePresence>
+              </div>
+            )}
+
+            {/* Player hand — BotM mode uses distinct background color */}
+            <div className={`px-4 py-3 transition-colors duration-300 ${
+              isBotMSelect ? 'bg-indigo-950/80' : 'bg-zinc-950/60'
+            }`}>
+              {/* BotM mode indicator */}
+              {isBotMSelect && (
+                <div className="text-center text-xs text-indigo-300 mb-2 uppercase tracking-widest">
+                  Back of Mind Selection
+                </div>
+              )}
+
               <div className="flex gap-2 flex-wrap justify-center">
                 <AnimatePresence mode="popLayout">
                   {playerHand.map(card => {
                     const isInterruptCard = card.definition.keywords.includes('Interrupt');
                     const canDrag = isPlayerTurn || (isInterrupt && isInterruptCard);
+                    const isBotMSelected = isBotMSelect && backOfMind.some(c => c.instanceId === card.instanceId);
                     return (
                       <CardView
                         key={card.instanceId}
                         card={card}
-                        onClick={
-                          isBotMSelect
-                            ? () => dispatch({ type: 'SELECT_BOTM', cardInstanceId: card.instanceId })
-                            : undefined
-                        }
+                        onClick={(e: React.MouseEvent) => {
+                          if (isBotMSelect) {
+                            dispatch({ type: 'SELECT_BOTM', cardInstanceId: card.instanceId });
+                          } else if (isPlayerTurn || (isInterrupt && isInterruptCard)) {
+                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                            const x = rect.left + rect.width / 2;
+                            const y = rect.top;
+                            openContextMenu(card.instanceId, x, y, 'hand');
+                          }
+                        }}
                         onRightClick={(isPlayerTurn || isBotMSelect || (isInterrupt && isInterruptCard))
-                          ? (x, y) => setContextMenu({ cardId: card.instanceId, x, y, source: 'hand' })
+                          ? (x, y) => openContextMenu(card.instanceId, x, y, 'hand')
                           : undefined}
-                        selected={isBotMSelect && backOfMind.some(c => c.instanceId === card.instanceId)}
+                        selected={isBotMSelected}
                         dimmed={
                           (!isBotMSelect && !isPlayerTurn && !isInterrupt) ||
                           (isInterrupt && !isInterruptCard)
@@ -731,51 +803,45 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
                   })}
                 </AnimatePresence>
               </div>
-            </div>
 
-            {/* Action bar */}
-            <div className="flex gap-3 mt-2">
-              {isPlayerTurn && (
-                <>
+              {/* Action bar */}
+              <div className="flex gap-3 mt-3 justify-center">
+                {isPlayerTurn && (
                   <button
                     onClick={() => dispatch({ type: 'END_TURN' })}
                     className="px-4 py-2 border border-zinc-600 text-zinc-300 hover:text-white hover:border-white text-sm rounded transition-colors"
                   >
                     End Turn
                   </button>
-                  {placeShieldMode && (
-                    <button
-                      onClick={cancelShieldMode}
-                      className="px-4 py-2 border border-blue-400 text-blue-300 text-sm rounded transition-colors"
-                    >
-                      Cancel Shield
-                    </button>
-                  )}
-                </>
-              )}
-              {isInterrupt && (
-                <button
-                  onClick={() => dispatch({ type: 'PASS_INTERRUPT' })}
-                  className="px-4 py-2 border border-zinc-600 text-zinc-300 hover:text-white text-sm rounded transition-colors"
-                >
-                  Pass
-                </button>
-              )}
-              {isBotMSelect && (
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-zinc-400 py-2">
-                    Select up to {state.combatConfig.backOfMindLimit} card(s) to keep
-                  </span>
-                  {backOfMind.length > 0 && (
+                )}
+                {isInterrupt && (
+                  <button
+                    onClick={() => dispatch({ type: 'PASS_INTERRUPT' })}
+                    className="px-4 py-2 border border-zinc-600 text-zinc-300 hover:text-white sm rounded transition-colors"
+                  >
+                    Pass
+                  </button>
+                )}
+                {isBotMSelect && (
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-indigo-300 py-2">
+                      Select up to {state.combatConfig.backOfMindLimit} card(s) to keep
+                    </span>
                     <button
                       onClick={() => dispatch({ type: 'CONFIRM_BOTM' })}
-                      className="px-3 py-1 border border-yellow-400 text-yellow-400 hover:bg-yellow-900 text-xs rounded transition-colors"
+                      className={`px-3 py-1 border text-xs rounded transition-colors ${
+                        backOfMind.length > 0
+                          ? 'border-yellow-400 text-yellow-400 hover:bg-yellow-900'
+                          : 'border-zinc-500 text-zinc-400 hover:bg-zinc-700'
+                      }`}
                     >
-                      Confirm ({backOfMind.length}/{state.combatConfig.backOfMindLimit})
+                      {backOfMind.length > 0
+                        ? `Confirm (${backOfMind.length}/${state.combatConfig.backOfMindLimit})`
+                        : 'Pass (keep no cards)'}
                     </button>
-                  )}
-                </div>
-              )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -789,7 +855,7 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
 
       {/* ── Modals ── */}
 
-      {/* Discovery modal (Gap #6) */}
+      {/* Discovery modal */}
       <AnimatePresence>
         {state.pendingDiscovery && (
           <motion.div

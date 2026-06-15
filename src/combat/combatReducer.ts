@@ -1,4 +1,4 @@
-import { CombatState, CombatAction, CardInstance, CardEffect, RelevantCard } from './types';
+import { CombatState, CombatAction, CardInstance, CardEffect, RelevantCard, SHIELD_PLACEMENT_COST } from './types';
 import { applyEffect, priorityRestore, selectEnemyCard, makeInstance, clampPriority } from './effectHandlers';
 import { COMBINATIONS } from '../data/combinations';
 
@@ -257,8 +257,7 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       if (!card || action.slotIdx >= state.playerShields.length) return state;
       if (state.playerShields[action.slotIdx] !== null) return state;
 
-      const cost = card.definition.cost;
-      const { priorityCovered, patienceCost } = computeCost(cost, state.priority);
+      const { priorityCovered, patienceCost } = computeCost(SHIELD_PLACEMENT_COST, state.priority);
 
       const newShields = [...state.playerShields];
       newShields[action.slotIdx] = { card };
@@ -271,7 +270,7 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
         playerShields: newShields,
         shieldEverOccupied: true,
       };
-      s = addLog(s, `${card.definition.name} placed as shield in slot ${action.slotIdx}`);
+      s = addLog(s, `${card.definition.name} placed as shield in slot ${action.slotIdx} (cost ${SHIELD_PLACEMENT_COST} priority)`);
       return checkState({ ...s, phase: 'Check' });
     }
 
@@ -301,7 +300,6 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
 
     case 'CONFIRM_BOTM': {
       if (state.phase !== 'BotMSelect') return state;
-      if (state.backOfMind.length === 0) return state;
       const selectedIds = new Set(state.backOfMind.map(c => c.instanceId));
       const rest = state.playerHand.filter(c => !selectedIds.has(c.instanceId));
       let s: CombatState = {
@@ -310,7 +308,11 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
         playerDiscard: [...state.playerDiscard, ...rest],
         phase: 'EnemyPending',
       };
-      s = addLog(s, `Back of Mind: ${state.backOfMind.map(c => c.definition.name).join(', ')}`);
+      if (state.backOfMind.length === 0) {
+        s = addLog(s, 'Back of Mind: passed (no cards kept)');
+      } else {
+        s = addLog(s, `Back of Mind: ${state.backOfMind.map(c => c.definition.name).join(', ')}`);
+      }
       return selectEnemyCard(s);
     }
 
