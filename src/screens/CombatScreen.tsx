@@ -187,7 +187,6 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
   // Auto-resolve EnemyPlay — resolve staged card effects automatically
   useEffect(() => {
     if (state.phase === 'EnemyPlay' && state.stagedEnemyCard) {
-      const card = state.stagedEnemyCard;
       const t = setTimeout(() => {
         // Move card to enemy discard and apply each effect
         // For now, we apply effects by dispatching a DEV action that
@@ -216,7 +215,7 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
   }, [placeShieldMode, selectedShieldSlot]);
 
   const { phase, priority, patience, lieCounter, playerHand, playerShields,
-    opponentShields, stagedEnemyCard, backOfMind, actionLog, pendingReveal,
+    opponentShields, stagedEnemyCard, backOfMind, pendingReveal,
     pendingShieldChoiceSlotIdx } = state;
 
   const isPlayerTurn = phase === 'PlayerPending';

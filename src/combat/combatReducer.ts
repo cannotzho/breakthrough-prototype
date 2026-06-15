@@ -1,5 +1,5 @@
 import { CombatState, CombatAction, CardInstance, CardEffect, RelevantCard } from './types';
-import { applyEffect, drawCards, priorityRestore, selectEnemyCard, makeInstance } from './effectHandlers';
+import { applyEffect, priorityRestore, selectEnemyCard, makeInstance } from './effectHandlers';
 
 function addLog(state: CombatState, msg: string): CombatState {
   return { ...state, actionLog: [...state.actionLog.slice(-49), msg] };
