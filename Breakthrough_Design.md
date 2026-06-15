@@ -1,6 +1,6 @@
 # Breakthrough — Game Design Document
 
-> **Status:** Draft v0.9 — Core combat state machine, encounter/NPC configuration, card discovery, persistent state. Sections on card types/subtypes, modifiers, and combinations are placeholders pending design.
+> **Status:** Draft v1.0 — Core combat state machine, encounter/NPC configuration, card discovery, persistent state. Sections on card types/subtypes, modifiers, and combinations are placeholders pending design.
 
 ---
 
@@ -697,6 +697,33 @@ Guidelines:
 
 When adding new UI elements, default to the minimum visible representation (icon or number) and attach detail to a hover or tap interaction.
 
+### 11.4 Player Actions Require Implicit Confirmation
+
+Player actions must never be triggered by a single tap or click on a card alone. All card plays and placements must require one of:
+- **Drag-to-zone**: the player drags a card into a designated play zone (e.g. a highlighted "play area" that appears when a card is picked up). Releasing outside the zone cancels the action.
+- **Context menu**: a right-click or long-press on a card opens a context menu with explicit options ("Play", "Place as Shield", "Set as Back of Mind"). Selecting an option from the menu confirms the action.
+
+This rule exists to prevent accidental plays and to give the player a moment of consideration before committing. Buttons and confirmation dialogs for blocking sub-states (shield sacrifice, reveal dismiss) are exempt — those are already explicit.
+
+### 11.5 Card Zone Transitions Must Be Animated
+
+Every card movement between zones must have an accompanying Framer Motion animation. A card must never teleport between zones. Required animations for each transition:
+
+| Transition | Animation |
+|---|---|
+| Deck → Hand (draw) | Card slides in from deck position, fanning into hand |
+| Hand → Play zone (play) | Card lifts off hand, moves to center play zone, shrinks and dissolves |
+| Hand → Shield slot (place as shield) | Card floats to shield slot, clicks into place |
+| Hand → Back of Mind | Card slides to BotM zone |
+| BotM → Hand (restore) | Card slides back into hand |
+| Play zone → Discard | Card slides from play zone to discard pile |
+| Enemy card → Enemy play zone (stage) | Card slides in from enemy side |
+| Enemy play zone → Enemy discard | Card slides to enemy discard |
+| Deck → Deck (reshuffle) | Discard pile cards animate into a stack, stack flips to become deck |
+| Shield → Discard (break) | Card cracks/shakes, then slides to discard |
+
+Animations within a single turn must be sequential, never concurrent (see §11.1). Each animation should complete before the next begins. Use Framer Motion's `AnimatePresence` and layout transitions for zone entry/exit.
+
 ---
 
-*End of document — v0.9*
+*End of document — v1.0*
