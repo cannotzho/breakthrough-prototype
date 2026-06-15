@@ -19,6 +19,8 @@ Dev tools route (dev build only): navigate to `http://localhost:5173/dev` — sk
 
 ## Project Overview
 
+> **Design authority:** `Breakthrough_Design.md` is the authoritative source of truth for all game design decisions. This file (`CLAUDE.md`) documents code structure only.
+
 Breakthrough is a detective card game. The original prototype is `breakthrough.html` (vanilla JS, single file). The active codebase is `BreakthroughPrototype/` — Vite + React 19 + TypeScript + Tailwind CSS v4.
 
 The core mechanic: the player conducts interrogations using cards. Both sides have **shields** (hidden information slots). Breaking all opponent shields wins the conversation. Losing all player shields or draining the opponent's **patience** to zero ends it badly.
@@ -91,7 +93,7 @@ At combat init, the player's chosen world deck is filtered through the encounter
 
 ## Adding Cards
 
-1. Add an entry to `CARDS` in `src/data/cards.ts`. The `id` must be a unique camelCase key. Set `supertype` (`Personal` / `Information`), `type` (`sorcery` / `instant` / `enchantment`), and `effects` (see `CardEffects` in `types.ts`).
+1. Add an entry to `CARDS` in `src/data/cards.ts`. The `id` must be a unique camelCase key. Set `supertype` (`Skill` / `Information`), `keywords` (any combination of `Interrupt` / `Safety` / `Assemble` / `Counter` / `Lie`), and `effects` (see `CardEffect` in `types.ts`).
 2. Add the card ID to any encounter's `worldDeck` relevance list in `src/data/encounters.ts` if it should appear in that combat.
 3. If it's a hidden info card (revealed when an opponent shield breaks, cost 0, empty effects), also add its ID to the encounter's `shieldLinks` array in the appropriate slot.
 4. If it should be in the player's base personal deck, add it to `DETECTIVE_PERSONAL_DECK`; if it's only for a specific encounter, add it to that encounter's `personalDeck` array.

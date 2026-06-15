@@ -23,7 +23,6 @@ export const TEST_ENCOUNTER: EncounterConfig = {
   retryable: true,
   lieThreshold: 3,
   enemyDeckCardIds: ['dev_enemy_dismiss', 'dev_enemy_deflect', 'dev_enemy_deflect'],
-  playedNonRelevantCards: [],
 };
 
 export function buildInitialCombatState(config: EncounterConfig): CombatState {

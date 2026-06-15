@@ -133,7 +133,7 @@ function LogTab({ log }: { log: string[] }) {
   return (
     <div className="flex flex-col gap-1 overflow-y-auto max-h-96">
       {[...log].reverse().map((entry, i) => (
-        <div key={i} className="text-xs text-zinc-300 border-b border-zinc-800 pb-1">
+        <div key={log.length - 1 - i} className="text-xs text-zinc-300 border-b border-zinc-800 pb-1">
           {entry}
         </div>
       ))}

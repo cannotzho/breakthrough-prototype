@@ -88,7 +88,6 @@ export interface EncounterConfig {
   tutorialMode?: boolean;
   scriptedDrawOrder?: string[][];
   scriptedOpponentPlays?: string[];
-  playedNonRelevantCards?: string[];
   enemyDeckCardIds: string[];
   maxPlayerShields?: number;
 }

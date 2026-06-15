@@ -155,6 +155,7 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
   const [devOpen, setDevOpen] = useState(false);
   const [selectedShieldSlot, setSelectedShieldSlot] = useState<number | null>(null);
   const [placeShieldMode, setPlaceShieldMode] = useState(false);
+  const [hint, setHint] = useState<string | null>(null);
 
   // Auto-resolve Check phase
   useEffect(() => {
@@ -185,13 +186,6 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
   useEffect(() => {
     if (state.phase === 'EnemyPlay' && state.stagedEnemyCard) {
       const t = setTimeout(() => {
-        // Move card to enemy discard and apply each effect
-        // For now, we apply effects by dispatching a DEV action that
-        // mimics the enemy resolving. We inline the resolution via CHECK.
-        // Full implementation: dispatch a new RESOLVE_ENEMY_CARD action.
-        // Simple approach: apply effects manually via sequential dispatches.
-        // We'll do a single state mutation by dispatching CHECK after clearing the staged card
-        // and applying the enemy card's effects inline via a custom action.
         dispatch({ type: 'RESOLVE_ENEMY_CARD' });
       }, 500);
       return () => clearTimeout(t);
@@ -200,12 +194,14 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
 
   const playCard = useCallback((instanceId: string) => {
     if (placeShieldMode) {
-      // pick a slot
-      if (selectedShieldSlot !== null) {
-        dispatch({ type: 'PLACE_SHIELD', cardInstanceId: instanceId, slotIdx: selectedShieldSlot });
-        setPlaceShieldMode(false);
-        setSelectedShieldSlot(null);
+      if (selectedShieldSlot === null) {
+        setHint('Select a shield slot first');
+        setTimeout(() => setHint(null), 2000);
+        return;
       }
+      dispatch({ type: 'PLACE_SHIELD', cardInstanceId: instanceId, slotIdx: selectedShieldSlot });
+      setPlaceShieldMode(false);
+      setSelectedShieldSlot(null);
       return;
     }
     dispatch({ type: 'PLAY_CARD', cardInstanceId: instanceId });
@@ -302,6 +298,9 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
           <div className="text-center text-xs text-yellow-400 py-1">
             Choose a shield slot to place the card
           </div>
+        )}
+        {hint && (
+          <div className="text-center text-xs text-amber-400 py-1">{hint}</div>
         )}
         <div className="flex justify-center gap-3">
           {playerShields.map((slot, i) => (

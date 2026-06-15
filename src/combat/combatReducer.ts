@@ -1,6 +1,12 @@
 import { CombatState, CombatAction, CardInstance, CardEffect, RelevantCard } from './types';
 import { applyEffect, priorityRestore, selectEnemyCard, makeInstance } from './effectHandlers';
 
+function computeCost(cost: number, priority: number) {
+  const priorityCovered = Math.min(cost, priority);
+  const patienceCost = Math.max(0, cost - priority);
+  return { priorityCovered, patienceCost };
+}
+
 function addLog(state: CombatState, msg: string): CombatState {
   return { ...state, actionLog: [...state.actionLog.slice(-49), msg] };
 }
@@ -97,8 +103,7 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       if (!card) return state;
 
       const cost = card.definition.cost;
-      const priorityCovered = Math.min(cost, state.priority);
-      const patienceCost = Math.max(0, cost - state.priority);
+      const { priorityCovered, patienceCost } = computeCost(cost, state.priority);
 
       let s: CombatState = {
         ...state,
@@ -157,8 +162,7 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       if (state.playerShields[action.slotIdx] !== null) return state;
 
       const cost = card.definition.cost;
-      const priorityCovered = Math.min(cost, state.priority);
-      const patienceCost = Math.max(0, cost - state.priority);
+      const { priorityCovered, patienceCost } = computeCost(cost, state.priority);
 
       const newShields = [...state.playerShields];
       newShields[action.slotIdx] = { card };
