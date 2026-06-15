@@ -1,6 +1,6 @@
 # Breakthrough — Game Design Document
 
-> **Status:** Draft v0.8 — Core combat state machine, encounter/NPC configuration, card discovery, persistent state. Sections on card types/subtypes, modifiers, and combinations are placeholders pending design.
+> **Status:** Draft v0.9 — Core combat state machine, encounter/NPC configuration, card discovery, persistent state. Sections on card types/subtypes, modifiers, and combinations are placeholders pending design.
 
 ---
 
@@ -94,11 +94,23 @@ Information cards represent knowledge about the world. Their combat effects are 
 1. The card is played for the first time in an encounter where it appears in that encounter's `relevantCards` list. Each encounter defines the card's effect independently — the same card may behave differently in different encounters. A reveal animation plays and the effect is shown. Discovery persists globally.
 2. An external trigger from the overworld marks the card as discovered ahead of time.
 
-Once Discovered, the card's effect is visible in all future encounters. If an Information Card is in the player's Conversation Deck for an encounter where it does not appear in `relevantCards`, it is NOT replaced at deck construction time. The card remains in the Conversation Deck, but at play time — when the player attempts to play it — it resolves as Ponder (pay 1 Priority, draw 1 card) instead of its actual effect. The player's global ownership of the Information Card in their Compendium is unaffected.
+Once Discovered, the card's effect is visible in all future encounters. **Important:** An Information Card has no defined combat effect in any encounter where it does not appear in that encounter's `relevantCards`. The effect vocabulary on an Information Card is always and only defined by `relevantCards` for a specific encounter. There is no "underlying" or "actual" effect to fall back to — the card is simply not meaningful in that context.
 
-If the player has previously played this card in this encounter in a prior attempt (tracked in `playedNonRelevantCards` persistent encounter state — see §5 and §7), the Info Card selection screen displays a warning icon on that card to indicate it will resolve as Ponder in this encounter.
+When a non-relevant Information Card is in the player's Conversation Deck, its behaviour at pre-encounter and in-encounter depends on whether it has been previously played in this encounter (tracked in `playedNonRelevantCards`):
 
-The play-time Ponder fallback logic should be implemented as a single replaceable function so that the fallback behaviour can be changed without touching card resolution broadly.
+**Case 1 — Not previously played (not in `playedNonRelevantCards`):**
+- Pre-encounter Info Card selection: the card shows a `???` / Unknown effect indicator, identical to an undiscovered relevant card in appearance, but for a different reason.
+- Deck construction: the card enters the Conversation Deck unchanged.
+- In encounter, when played: the card converts to Ponder (pay 1 Priority, draw 1 card) at that moment. Its card ID is added to `playedNonRelevantCards` after this conversion.
+
+**Case 2 — Previously played (in `playedNonRelevantCards`):**
+- Pre-encounter Info Card selection: the card displays the text **"Will be converted to Ponder"** as a warning.
+- Deck construction: the card is replaced by Ponder in the Conversation Deck before the encounter begins. A conversion animation plays to remind the player which cards were substituted.
+- In encounter: the card no longer exists in the deck — only Ponder remains in its slot.
+
+The play-time Ponder conversion logic (Case 1) should be implemented as a single replaceable function so that fallback behaviour can be changed without touching card resolution broadly. The deck-construction substitution (Case 2) is a separate step and should be implemented independently.
+
+> **Design note for implementors:** Avoid any language that implies a non-relevant Information Card has an "actual effect" or a "hidden effect." It does not. The only source of truth for an Information Card's effect in any encounter is that encounter's `relevantCards` list. Any code or documentation that references a non-relevant card's "effect" is incorrect.
 
 ### Back of Mind (BotM)
 
@@ -442,7 +454,10 @@ The pre-encounter phase occurs before the combat state machine starts. It consis
 
 When the player's Collection contains more Information Cards than a defined threshold, a pre-encounter selection screen allows the player to review and choose which Information Cards to include in their Conversation Deck for the upcoming encounter.
 
-Cards that appear in the encounter's `relevantCards` list are highlighted to indicate they will reveal their effects if played. Cards that have been previously played in this encounter and are not in `relevantCards` (tracked in `playedNonRelevantCards`) display a warning icon: **"Transforms to Ponder in this encounter."**
+Cards in the Info Card selection screen are displayed in one of three states:
+- **Relevant** (`relevantCards` contains this card): highlighted. Effect will be revealed on first play.
+- **Non-relevant, not previously played** (not in `relevantCards`, not in `playedNonRelevantCards`): displays `???` / Unknown effect. The player does not yet know whether this card will be useful. If brought into the encounter and played, it converts to Ponder at that moment.
+- **Non-relevant, previously played** (not in `relevantCards`, present in `playedNonRelevantCards`): displays **'Will be converted to Ponder'**. If confirmed in the Conversation Deck, this card is substituted to Ponder at deck construction (before the encounter begins), accompanied by a conversion animation.
 
 This stage is deferred until the Collection mechanic is fully designed. It is listed here to define its position in the game flow and the data it depends on.
 
@@ -684,4 +699,4 @@ When adding new UI elements, default to the minimum visible representation (icon
 
 ---
 
-*End of document — v0.8*
+*End of document — v0.9*
