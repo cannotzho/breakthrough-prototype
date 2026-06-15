@@ -1,5 +1,5 @@
 import { EncounterConfig, CombatState, DEFAULT_COMBAT_CONFIG } from '../combat/types';
-import { makeInstance } from '../combat/effectHandlers';
+import { makeInstance, shuffle } from '../combat/effectHandlers';
 import { DEV_SKILL_CARDS, DEV_ENEMY_CARDS } from './devCards';
 
 export const TEST_ENCOUNTER: EncounterConfig = {
@@ -30,7 +30,7 @@ export function buildInitialCombatState(config: EncounterConfig): CombatState {
   const allEnemyDefs = [...DEV_ENEMY_CARDS];
 
   const playerDeckDefs = [...DEV_SKILL_CARDS, ...DEV_SKILL_CARDS];
-  const shuffledPlayer = [...playerDeckDefs].sort(() => Math.random() - 0.5);
+  const shuffledPlayer = shuffle([...playerDeckDefs]);
   const playerInstances = shuffledPlayer.map(def => makeInstance(def));
   const initialHand = playerInstances.slice(0, DEFAULT_COMBAT_CONFIG.handLimit);
   const initialDeck = playerInstances.slice(DEFAULT_COMBAT_CONFIG.handLimit);
@@ -48,7 +48,7 @@ export function buildInitialCombatState(config: EncounterConfig): CombatState {
     playerHand: initialHand,
     playerDeck: initialDeck,
     playerDiscard: [],
-    backOfMind: null,
+    backOfMind: [],
     playerShields: Array(DEFAULT_COMBAT_CONFIG.maxPlayerShields).fill(null),
     pendingShieldChoiceSlotIdx: null,
     opponentShields: config.opponentShields.map(s => ({ ...s })),
@@ -62,6 +62,7 @@ export function buildInitialCombatState(config: EncounterConfig): CombatState {
     combatConfig: DEFAULT_COMBAT_CONFIG,
     pendingEffects: [],
     pendingEffectCard: null,
+    pendingPlaceAsShield: false,
     actionLog: ['Encounter started.'],
   };
 }

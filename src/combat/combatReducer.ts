@@ -115,6 +115,12 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       }
 
       return resolveEffectList(s, card.definition.effects, card, (resolved) => {
+        if (resolved.pendingPlaceAsShield) {
+          return addLog(
+            { ...resolved, pendingEffectCard: card, pendingEffects: [], phase: 'PlayerPending' },
+            `${card.definition.name}: choose a shield slot to place it in`
+          );
+        }
         const isImpression = card.definition.subtype === 'Impression';
         return checkState({
           ...resolved,
@@ -125,6 +131,23 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
           phase: 'Check',
         });
       });
+    }
+
+    case 'CONFIRM_PLACE_AS_SHIELD': {
+      if (!state.pendingPlaceAsShield || !state.pendingEffectCard) return state;
+      const card = state.pendingEffectCard;
+      if (action.slotIdx >= state.playerShields.length || state.playerShields[action.slotIdx] !== null) return state;
+      const newShields = [...state.playerShields];
+      newShields[action.slotIdx] = { card };
+      let s: CombatState = {
+        ...state,
+        playerShields: newShields,
+        pendingPlaceAsShield: false,
+        pendingEffectCard: null,
+        pendingEffects: [],
+      };
+      s = addLog(s, `${card.definition.name} placed as shield in slot ${action.slotIdx} (via effect)`);
+      return checkState({ ...s, phase: 'Check' });
     }
 
     case 'PLACE_SHIELD': {
@@ -161,15 +184,32 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       if (state.phase !== 'BotMSelect') return state;
       const card = state.playerHand.find(c => c.instanceId === action.cardInstanceId);
       if (!card) return state;
-      const rest = state.playerHand.filter(c => c.instanceId !== action.cardInstanceId);
+      const alreadySelected = state.backOfMind.some(c => c.instanceId === action.cardInstanceId);
+      if (alreadySelected) {
+        return addLog(
+          { ...state, backOfMind: state.backOfMind.filter(c => c.instanceId !== action.cardInstanceId) },
+          `${card.definition.name} deselected from Back of Mind`
+        );
+      }
+      if (state.backOfMind.length >= state.combatConfig.backOfMindLimit) return state;
+      return addLog(
+        { ...state, backOfMind: [...state.backOfMind, card] },
+        `${card.definition.name} selected for Back of Mind`
+      );
+    }
+
+    case 'CONFIRM_BOTM': {
+      if (state.phase !== 'BotMSelect') return state;
+      if (state.backOfMind.length === 0) return state;
+      const selectedIds = new Set(state.backOfMind.map(c => c.instanceId));
+      const rest = state.playerHand.filter(c => !selectedIds.has(c.instanceId));
       let s: CombatState = {
         ...state,
-        backOfMind: card,
         playerHand: [],
         playerDiscard: [...state.playerDiscard, ...rest],
         phase: 'EnemyPending',
       };
-      s = addLog(s, `${card.definition.name} kept in Back of Mind`);
+      s = addLog(s, `Back of Mind: ${state.backOfMind.map(c => c.definition.name).join(', ')}`);
       return selectEnemyCard(s);
     }
 
@@ -236,14 +276,13 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
     case 'PLAY_INTERRUPT': {
       if (state.phase !== 'Interrupt') return state;
       const card =
-        state.backOfMind?.instanceId === action.cardInstanceId
-          ? state.backOfMind
-          : state.playerHand.find(c => c.instanceId === action.cardInstanceId);
+        state.backOfMind.find(c => c.instanceId === action.cardInstanceId) ??
+        state.playerHand.find(c => c.instanceId === action.cardInstanceId);
       if (!card || !card.definition.keywords.includes('Interrupt')) return state;
 
       let s: CombatState = {
         ...state,
-        backOfMind: state.backOfMind?.instanceId === action.cardInstanceId ? null : state.backOfMind,
+        backOfMind: state.backOfMind.filter(c => c.instanceId !== action.cardInstanceId),
         playerHand: state.playerHand.filter(c => c.instanceId !== action.cardInstanceId),
         pendingEffects: [],
         pendingEffectCard: null,
@@ -265,6 +304,18 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
     case 'PASS_INTERRUPT': {
       if (state.phase !== 'Interrupt') return state;
       return addLog({ ...state, phase: 'EnemyPlay' }, 'Player passed interrupt');
+    }
+
+    // ── Interrupt Check ───────────────────────────────────────
+    case 'RESOLVE_INTERRUPT_CHECK': {
+      if (state.phase !== 'InterruptCheck') return state;
+      const hasInterrupt =
+        state.backOfMind.some(c => c.definition.keywords.includes('Interrupt')) ||
+        state.playerHand.some(c => c.definition.keywords.includes('Interrupt'));
+      return addLog(
+        { ...state, phase: hasInterrupt ? 'Interrupt' : 'EnemyPlay' },
+        hasInterrupt ? 'Interrupt available' : 'No interrupts — Enemy Play'
+      );
     }
 
     // ── Dev Actions ───────────────────────────────────────────

@@ -132,7 +132,7 @@ export interface CombatState {
   playerHand: CardInstance[];
   playerDeck: CardInstance[];
   playerDiscard: CardInstance[];
-  backOfMind: CardInstance | null;
+  backOfMind: CardInstance[];
 
   playerShields: (PlayerShieldSlot | null)[];
   pendingShieldChoiceSlotIdx: number | null;
@@ -153,6 +153,7 @@ export interface CombatState {
 
   pendingEffects: CardEffect[];
   pendingEffectCard: CardInstance | null;
+  pendingPlaceAsShield: boolean;
 
   actionLog: string[];
 }
@@ -179,4 +180,7 @@ export type CombatAction =
   | { type: 'DEV_ADD_CARD_TO_HAND'; card: CardDefinition }
   | { type: 'DEV_SET_ENEMY_CARD'; card: CardDefinition }
   | { type: 'DEV_ADD_RELEVANT_CARD'; card: RelevantCard }
-  | { type: 'RESOLVE_ENEMY_CARD' };
+  | { type: 'RESOLVE_ENEMY_CARD' }
+  | { type: 'CONFIRM_PLACE_AS_SHIELD'; slotIdx: number }
+  | { type: 'RESOLVE_INTERRUPT_CHECK' }
+  | { type: 'CONFIRM_BOTM' };

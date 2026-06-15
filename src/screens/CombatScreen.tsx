@@ -174,15 +174,12 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
   // Auto-resolve InterruptCheck
   useEffect(() => {
     if (state.phase === 'InterruptCheck') {
-      const hasInterrupt =
-        state.backOfMind?.definition.keywords.includes('Interrupt') ||
-        state.playerHand.some(c => c.definition.keywords.includes('Interrupt'));
       const t = setTimeout(() => {
-        dispatch({ type: 'DEV_SET_PHASE', phase: hasInterrupt ? 'Interrupt' : 'EnemyPlay' });
+        dispatch({ type: 'RESOLVE_INTERRUPT_CHECK' });
       }, 300);
       return () => clearTimeout(t);
     }
-  }, [state.phase, state.backOfMind, state.playerHand]);
+  }, [state.phase]);
 
   // Auto-resolve EnemyPlay — resolve staged card effects automatically
   useEffect(() => {
@@ -301,16 +298,23 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
         )}
 
         {/* Player shields */}
+        {state.pendingPlaceAsShield && (
+          <div className="text-center text-xs text-yellow-400 py-1">
+            Choose a shield slot to place the card
+          </div>
+        )}
         <div className="flex justify-center gap-3">
           {playerShields.map((slot, i) => (
             <PlayerShieldSlot
               key={i}
               slot={slot}
               idx={i}
-              selectable={placeShieldMode && slot === null}
+              selectable={(state.pendingPlaceAsShield && slot === null) || (placeShieldMode && slot === null)}
               selected={selectedShieldSlot === i}
               onSelect={() => {
-                if (placeShieldMode && slot === null) {
+                if (state.pendingPlaceAsShield && slot === null) {
+                  dispatch({ type: 'CONFIRM_PLACE_AS_SHIELD', slotIdx: i });
+                } else if (placeShieldMode && slot === null) {
                   setSelectedShieldSlot(i);
                 }
                 if (isShieldChoice && slot !== null) {
@@ -322,15 +326,18 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
         </div>
 
         {/* Back of Mind */}
-        {backOfMind && (
+        {backOfMind.length > 0 && !isBotMSelect && (
           <div className="flex justify-center gap-2 items-center">
             <span className="text-xs text-zinc-500">Back of Mind:</span>
-            <CardView
-              card={backOfMind}
-              onClick={isInterrupt && backOfMind.definition.keywords.includes('Interrupt')
-                ? () => dispatch({ type: 'PLAY_INTERRUPT', cardInstanceId: backOfMind.instanceId })
-                : undefined}
-            />
+            {backOfMind.map(card => (
+              <CardView
+                key={card.instanceId}
+                card={card}
+                onClick={isInterrupt && card.definition.keywords.includes('Interrupt')
+                  ? () => dispatch({ type: 'PLAY_INTERRUPT', cardInstanceId: card.instanceId })
+                  : undefined}
+              />
+            ))}
           </div>
         )}
 
@@ -347,6 +354,7 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
                   isPlayerTurn ? () => playCard(card.instanceId) :
                   undefined
                 }
+                selected={isBotMSelect && backOfMind.some(c => c.instanceId === card.instanceId)}
                 dimmed={
                   (isBotMSelect ? false : !isPlayerTurn && !isInterrupt) ||
                   (isInterrupt && !card.definition.keywords.includes('Interrupt'))
@@ -383,7 +391,19 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
               </button>
             )}
             {isBotMSelect && (
-              <div className="text-xs text-zinc-400 py-2">Select a card to keep as Back of Mind</div>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-zinc-400 py-2">
+                  Select up to {state.combatConfig.backOfMindLimit} card(s) to keep
+                </span>
+                {backOfMind.length > 0 && (
+                  <button
+                    onClick={() => dispatch({ type: 'CONFIRM_BOTM' })}
+                    className="px-3 py-1 border border-yellow-400 text-yellow-400 hover:bg-yellow-900 text-xs rounded transition-colors"
+                  >
+                    Confirm ({backOfMind.length}/{state.combatConfig.backOfMindLimit})
+                  </button>
+                )}
+              </div>
             )}
           </div>
         </div>

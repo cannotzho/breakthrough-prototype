@@ -30,8 +30,10 @@ export function applyEffect(state: CombatState, effect: CardEffect): CombatState
       return { ...state, pendingShieldChoiceSlotIdx: -1 };
     }
     case 'PLACE_AS_SHIELD':
-      return state;
+      return { ...state, pendingPlaceAsShield: true };
     case 'PLACE_IMPRESSION':
+      // Routing to field vs. discard is handled by the subtype check in PLAY_CARD,
+      // not via this effect type. This is intentionally a no-op.
       return state;
     default:
       return state;
@@ -71,7 +73,7 @@ export function drawCards(state: CombatState, count: number): CombatState {
   return { ...state, playerDeck: deck, playerDiscard: discard, playerHand: hand, actionLog: log };
 }
 
-function shuffle<T>(arr: T[]): T[] {
+export function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -82,8 +84,8 @@ function shuffle<T>(arr: T[]): T[] {
 
 export function priorityRestore(state: CombatState): CombatState {
   const restored = { ...state, priority: state.config.defaultRestorePriority };
-  const withBotM = restored.backOfMind
-    ? { ...restored, playerHand: [...restored.playerHand, restored.backOfMind], backOfMind: null }
+  const withBotM = restored.backOfMind.length > 0
+    ? { ...restored, playerHand: [...restored.playerHand, ...restored.backOfMind], backOfMind: [] as typeof restored.backOfMind }
     : restored;
   const toDraw = Math.max(0, withBotM.combatConfig.handLimit - withBotM.playerHand.length);
   return drawCards(withBotM, toDraw);
