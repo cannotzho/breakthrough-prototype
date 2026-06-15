@@ -32,12 +32,27 @@ export function buildInitialCombatState(config: EncounterConfig): CombatState {
   const shuffledPlayer = shuffle([...playerDeckDefs]);
   const playerInstances = shuffledPlayer.map(def => makeInstance(def));
   const initialHand = playerInstances.slice(0, DEFAULT_COMBAT_CONFIG.handLimit);
-  const initialDeck = playerInstances.slice(DEFAULT_COMBAT_CONFIG.handLimit);
+  let initialDeck = playerInstances.slice(DEFAULT_COMBAT_CONFIG.handLimit);
 
   const enemyInstances = config.enemyDeckCardIds.map(id => {
     const def = allEnemyDefs.find(c => c.id === id) ?? allEnemyDefs[0];
     return makeInstance(def);
   });
+
+  // Pre-place shields from config (Gap #15)
+  const shieldSlots: (CombatState['playerShields'][0])[] = Array(DEFAULT_COMBAT_CONFIG.maxPlayerShields).fill(null);
+  let shieldEverOccupied = false;
+  if (config.playerShields && config.playerShields.length > 0) {
+    for (let i = 0; i < config.playerShields.length && i < shieldSlots.length; i++) {
+      const cardId = config.playerShields[i];
+      const cardIdx = initialDeck.findIndex(c => c.definition.id === cardId);
+      if (cardIdx !== -1) {
+        shieldSlots[i] = { card: initialDeck[cardIdx] };
+        initialDeck = [...initialDeck.slice(0, cardIdx), ...initialDeck.slice(cardIdx + 1)];
+        shieldEverOccupied = true;
+      }
+    }
+  }
 
   return {
     phase: 'Check',
@@ -48,8 +63,9 @@ export function buildInitialCombatState(config: EncounterConfig): CombatState {
     playerDeck: initialDeck,
     playerDiscard: [],
     backOfMind: [],
-    playerShields: Array(DEFAULT_COMBAT_CONFIG.maxPlayerShields).fill(null),
+    playerShields: shieldSlots,
     pendingShieldChoiceSlotIdx: null,
+    shieldEverOccupied,
     opponentShields: config.opponentShields.map(s => ({ ...s })),
     pendingReveal: null,
     enemyDeck: enemyInstances,
@@ -62,6 +78,8 @@ export function buildInitialCombatState(config: EncounterConfig): CombatState {
     pendingEffects: [],
     pendingEffectCard: null,
     pendingPlaceAsShield: false,
+    counterPending: null,
+    pendingDiscovery: null,
     actionLog: ['Encounter started.'],
   };
 }

@@ -39,6 +39,12 @@ export interface CardDefinition {
 export interface CardInstance {
   instanceId: string;
   definition: CardDefinition;
+  combinedFrom?: CardInstance[];
+}
+
+export interface CombinationRecipe {
+  ingredients: string[];
+  result: CardDefinition;
 }
 
 // ─── Shield Definitions ────────────────────────────────────────
@@ -122,6 +128,12 @@ export type CombatPhase =
   | 'LOSE';
 
 // ─── Combat State ──────────────────────────────────────────────
+export interface CounterPendingState {
+  hasSafety: boolean;
+  savedEffects: CardEffect[];
+  savedEffectCard: CardInstance | null;
+}
+
 export interface CombatState {
   phase: CombatPhase;
   priority: number;
@@ -135,6 +147,7 @@ export interface CombatState {
 
   playerShields: (PlayerShieldSlot | null)[];
   pendingShieldChoiceSlotIdx: number | null;
+  shieldEverOccupied: boolean;
 
   opponentShields: OpponentShieldSlot[];
   pendingReveal: OpponentShieldSlot | null;
@@ -153,6 +166,8 @@ export interface CombatState {
   pendingEffects: CardEffect[];
   pendingEffectCard: CardInstance | null;
   pendingPlaceAsShield: boolean;
+  counterPending: CounterPendingState | null;
+  pendingDiscovery: RelevantCard | null;
 
   actionLog: string[];
 }
@@ -170,6 +185,8 @@ export type CombatAction =
   | { type: 'PASS_INTERRUPT' }
   | { type: 'CHECK' }
   | { type: 'TRIGGER_ENEMY_ACTION' }
+  | { type: 'COMBINE'; cardInstanceIds: [string, string] }
+  | { type: 'DISMISS_DISCOVERY' }
   | { type: 'DEV_SET_PRIORITY'; value: number }
   | { type: 'DEV_SET_PATIENCE'; value: number }
   | { type: 'DEV_SET_LIE_COUNTER'; value: number }

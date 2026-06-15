@@ -1,11 +1,39 @@
 import { CombatState, CardEffect, CardInstance } from './types';
 
+export function clampPriority(value: number): number {
+  return Math.max(-10, Math.min(10, value));
+}
+
 export function applyEffect(state: CombatState, effect: CardEffect): CombatState {
   switch (effect.type) {
-    case 'MODIFY_PRIORITY':
-      return { ...state, priority: state.priority + (effect.value ?? 0) };
-    case 'MODIFY_PATIENCE':
-      return { ...state, patience: state.patience + (effect.value ?? 0) };
+    case 'MODIFY_PRIORITY': {
+      const oldPriority = state.priority;
+      const newPriority = clampPriority(state.priority + (effect.value ?? 0));
+      let s: CombatState = { ...state, priority: newPriority };
+      if (oldPriority <= 0 && newPriority > 0) {
+        s = priorityRestore(s);
+      }
+      return s;
+    }
+    case 'MODIFY_PATIENCE': {
+      let delta = effect.value ?? 0;
+      let s = state;
+      if (delta < 0) {
+        const sensitiveTrait = s.config.traits.find(
+          t => t.id === 'sensitive' || t.name.toLowerCase() === 'sensitive'
+        );
+        if (sensitiveTrait) {
+          delta -= 1;
+          if (!sensitiveTrait.discovered) {
+            const updatedTraits = s.config.traits.map(t =>
+              t === sensitiveTrait ? { ...t, discovered: true } : t
+            );
+            s = { ...s, config: { ...s.config, traits: updatedTraits } };
+          }
+        }
+      }
+      return { ...s, patience: s.patience + delta };
+    }
     case 'DRAW_CARDS': {
       const count = effect.value ?? 1;
       return drawCards(state, count);
@@ -32,8 +60,6 @@ export function applyEffect(state: CombatState, effect: CardEffect): CombatState
     case 'PLACE_AS_SHIELD':
       return { ...state, pendingPlaceAsShield: true };
     case 'PLACE_IMPRESSION':
-      // Routing to field vs. discard is handled by the subtype check in PLAY_CARD,
-      // not via this effect type. This is intentionally a no-op.
       return state;
     default:
       return state;
@@ -83,7 +109,7 @@ export function shuffle<T>(arr: T[]): T[] {
 }
 
 export function priorityRestore(state: CombatState): CombatState {
-  const restored = { ...state, priority: state.config.defaultRestorePriority };
+  const restored = { ...state, priority: clampPriority(state.config.defaultRestorePriority) };
   const withBotM = restored.backOfMind.length > 0
     ? { ...restored, playerHand: [...restored.playerHand, ...restored.backOfMind], backOfMind: [] as typeof restored.backOfMind }
     : restored;
