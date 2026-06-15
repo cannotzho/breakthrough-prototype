@@ -1,0 +1,102 @@
+<svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="ambientRoom" cx="600" cy="300" r="750" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1c2238" />
+      <stop offset="100%" stop-color="#060910" />
+    </radialGradient>
+
+    <linearGradient id="ceilingGrad" x1="600" y1="0" x2="600" y2="100" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#030507" />
+      <stop offset="100%" stop-color="#0a0f18" />
+    </linearGradient>
+
+    <linearGradient id="lampConeGrad" x1="600" y1="60" x2="600" y2="570" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#f5c842" stop-opacity="0.20" />
+      <stop offset="45%" stop-color="#e8a030" stop-opacity="0.06" />
+      <stop offset="100%" stop-color="#c07820" stop-opacity="0" />
+    </linearGradient>
+
+    <radialGradient id="lightPool" cx="600" cy="390" r="400" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#f5ecca" stop-opacity="0.16" />
+      <stop offset="22%" stop-color="#f5c842" stop-opacity="0.09" />
+      <stop offset="55%" stop-color="#c88420" stop-opacity="0.03" />
+      <stop offset="100%" stop-color="#000000" stop-opacity="0" />
+    </radialGradient>
+
+    <linearGradient id="tableGrad" x1="600" y1="562" x2="600" y2="800" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1c1209" />
+      <stop offset="100%" stop-color="#090704" />
+    </linearGradient>
+
+    <radialGradient id="tableReflect" cx="600" cy="568" r="280" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#f5c842" stop-opacity="0.03" />
+      <stop offset="100%" stop-color="#000000" stop-opacity="0" />
+    </radialGradient>
+
+    <radialGradient id="vignette" cx="600" cy="400" r="660" gradientUnits="userSpaceOnUse">
+      <stop offset="38%" stop-color="#000000" stop-opacity="0" />
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.93" />
+    </radialGradient>
+  </defs>
+
+  <!-- Base -->
+  <rect width="1200" height="800" fill="#070b14" />
+
+  <!-- Ambient room gradient -->
+  <rect width="1200" height="800" fill="url(#ambientRoom)" />
+
+  <!-- Ceiling -->
+  <rect width="1200" height="95" fill="url(#ceilingGrad)" />
+
+  <!-- Wall paneling — left -->
+  <g stroke="#0e1621" stroke-width="1" opacity="0.75">
+    <line x1="75"  y1="95" x2="75"  y2="575" />
+    <line x1="155" y1="95" x2="155" y2="575" />
+    <line x1="235" y1="95" x2="235" y2="575" />
+    <line x1="315" y1="95" x2="315" y2="575" />
+  </g>
+  <!-- Wall paneling — right -->
+  <g stroke="#0e1621" stroke-width="1" opacity="0.75">
+    <line x1="885"  y1="95" x2="885"  y2="575" />
+    <line x1="965"  y1="95" x2="965"  y2="575" />
+    <line x1="1045" y1="95" x2="1045" y2="575" />
+    <line x1="1125" y1="95" x2="1125" y2="575" />
+  </g>
+
+  <!-- Cornice line -->
+  <line x1="0" y1="94" x2="1200" y2="94" stroke="#111827" stroke-width="1.5" opacity="0.7" />
+
+  <!-- Baseboard line -->
+  <line x1="0" y1="576" x2="1200" y2="576" stroke="#1a2030" stroke-width="1.5" opacity="0.6" />
+
+  <!-- Lamp cord -->
+  <line x1="600" y1="0" x2="600" y2="40" stroke="#2a3548" stroke-width="2" opacity="0.65" />
+
+  <!-- Lamp shade -->
+  <polygon points="571,40 629,40 619,66 581,66" fill="#202a3c" stroke="#2e3f58" stroke-width="0.5" />
+  <line x1="569" y1="40" x2="631" y2="40" stroke="#3d5070" stroke-width="1.5" opacity="0.8" />
+  <line x1="579" y1="67" x2="621" y2="67" stroke="#283848" stroke-width="1" opacity="0.55" />
+
+  <!-- Lamp bulb -->
+  <ellipse cx="600" cy="62" rx="9"  ry="6"  fill="#fdf4d0" opacity="0.90" />
+  <ellipse cx="600" cy="62" rx="20" ry="16" fill="#f5c842" opacity="0.22" />
+  <ellipse cx="600" cy="62" rx="35" ry="28" fill="#f5c842" opacity="0.07" />
+
+  <!-- Light cone -->
+  <polygon points="600,60 188,572 1012,572" fill="url(#lampConeGrad)" />
+
+  <!-- Light pool (center play area) -->
+  <ellipse cx="600" cy="390" rx="455" ry="235" fill="url(#lightPool)" />
+
+  <!-- Table surface -->
+  <rect x="0" y="563" width="1200" height="237" fill="url(#tableGrad)" />
+
+  <!-- Table edge -->
+  <line x1="0" y1="563" x2="1200" y2="563" stroke="#2a160a" stroke-width="2" opacity="0.85" />
+
+  <!-- Table surface reflection from lamp -->
+  <ellipse cx="600" cy="572" rx="265" ry="16" fill="url(#tableReflect)" />
+
+  <!-- Vignette -->
+  <rect width="1200" height="800" fill="url(#vignette)" />
+</svg>
