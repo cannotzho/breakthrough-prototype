@@ -230,8 +230,6 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
   const [selectedShieldSlot, setSelectedShieldSlot] = useState<number | null>(null);
   const [placeShieldMode, setPlaceShieldMode] = useState(false);
   const [placeShieldCardId, setPlaceShieldCardId] = useState<string | null>(null);
-  const [hint, setHint] = useState<string | null>(null);
-  const [draggingCardId, setDraggingCardId] = useState<string | null>(null);
   const [playZoneHovered, setPlayZoneHovered] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ cardId: string; x: number; y: number } | null>(null);
   const playZoneRef = useRef<HTMLDivElement | null>(null);
@@ -283,8 +281,8 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
     return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
   }, []);
 
-  const handleCardDragStart = useCallback((instanceId: string) => {
-    setDraggingCardId(instanceId);
+  const handleCardDragStart = useCallback((_instanceId: string) => {
+    // drag start — play zone hover tracked via handleCardDrag
   }, []);
 
   const handleCardDrag = useCallback((event: MouseEvent | TouchEvent | PointerEvent) => {
@@ -298,7 +296,6 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
     if (isOverZone(event)) {
       dispatch({ type: 'PLAY_CARD', cardInstanceId: instanceId });
     }
-    setDraggingCardId(null);
     setPlayZoneHovered(false);
   }, [isOverZone]);
 
@@ -484,10 +481,6 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
               Click a shield slot to place{placeShieldCardName ? ` "${placeShieldCardName}"` : ' the card'}
             </div>
           )}
-          {hint && (
-            <div className="text-center text-xs text-amber-400 py-1">{hint}</div>
-          )}
-
           {/* Player shields */}
           <div className="flex justify-center gap-3">
             {playerShields.map((slot, i) => (
