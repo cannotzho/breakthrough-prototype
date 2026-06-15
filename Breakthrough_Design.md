@@ -1,6 +1,6 @@
 # Breakthrough — Game Design Document
 
-> **Status:** Draft v0.6 — Core combat state machine, encounter/NPC configuration, card discovery, persistent state. Sections on card types/subtypes, modifiers, and combinations are placeholders pending design.
+> **Status:** Draft v0.7 — Core combat state machine, encounter/NPC configuration, card discovery, persistent state. Sections on card types/subtypes, modifiers, and combinations are placeholders pending design.
 
 ---
 
@@ -117,6 +117,8 @@ When the draw pile contains zero cards and the player would draw, the discard pi
 2. **Effect resolution is a sequential list.** Card effects resolve as an ordered list of atomic steps. The Priority cost is always deducted as step 0, before any effects run. Blocking sub-states (Reveal Pending, Player Shield Choice) suspend the list at the triggering step and resume from the next step after the block clears. This means no costs or earlier effects are ever repeated — they have already resolved before the suspension occurred.
 
 3. **One Interrupt per staged card.** Interrupt Check is only entered from Enemy Pending. After an Interrupt is played (regardless of outcome), the sequence proceeds to Enemy Play directly — Interrupt Check is never re-evaluated for the same staged card.
+
+4. **The state machine is stable; edge cases are handled at design level.** New mechanics and card effects should be designed to work within the existing state machine rather than requiring changes to it. If a proposed card effect would require a structural state machine change to handle correctly, the card effect should be redesigned first. When a state machine change is genuinely unavoidable, it constitutes a **significant version change** to this document and must be logged as such.
 
 ---
 
@@ -354,6 +356,13 @@ stateDiagram-v2
 
 9. **Patience overflow is deducted in step 0 of Player Play, not checked mid-resolution.** If paying Patience overflow brings NPC Patience to ≤ 0, the loss condition is not evaluated until Check State after all effects resolve. The win-before-loss invariant (rule 4 before rule 5) still applies.
 
+10. **Counter effects do not trigger a Check State evaluation mid-sequence.** Counter effects resolve as a sub-sequence within Player Shield Choice State. No Check State evaluation occurs between the conclusion of Counter effects and the resumption of Enemy Play. Consequently:
+    - Win and loss conditions altered by Counter effects (e.g. opponent shields broken, Patience reduced) are evaluated in Check State only after Enemy Play completes fully.
+    - If a Counter effect triggers a Priority Restore, the restored Priority value takes effect immediately, but the routing consequence (transitioning to Player Pending) does not occur until Check State is reached after Enemy Play.
+    - The win-before-loss ordering in Check State (rule 1 before rules 2–4) still applies. If Counter effects simultaneously deplete both sides' shields, the player wins.
+
+11. **A card may contain at most one shield-break effect.** This constraint is enforced at card design time, not in code. Combined cards produced by Assemble must not contain more than one shield-break effect — designers must verify this when authoring combination recipes and dynamic combining results. The purpose of this rule is to keep the Counter sub-sequence and shield break handling tractable within the stable state machine.
+
 ---
 
 ## 5. Encounter / NPC Configuration
@@ -465,7 +474,7 @@ Keywords are mechanical terms that appear on card text. All keywords expose thei
 | **Interrupt** | Skill | May be played during the NPC's turn before the staged card resolves. No Priority cost. |
 | **Safety** | Skill (Player Shield) | When this shield is broken, triggers an Effective Break — NPC loses 0 Patience instead of 1. |
 | **Assemble** | Skill / Information | This card may participate in a combination with another Assemble card. |
-| **Counter** | Skill (Player Shield) | When this shield is broken, its printed effects resolve before the break outcome fires. |
+| **Counter** | Skill (Player Shield) | When a shield with Counter is broken, its printed effects resolve as a sub-sequence before the break outcome fires. Counter effects do not trigger an intermediate Check State evaluation — see Invariant 10. Counter cards must contain at most one shield-break effect (see Invariant 11). |
 | **Lie** | Skill (Black) | Playing this card increments the encounter's Lie Counter by 1. If the counter exceeds the encounter's `lieThreshold`, the encounter ends as a loss. |
 
 ### 7.4 Color Identities
@@ -586,6 +595,8 @@ A Skill card that acquires the **Assemble** keyword through a card effect or mod
 
 Dynamic combinations do not require a recipe. If a Skill card with Assemble is among the selected cards, the dynamic combining rules apply. If neither card is a Skill with acquired Assemble, a recipe is required (§9.2).
 
+When validating a dynamic combination result, designers must verify that the combined card does not contain more than one shield-break effect across the merged effects list. See Invariant 11.
+
 ### 9.5 Open Design Questions
 
 - Whether recipes can be encounter-specific (i.e., certain combinations only work in certain contexts) is not yet defined.
@@ -638,4 +649,4 @@ When adding new UI elements, default to the minimum visible representation (icon
 
 ---
 
-*End of document — v0.6*
+*End of document — v0.7*
