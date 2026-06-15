@@ -278,6 +278,10 @@ function TraitIcon({ trait }: { trait: CombatState['config']['traits'][0] }) {
   );
 }
 
+const PHASE_DISPLAY: Record<string, string> = {
+  BotMSelect: 'Select',
+};
+
 function PhaseBar({ phase }: { phase: string }) {
   const isPlayer = ['PlayerPending', 'PlayerPlay', 'BotMSelect'].includes(phase);
   const isEnemy = ['EnemyPending', 'EnemyPlay', 'InterruptCheck', 'Interrupt'].includes(phase);
@@ -288,7 +292,7 @@ function PhaseBar({ phase }: { phase: string }) {
         isEnemy ? 'bg-red-900 text-red-200' :
         'bg-zinc-800 text-zinc-300'}
     `}>
-      {phase}
+      {PHASE_DISPLAY[phase] ?? phase}
     </div>
   );
 }
@@ -356,6 +360,7 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
   const [contextMenu, setContextMenu] = useState<{ cardId: string; x: number; y: number; source: 'hand' | 'botm' } | null>(null);
   const [priorityRestoreFlash, setPriorityRestoreFlash] = useState(false);
   const [draggingCardId, setDraggingCardId] = useState<string | null>(null);
+  const [viewingPile, setViewingPile] = useState<'draw' | 'discard' | null>(null);
   const playZoneRef = useRef<HTMLDivElement | null>(null);
   const prevPriorityRef = useRef(state.priority);
 
@@ -575,7 +580,7 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
                   setContextMenu(null);
                 }}
               >
-                Set as Back of Mind
+                Keep
               </button>
             )}
 
@@ -724,10 +729,9 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
               </div>
             </div>
 
-            {/* Back of Mind cards (shown during non-BotM phases when BotM has cards) */}
+            {/* Retained cards (shown during non-BotM phases when BotM has cards) */}
             {backOfMind.length > 0 && !isBotMSelect && (
               <div className="flex justify-center gap-2 items-center px-4 py-2 bg-zinc-950/60">
-                <span className="text-xs text-zinc-500">Back of Mind</span>
                 <AnimatePresence>
                   {backOfMind.map(card => {
                     const isInterruptCard = card.definition.keywords.includes('Interrupt');
@@ -757,14 +761,8 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
 
             {/* Player hand — BotM mode uses distinct background color */}
             <div className={`px-4 py-3 transition-colors duration-300 ${
-              isBotMSelect ? 'bg-indigo-950/80' : 'bg-zinc-950/60'
+              isBotMSelect || isInterrupt ? 'bg-indigo-950/80' : 'bg-zinc-950/60'
             }`}>
-              {/* BotM mode indicator */}
-              {isBotMSelect && (
-                <div className="text-center text-xs text-indigo-300 mb-2 uppercase tracking-widest">
-                  Back of Mind Selection
-                </div>
-              )}
 
               <div className="flex gap-2 flex-wrap justify-center">
                 <AnimatePresence mode="popLayout">
@@ -847,8 +845,38 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
         </div>
 
         {/* Deck/discard counters */}
-        <div className="flex justify-between px-4 py-2 bg-zinc-900/90 border-t border-zinc-800 text-xs text-zinc-500 backdrop-blur-sm">
-          <span>Deck: {state.playerDeck.length} | Discard: {state.playerDiscard.length}</span>
+        <div className="flex justify-between items-center px-4 py-2 bg-zinc-900/90 border-t border-zinc-800 text-xs text-zinc-500 backdrop-blur-sm">
+          <div className="flex items-center gap-3">
+            {/* Draw pile button */}
+            <button
+              onClick={() => setViewingPile('draw')}
+              className="group flex items-center gap-1.5 hover:text-zinc-200 transition-colors"
+              title="View draw pile"
+            >
+              <svg width="24" height="28" viewBox="0 0 24 28" fill="none" xmlns="http://www.w3.org/2000/svg" className="group-hover:scale-110 transition-transform">
+                <rect x="4" y="0" width="18" height="24" rx="2" className="fill-zinc-700 stroke-zinc-500" strokeWidth="1"/>
+                <rect x="2" y="2" width="18" height="24" rx="2" className="fill-zinc-800 stroke-zinc-500" strokeWidth="1"/>
+                <rect x="0" y="4" width="18" height="24" rx="2" className="fill-zinc-900 stroke-zinc-400" strokeWidth="1.5"/>
+                <text x="9" y="19" textAnchor="middle" className="fill-zinc-400" fontSize="10" fontWeight="bold">?</text>
+              </svg>
+              <span className="tabular-nums font-medium">{state.playerDeck.length}</span>
+            </button>
+
+            {/* Discard pile button */}
+            <button
+              onClick={() => setViewingPile('discard')}
+              className="group flex items-center gap-1.5 hover:text-zinc-200 transition-colors"
+              title="View discard pile"
+            >
+              <svg width="22" height="28" viewBox="0 0 22 28" fill="none" xmlns="http://www.w3.org/2000/svg" className="group-hover:scale-110 transition-transform">
+                <rect x="2" y="2" width="18" height="24" rx="2" className="fill-zinc-800 stroke-zinc-600" strokeWidth="1" opacity="0.5" transform="rotate(-6 11 14)"/>
+                <rect x="0" y="2" width="18" height="24" rx="2" className="fill-zinc-900 stroke-zinc-500" strokeWidth="1.5"/>
+                <path d="M12 2 L18 2 Q20 2 20 4 L20 8 Z" className="fill-zinc-700" opacity="0.6"/>
+              </svg>
+              <span className="tabular-nums font-medium">{state.playerDiscard.length}</span>
+            </button>
+          </div>
+
           <span>Enemy deck: {state.enemyDeck.length} | Enemy discard: {state.enemyDiscard.length}</span>
         </div>
       </div>
@@ -988,6 +1016,75 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
                 Exit
               </button>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Pile viewer modal */}
+      <AnimatePresence>
+        {viewingPile && (
+          <motion.div
+            key="pile-viewer-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
+            onClick={() => setViewingPile(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-zinc-900/95 backdrop-blur-md border border-zinc-700 rounded-xl p-6 max-w-lg w-full mx-4 max-h-[70vh] flex flex-col"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-200">
+                  {viewingPile === 'draw' ? 'Draw Pile' : 'Discard Pile'}
+                  <span className="ml-2 text-zinc-500 font-normal">
+                    ({viewingPile === 'draw' ? state.playerDeck.length : state.playerDiscard.length} cards)
+                  </span>
+                </h2>
+                <button
+                  onClick={() => setViewingPile(null)}
+                  className="text-zinc-500 hover:text-white transition-colors text-lg leading-none"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {viewingPile === 'draw' && (
+                <p className="text-[11px] text-zinc-500 italic mb-3">Sorted alphabetically — draw order is hidden.</p>
+              )}
+
+              <div className="overflow-y-auto flex-1 -mr-2 pr-2">
+                {(() => {
+                  const cards = viewingPile === 'draw'
+                    ? [...state.playerDeck].sort((a, b) => a.definition.name.localeCompare(b.definition.name))
+                    : [...state.playerDiscard].reverse();
+                  if (cards.length === 0) {
+                    return <p className="text-zinc-600 text-sm text-center py-6">No cards.</p>;
+                  }
+                  return cards.map((card, i) => {
+                    const def = card.definition;
+                    const border = COLOR_BORDER[def.color] ?? 'border-zinc-500';
+                    return (
+                      <div
+                        key={card.instanceId + '-' + i}
+                        className={`flex items-center gap-3 px-3 py-2 rounded-lg border ${border} bg-zinc-800/60 mb-1.5`}
+                      >
+                        <span className="text-white text-sm font-semibold min-w-0 flex-1 truncate">{def.name}</span>
+                        <span className="text-zinc-400 text-xs shrink-0">{def.supertype}</span>
+                        {def.keywords.length > 0 && (
+                          <span className="text-zinc-500 text-[10px] shrink-0">{def.keywords.join(', ')}</span>
+                        )}
+                        <span className="text-zinc-300 text-xs font-bold shrink-0 w-6 text-right">{def.cost}</span>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
