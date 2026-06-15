@@ -1,6 +1,6 @@
 # Breakthrough — Game Design Document
 
-> **Status:** Draft v0.7 — Core combat state machine, encounter/NPC configuration, card discovery, persistent state. Sections on card types/subtypes, modifiers, and combinations are placeholders pending design.
+> **Status:** Draft v0.8 — Core combat state machine, encounter/NPC configuration, card discovery, persistent state. Sections on card types/subtypes, modifiers, and combinations are placeholders pending design.
 
 ---
 
@@ -94,9 +94,11 @@ Information cards represent knowledge about the world. Their combat effects are 
 1. The card is played for the first time in an encounter where it appears in that encounter's `relevantCards` list. Each encounter defines the card's effect independently — the same card may behave differently in different encounters. A reveal animation plays and the effect is shown. Discovery persists globally.
 2. An external trigger from the overworld marks the card as discovered ahead of time.
 
-Once Discovered, the card's effect is visible in all future encounters. If an Information Card is in the player's Conversation Deck for an encounter where it does not appear in `relevantCards`, it is replaced in the Conversation Deck entirely with a Ponder card (pay 1 Priority, draw 1 card). This substitution happens at deck construction time, not at play time — the Information Card is removed from the Conversation Deck and Ponder is inserted in its place. The player's global ownership of the Information Card in their Compendium is unaffected.
+Once Discovered, the card's effect is visible in all future encounters. If an Information Card is in the player's Conversation Deck for an encounter where it does not appear in `relevantCards`, it is NOT replaced at deck construction time. The card remains in the Conversation Deck, but at play time — when the player attempts to play it — it resolves as Ponder (pay 1 Priority, draw 1 card) instead of its actual effect. The player's global ownership of the Information Card in their Compendium is unaffected.
 
-The fallback substitution logic should be implemented as a single replaceable function so that the fallback card or behaviour can be changed without touching deck construction broadly.
+If the player has previously played this card in this encounter in a prior attempt (tracked in `playedNonRelevantCards` persistent encounter state — see §5 and §7), the Info Card selection screen displays a warning icon on that card to indicate it will resolve as Ponder in this encounter.
+
+The play-time Ponder fallback logic should be implemented as a single replaceable function so that the fallback behaviour can be changed without touching card resolution broadly.
 
 ### Back of Mind (BotM)
 
@@ -387,6 +389,7 @@ Each encounter corresponds to a specific NPC. The encounter config and NPC defin
 | `scriptedDrawOrder` | string[][] | Fixed hands per draw step (tutorialMode only) |
 | `scriptedOpponentPlays` | string[] | Fixed NPC play sequence (tutorialMode only) |
 | `lieThreshold` | number | Maximum Lie Counter value before the encounter ends as a loss. Set to 0 or omit to disable the Lie mechanic for this encounter. |
+| `playedNonRelevantCards` | string[] | IDs of Information Cards that have been played in this encounter at play-time (whether relevant or not). Persists across retries. Used to show Ponder warnings on the pre-encounter Info Card selection screen. |
 
 ### ShieldSlot
 
@@ -427,11 +430,35 @@ Examples:
 | `Fearless` | Cards with the Intimidate effect deal no damage / have no effect |
 | `Sensitive` | Cards that cause Patience loss deal 1 additional Patience loss |
 
-*(Full trait vocabulary defined in §8 — NPC Traits and Modifiers)*
+*(Full trait vocabulary defined in §9 — NPC Traits and Modifiers)*
 
 ---
 
-## 6. Persistent State
+## 6. Pre-Encounter Phase
+
+The pre-encounter phase occurs before the combat state machine starts. It consists of two stages. Both stages are skipped for tutorial encounters where configuration is fully scripted.
+
+### 6.1 Information Card Selection *(Advanced — Placeholder)*
+
+When the player's Collection contains more Information Cards than a defined threshold, a pre-encounter selection screen allows the player to review and choose which Information Cards to include in their Conversation Deck for the upcoming encounter.
+
+Cards that appear in the encounter's `relevantCards` list are highlighted to indicate they will reveal their effects if played. Cards that have been previously played in this encounter and are not in `relevantCards` (tracked in `playedNonRelevantCards`) display a warning icon: **"Transforms to Ponder in this encounter."**
+
+This stage is deferred until the Collection mechanic is fully designed. It is listed here to define its position in the game flow and the data it depends on.
+
+### 6.2 Shield Card Selection
+
+Before the encounter begins, the player selects which cards from their Skill Deck to place as starting Player Shields.
+
+- The encounter config's `playerShields` field may pre-populate shield slots (used in tutorial encounters and any encounter that pre-sets shields by design).
+- When `playerShields` does not fully populate all available shield slots, the player is prompted to fill the remaining slots from their Skill Deck.
+- The player may leave shield slots empty.
+- Cards placed as starting shields are removed from the draw pile before the Conversation Deck is shuffled. They are placed face-down in the player's shield zone.
+- This stage is always shown (unless the encounter has `unbreakablePlayerShields` set, in which case the stage may be simplified or skipped depending on design intent).
+
+---
+
+## 7. Persistent State
 
 Some combat state persists between attempts and across sessions.
 
@@ -445,11 +472,19 @@ If `retryable` is false, the encounter does not save broken shield state — a l
 
 The `discovered` flag on each `RelevantCard` entry is stored globally (not per-encounter-attempt). Once an Information Card is discovered in any encounter, it remains discovered in all future contexts.
 
+### Played Non-Relevant Cards
+
+`playedNonRelevantCards` records the IDs of Information Cards that have been played during a given encounter, including those not in `relevantCards`. This list persists across retries of retryable encounters.
+
+Its purpose is to power the warning display in the §6.1 pre-encounter Info Card selection screen: if a card appears in `playedNonRelevantCards` and is not in `relevantCards`, the player is warned that it will resolve as Ponder in this encounter.
+
+If `retryable` is false, `playedNonRelevantCards` is not persisted — there are no future attempts in which the warning would be relevant.
+
 ---
 
-## 7. Card Types and Subtypes
+## 8. Card Types and Subtypes
 
-### 7.1 Supertypes
+### 8.1 Supertypes
 
 Every card belongs to exactly one supertype.
 
@@ -457,7 +492,7 @@ Every card belongs to exactly one supertype.
 
 **Information Cards** represent knowledge the Detective has gathered about the world and its inhabitants. Their effects are hidden until discovered in a relevant encounter (see §3). Information Cards are colorless by default. Their effect is defined per-encounter in `relevantCards` config, not globally.
 
-### 7.2 Subtypes
+### 8.2 Subtypes
 
 Subtypes are supplemental classifications within a supertype.
 
@@ -465,7 +500,7 @@ Subtypes are supplemental classifications within a supertype.
 
 Additional subtypes will be defined as the card vocabulary expands.
 
-### 7.3 Keywords
+### 8.3 Keywords
 
 Keywords are mechanical terms that appear on card text. All keywords expose their definitions via tooltip on hover (see §10.2).
 
@@ -477,7 +512,7 @@ Keywords are mechanical terms that appear on card text. All keywords expose thei
 | **Counter** | Skill (Player Shield) | When a shield with Counter is broken, its printed effects resolve as a sub-sequence before the break outcome fires. Counter effects do not trigger an intermediate Check State evaluation — see Invariant 10. Counter cards must contain at most one shield-break effect (see Invariant 11). |
 | **Lie** | Skill (Black) | Playing this card increments the encounter's Lie Counter by 1. If the counter exceeds the encounter's `lieThreshold`, the encounter ends as a loss. |
 
-### 7.4 Color Identities
+### 8.4 Color Identities
 
 Color identity is a property of Skill Cards (and a small number of rare cards) that reflects the Detective's personality and conversational style. Information Cards and Ponder are colorless. Color identity informs mechanical theme, Trait interactions, and dynamic combination naming (see §9.4).
 
@@ -527,7 +562,7 @@ Mechanically, Black houses some of the strongest individual card effects in the 
 
 Orange represents a person who appeals to authority, leverages their associations, and cultivates a specific image of themselves in the world. At their best they command an imposing presence; at their worst they are followers incapable of original thought.
 
-Mechanically, Orange is built around **Impressions** — a card subtype that remains on the field when played, providing persistent passive effects (see §7.2). The Orange playstyle requires setup time and is context-dependent: the player performs Overworld quests to acquire Impression cards tailored to specific NPCs, building an advantageous image before the encounter begins. Orange also has powerful Skill cards that strip away enemy Traits, and is effective at detecting and countering Lie cards.
+Mechanically, Orange is built around **Impressions** — a card subtype that remains on the field when played, providing persistent passive effects (see §8.2). The Orange playstyle requires setup time and is context-dependent: the player performs Overworld quests to acquire Impression cards tailored to specific NPCs, building an advantageous image before the encounter begins. Orange also has powerful Skill cards that strip away enemy Traits, and is effective at detecting and countering Lie cards.
 
 ---
 
@@ -549,17 +584,17 @@ Colorless Skill cards (excluding Ponder and Information Cards) are characterized
 
 ---
 
-## 8. NPC Traits and Modifiers
+## 9. NPC Traits and Modifiers
 
 *(Placeholder — full trait vocabulary, modifier stacking rules, interaction with card effects)*
 
 ---
 
-## 9. Combinations
+## 10. Combinations
 
 The combining mechanic allows Assemble cards in the player's hand to be merged into a new, composite card. Combining does not trigger any state machine transition — the state remains in Player Pending — but the change to the hand must be communicated with a clear animation.
 
-### 9.1 Combining Rules
+### 10.1 Combining Rules
 
 - Only cards with the **Assemble** keyword may participate in a combination. A combination always involves **exactly two** Assemble cards.
 - Combining is initiated by the player from the hand during Player Pending. The player selects exactly two Assemble cards and attempts to combine them.
@@ -568,7 +603,7 @@ The combining mechanic allows Assemble cards in the player's hand to be merged i
 - A combination **fails** if no valid recipe exists for the selected components. The component cards remain in hand unchanged. The player is notified that the combination failed.
 - Combining does not consume Priority.
 
-### 9.2 Recipe-Based Combinations
+### 10.2 Recipe-Based Combinations
 
 Recipes are predetermined pairings (or larger groupings) of card IDs that produce a specific combined card. Recipes are defined globally — they are not encounter-specific unless otherwise noted.
 
@@ -576,7 +611,7 @@ A recipe specifies:
 - The required component card IDs (order-independent)
 - The resulting combined card definition (name, effects, cost, keywords)
 
-### 9.3 Combined Card Lifecycle
+### 10.3 Combined Card Lifecycle
 
 When a combined card is played:
 
@@ -586,29 +621,29 @@ When a combined card is played:
 
 The component cards are not permanently lost — they will return to the draw pile via Deck Recycle and may be drawn and combined again in a later turn.
 
-### 9.4 Dynamic Combining (Skill Cards with Assemble)
+### 10.4 Dynamic Combining (Skill Cards with Assemble)
 
 A Skill card that acquires the **Assemble** keyword through a card effect or modifier becomes eligible to combine. Dynamic combinations follow different rules from recipe-based combinations:
 
 - **Skill + any Assemble card:** The Skill card's effects are appended to the other card's existing effects. The resulting card retains the other card's name, cost, and base effects, with the Skill's effects added after them.
-- **Skill + Skill (both with acquired Assemble):** The two Skill cards' effects are merged. The resulting card's name is determined by the color identities of the component cards. *(Color identity is defined in §7 — Card Types and Subtypes, pending.)* As a placeholder, all such combinations are named **"Rhetoric"**.
+- **Skill + Skill (both with acquired Assemble):** The two Skill cards' effects are merged. The resulting card's name is determined by the color identities of the component cards. *(Color identity is defined in §8 — Card Types and Subtypes, pending.)* As a placeholder, all such combinations are named **"Rhetoric"**.
 
 Dynamic combinations do not require a recipe. If a Skill card with Assemble is among the selected cards, the dynamic combining rules apply. If neither card is a Skill with acquired Assemble, a recipe is required (§9.2).
 
 When validating a dynamic combination result, designers must verify that the combined card does not contain more than one shield-break effect across the merged effects list. See Invariant 11.
 
-### 9.5 Open Design Questions
+### 10.5 Open Design Questions
 
 - Whether recipes can be encounter-specific (i.e., certain combinations only work in certain contexts) is not yet defined.
-- The color identity system referenced in §9.4 is pending §7.
+- The color identity system referenced in §10.4 is pending §8.
 
 ---
 
-## 10. UI Design Principles
+## 11. UI Design Principles
 
 These rules apply across all game screens and take precedence over convenience shortcuts in implementation. New UI work should be checked against these principles before it is considered done.
 
-### 10.1 State Changes Are Never Silent
+### 11.1 State Changes Are Never Silent
 
 Any change to a quantity that affects the player's decision-making must be communicated through a visible animation or transition. Animations for separate events must play sequentially — never concurrently. The player must be able to read each change before the next one begins.
 
@@ -626,7 +661,7 @@ Quantities that always require animated feedback include, but are not limited to
 
 This list is non-exhaustive. When in doubt, animate it.
 
-### 10.2 Important Information Must Be Easily Accessible
+### 11.2 Important Information Must Be Easily Accessible
 
 The player should never have to guess what a mechanic does. All mechanical terms, keywords, and icons should expose their definitions on demand — without navigating away from the current screen.
 
@@ -636,7 +671,7 @@ The player should never have to guess what a mechanic does. All mechanical terms
 
 Information should be reachable in at most one interaction from wherever the player currently is.
 
-### 10.3 Detail on Demand — Keep the Screen Clean
+### 11.3 Detail on Demand — Keep the Screen Clean
 
 The game is information-rich. Surfacing all information at once would create clutter that harms readability. Information should be visible by default only if it is needed for every decision; otherwise it should be accessible on demand.
 
@@ -649,4 +684,4 @@ When adding new UI elements, default to the minimum visible representation (icon
 
 ---
 
-*End of document — v0.7*
+*End of document — v0.8*
