@@ -295,13 +295,20 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       s = addLog(s, `Interrupt played: ${card.definition.name}`);
 
       return resolveEffectList(s, card.definition.effects, card, (resolved) => {
-        return checkState({
+        let finalState: CombatState = {
           ...resolved,
           playerDiscard: [...resolved.playerDiscard, card],
           phase: 'Check',
           pendingEffects: [],
           pendingEffectCard: null,
-        });
+        };
+
+        // Priority Restore: interrupt brought priority from ≤ 0 to > 0 (design doc §4.3)
+        if (finalState.priority > 0) {
+          finalState = priorityRestore(finalState);
+        }
+
+        return checkState(finalState);
       });
     }
 

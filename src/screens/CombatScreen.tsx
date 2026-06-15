@@ -4,6 +4,8 @@ import { combatReducer } from '../combat/combatReducer';
 import { buildInitialCombatState, TEST_ENCOUNTER } from '../data/encounterDefs';
 import { CardInstance, CombatState } from '../combat/types';
 import DevPanel from '../components/dev/DevPanel';
+import PriorityBar from '../components/combat/PriorityBar';
+import PatienceDisplay from '../components/combat/PatienceDisplay';
 
 interface CombatScreenProps {
   onExit: () => void;
@@ -396,26 +398,7 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
           <button onClick={onExit} className="text-zinc-400 hover:text-white text-sm transition-colors">
             ← Exit
           </button>
-          <div className="flex items-center gap-3">
-            <PhaseBar phase={phase} />
-            <div className="bg-zinc-900/80 rounded-lg px-3 py-1">
-              <span className="text-zinc-400 text-sm">
-                Priority: <span className={`font-bold ${priority > 0 ? 'text-blue-400' : 'text-red-400'}`}>{priority}</span>
-              </span>
-            </div>
-            <div className="bg-zinc-900/80 rounded-lg px-3 py-1">
-              <span className="text-zinc-400 text-sm">
-                Patience: <span className="font-bold text-amber-400">{patience}</span>
-              </span>
-            </div>
-            {lieCounter > 0 && (
-              <div className="bg-zinc-900/80 rounded-lg px-3 py-1">
-                <span className="text-zinc-400 text-sm">
-                  Lies: <span className="font-bold text-red-500">{lieCounter}</span>
-                </span>
-              </div>
-            )}
-          </div>
+          <PhaseBar phase={phase} />
           <button
             onClick={() => setDevOpen(v => !v)}
             className="text-xs bg-zinc-800 border border-zinc-600 text-zinc-400 hover:text-white px-2 py-1 rounded transition-colors"
@@ -504,6 +487,22 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
               />
             ))}
           </div>
+
+          {/* ── Priority bar — central UI element ── */}
+          <div className="py-2">
+            <PriorityBar
+              priority={priority}
+              maxPriority={state.config.defaultRestorePriority}
+            />
+          </div>
+
+          {/* Patience + Lie counter row */}
+          <PatienceDisplay
+            patience={patience}
+            maxPatience={state.config.opponentPatience}
+            lieCounter={lieCounter}
+            lieThreshold={state.config.lieThreshold}
+          />
 
           {/* Back of Mind */}
           {backOfMind.length > 0 && !isBotMSelect && (
