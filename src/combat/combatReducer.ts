@@ -576,6 +576,9 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       return addLog({ ...state, config }, `[DEV] Added relevant card ${rc.cardId}`);
     }
 
+    case 'DEV_RESET':
+      return action.state;
+
     default:
       return state;
   }

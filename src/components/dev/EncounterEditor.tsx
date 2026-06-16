@@ -179,9 +179,10 @@ function RelevantCardEditor({ cards, onChange }: {
 
 interface EncounterEditorProps {
   onLoadEncounter?: (config: EncounterConfig) => void;
+  onStartPlaytest?: (config: EncounterConfig) => void;
 }
 
-export default function EncounterEditor({ onLoadEncounter }: EncounterEditorProps) {
+export default function EncounterEditor({ onLoadEncounter, onStartPlaytest }: EncounterEditorProps) {
   const { addEncounter, updateEncounter, removeEncounter, getAllEncounters } = useDevEncounterStore();
   const [config, setConfig] = useState<EncounterConfig>(defaultEncounter);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -281,6 +282,10 @@ export default function EncounterEditor({ onLoadEncounter }: EncounterEditorProp
               <div className="text-xs text-zinc-500 truncate">{enc.id}</div>
             </div>
             <div className="flex gap-1 ml-2">
+              {onStartPlaytest && (
+                <button onClick={() => onStartPlaytest(enc)}
+                  className="text-xs px-2 py-1 text-green-400 hover:text-green-300">Playtest</button>
+              )}
               <button onClick={() => handleLoad(enc)}
                 className="text-xs px-2 py-1 text-blue-400 hover:text-blue-300">Edit</button>
               <button onClick={() => handleDelete(enc.id)}
@@ -392,6 +397,12 @@ export default function EncounterEditor({ onLoadEncounter }: EncounterEditorProp
           <button onClick={handleLoadIntoCombat}
             className={`${BTN} border-orange-500 text-orange-400 hover:bg-orange-900`}>
             Load into Combat
+          </button>
+        )}
+        {onStartPlaytest && (
+          <button onClick={() => onStartPlaytest(config)}
+            className={`${BTN} border-green-500 text-green-400 hover:bg-green-900`}>
+            Playtest
           </button>
         )}
       </div>

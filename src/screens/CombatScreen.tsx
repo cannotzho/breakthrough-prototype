@@ -2,13 +2,14 @@ import { useReducer, useEffect, useCallback, useState, useRef } from 'react';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { combatReducer } from '../combat/combatReducer';
 import { buildInitialCombatState, TEST_ENCOUNTER } from '../data/encounterDefs';
-import { CardInstance, CombatState, Keyword, SHIELD_PLACEMENT_COST } from '../combat/types';
+import { CardInstance, CombatState, EncounterConfig, Keyword, SHIELD_PLACEMENT_COST } from '../combat/types';
 import DevPanel from '../components/dev/DevPanel';
 import PriorityBar from '../components/combat/PriorityBar';
 import PatienceDisplay from '../components/combat/PatienceDisplay';
 
 interface CombatScreenProps {
   onExit: () => void;
+  encounterConfig?: EncounterConfig;
 }
 
 const COLOR_BORDER: Record<string, string> = {
@@ -351,10 +352,15 @@ function PlayZone({
   );
 }
 
-export default function CombatScreen({ onExit }: CombatScreenProps) {
-  const [state, dispatch] = useReducer(combatReducer, undefined, () =>
-    buildInitialCombatState(TEST_ENCOUNTER)
-  );
+export default function CombatScreen({ onExit, encounterConfig }: CombatScreenProps) {
+  const initialEncounter = encounterConfig ?? TEST_ENCOUNTER;
+  const [state, dispatch] = useReducer(combatReducer, initialEncounter, buildInitialCombatState);
+  const [activeEncounter, setActiveEncounter] = useState(initialEncounter);
+
+  const loadEncounter = useCallback((config: EncounterConfig) => {
+    setActiveEncounter(config);
+    dispatch({ type: 'DEV_RESET', state: buildInitialCombatState(config) });
+  }, []);
   const [devOpen, setDevOpen] = useState(false);
   const [playZoneHovered, setPlayZoneHovered] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ cardId: string; x: number; y: number; source: 'hand' | 'botm' } | null>(null);
@@ -617,7 +623,7 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
             {/* Opponent shields + traits */}
             <div className="flex justify-center">
               <div className="bg-zinc-950/70 backdrop-blur-sm rounded-xl p-4 inline-flex flex-col items-center gap-2">
-                <div className="text-xs text-zinc-500 uppercase tracking-widest">{TEST_ENCOUNTER.displayName}</div>
+                <div className="text-xs text-zinc-500 uppercase tracking-widest">{activeEncounter.displayName}</div>
                 <div className="flex gap-3">
                   <AnimatePresence mode="popLayout">
                     {opponentShields.map((shield, i) => (
@@ -1094,6 +1100,7 @@ export default function CombatScreen({ onExit }: CombatScreenProps) {
         open={devOpen}
         state={state}
         dispatch={dispatch}
+        onLoadEncounter={loadEncounter}
       />
     </div>
   );

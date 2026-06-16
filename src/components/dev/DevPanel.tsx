@@ -28,6 +28,7 @@ interface Props {
   open: boolean;
   state: CombatState;
   dispatch: (action: CombatAction) => void;
+  onLoadEncounter?: (config: import('../../combat/types').EncounterConfig) => void;
 }
 
 function Slider({ label, value, min, max, onChange }: {
@@ -342,7 +343,7 @@ function RelevantCardCreatorTab({ dispatch }: { dispatch: (a: CombatAction) => v
   );
 }
 
-export default function DevPanel({ open, state, dispatch }: Props) {
+export default function DevPanel({ open, state, dispatch, onLoadEncounter }: Props) {
   const [tab, setTab] = useState<Tab>('State');
 
   const tabs: Tab[] = ['State', 'Log', 'Config', 'Cards', 'RelevantCards', 'Encounters', 'Collection'];
@@ -381,7 +382,7 @@ export default function DevPanel({ open, state, dispatch }: Props) {
             {tab === 'Config' && <ConfigTab state={state} />}
             {tab === 'Cards' && <CardCreatorTab dispatch={dispatch} />}
             {tab === 'RelevantCards' && <RelevantCardCreatorTab dispatch={dispatch} />}
-            {tab === 'Encounters' && <EncounterEditor />}
+            {tab === 'Encounters' && <EncounterEditor onLoadEncounter={onLoadEncounter} />}
             {tab === 'Collection' && <CardCollection dispatch={dispatch} />}
           </div>
         </motion.div>

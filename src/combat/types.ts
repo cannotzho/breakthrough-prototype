@@ -201,4 +201,5 @@ export type CombatAction =
   | { type: 'RESOLVE_ENEMY_CARD' }
   | { type: 'CONFIRM_PLACE_AS_SHIELD'; slotIdx: number }
   | { type: 'RESOLVE_INTERRUPT_CHECK' }
-  | { type: 'CONFIRM_BOTM' };
+  | { type: 'CONFIRM_BOTM' }
+  | { type: 'DEV_RESET'; state: CombatState };

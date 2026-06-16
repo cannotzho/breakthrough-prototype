@@ -1,11 +1,13 @@
 import { motion } from 'framer-motion';
 import EncounterEditor from '../components/dev/EncounterEditor';
+import { EncounterConfig } from '../combat/types';
 
 interface Props {
   onBack: () => void;
+  onPlaytestEncounter?: (config: EncounterConfig) => void;
 }
 
-export default function EncounterGalleryScreen({ onBack }: Props) {
+export default function EncounterGalleryScreen({ onBack, onPlaytestEncounter }: Props) {
   return (
     <div className="min-h-screen bg-zinc-950 text-white flex flex-col">
       <header className="border-b border-zinc-800 px-6 py-4 flex items-center gap-4">
@@ -21,7 +23,7 @@ export default function EncounterGalleryScreen({ onBack }: Props) {
         </h1>
       </header>
       <main className="flex-1 overflow-y-auto p-6 max-w-2xl mx-auto w-full">
-        <EncounterEditor />
+        <EncounterEditor onStartPlaytest={onPlaytestEncounter} />
       </main>
     </div>
   );
