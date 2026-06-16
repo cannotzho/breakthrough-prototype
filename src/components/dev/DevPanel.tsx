@@ -26,6 +26,7 @@ const EFFECT_TYPES: CardEffectType[] = [
 
 interface Props {
   open: boolean;
+  onClose?: () => void;
   state: CombatState;
   dispatch: (action: CombatAction) => void;
   onLoadEncounter?: (config: import('../../combat/types').EncounterConfig) => void;
@@ -192,7 +193,8 @@ function CardCreatorTab({ dispatch }: { dispatch: (a: CombatAction) => void }) {
   const [supertype, setSupertype] = useState<CardSupertype>('Skill');
   const [subtype, setSubtype] = useState<CardSubtype>(null);
   const [keywords, setKeywords] = useState<Keyword[]>([]);
-  const [description, setDescription] = useState('');
+  const [effectText, setEffectText] = useState('');
+  const [longDescription, setLongDescription] = useState('');
   const [effects, setEffects] = useState<CardEffect[]>([{ type: 'MODIFY_PRIORITY', value: 1 }]);
 
   const toggleKw = (kw: Keyword) =>
@@ -208,7 +210,7 @@ function CardCreatorTab({ dispatch }: { dispatch: (a: CombatAction) => void }) {
   const handleAdd = () => {
     const card: CardDefinition = {
       id: `dev_custom_${Date.now()}`,
-      name, cost, color, supertype, subtype, keywords, effects, description,
+      name, cost, color, supertype, subtype, keywords, effects, effectText, longDescription,
     };
     dispatch({ type: 'DEV_ADD_CARD_TO_HAND', card });
   };
@@ -280,8 +282,15 @@ function CardCreatorTab({ dispatch }: { dispatch: (a: CombatAction) => void }) {
       </div>
 
       <label className="flex flex-col gap-1">
-        <span className="text-xs text-zinc-500">Description</span>
-        <input value={description} onChange={e => setDescription(e.target.value)}
+        <span className="text-xs text-zinc-500">Effect Text</span>
+        <input value={effectText} onChange={e => setEffectText(e.target.value)}
+          placeholder="Short text shown on card face"
+          className="text-xs bg-zinc-800 border border-zinc-600 rounded px-2 py-1 text-white" />
+      </label>
+      <label className="flex flex-col gap-1">
+        <span className="text-xs text-zinc-500">Long Description</span>
+        <input value={longDescription} onChange={e => setLongDescription(e.target.value)}
+          placeholder="Detailed description for hover/details"
           className="text-xs bg-zinc-800 border border-zinc-600 rounded px-2 py-1 text-white" />
       </label>
 
@@ -343,7 +352,7 @@ function RelevantCardCreatorTab({ dispatch }: { dispatch: (a: CombatAction) => v
   );
 }
 
-export default function DevPanel({ open, state, dispatch, onLoadEncounter }: Props) {
+export default function DevPanel({ open, onClose, state, dispatch, onLoadEncounter }: Props) {
   const [tab, setTab] = useState<Tab>('State');
 
   const tabs: Tab[] = ['State', 'Log', 'Config', 'Cards', 'RelevantCards', 'Encounters', 'Collection'];
@@ -356,10 +365,19 @@ export default function DevPanel({ open, state, dispatch, onLoadEncounter }: Pro
           animate={{ x: 0 }}
           exit={{ x: '100%' }}
           transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-          className="fixed right-0 top-0 bottom-0 w-80 bg-zinc-900 border-l border-zinc-700 z-40 flex flex-col shadow-2xl"
+          className="fixed right-0 top-0 bottom-0 w-80 lg:w-96 xl:w-[28rem] 2xl:w-[32rem] bg-zinc-900 border-l border-zinc-700 z-40 flex flex-col shadow-2xl"
         >
-          <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-800">
-            <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Dev Panel</span>
+          <div className="flex items-center justify-between px-3 lg:px-4 py-2 lg:py-3 border-b border-zinc-800">
+            <span className="text-xs lg:text-sm font-bold text-zinc-400 uppercase tracking-widest">Dev Panel</span>
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="text-zinc-500 hover:text-white transition-colors text-lg leading-none"
+                title="Close dev panel"
+              >
+                ✕
+              </button>
+            )}
           </div>
 
           {/* Tabs */}
@@ -368,7 +386,7 @@ export default function DevPanel({ open, state, dispatch, onLoadEncounter }: Pro
               <button
                 key={t}
                 onClick={() => setTab(t)}
-                className={`flex-1 text-xs py-2 transition-colors
+                className={`flex-1 text-xs lg:text-sm py-2 lg:py-2.5 transition-colors
                   ${tab === t ? 'text-white border-b-2 border-blue-400' : 'text-zinc-500 hover:text-zinc-300'}`}
               >
                 {t === 'RelevantCards' ? 'RC' : t === 'Encounters' ? 'Enc' : t === 'Collection' ? 'Col' : t}
@@ -376,7 +394,7 @@ export default function DevPanel({ open, state, dispatch, onLoadEncounter }: Pro
             ))}
           </div>
 
-          <div className="flex-1 overflow-y-auto p-3">
+          <div className="flex-1 overflow-y-auto p-3 lg:p-4 xl:p-5 text-sm lg:text-base [&_*]:lg:text-sm [&_.text-xs]:lg:text-sm">
             {tab === 'State' && <StateTab state={state} dispatch={dispatch} />}
             {tab === 'Log' && <LogTab log={state.actionLog} />}
             {tab === 'Config' && <ConfigTab state={state} />}
