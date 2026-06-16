@@ -1,9 +1,11 @@
 # Zustand Stores
 
-This directory contains two Zustand stores that are currently integration stubs and are not yet wired into the game loop.
+## Dev tool stores (active)
 
-`collectionStore.ts` — manages the player's persistent card collection (skill cards, info cards, and discovered card IDs). Intended to replace the `bt_compendium` / `bt_collected` localStorage keys currently managed in `App.tsx`, once a full collection-management flow is implemented.
+`collectionStore.ts` — `useDevCardStore`: persistent store for cards created/edited via Dev tools. Uses `btdev-cards` localStorage key. Cards are keyed by ID and survive page reloads. Backs the Card Collection viewer/editor in DevPanel.
 
-`saveStore.ts` — persists per-encounter save data (broken shield indices, played non-relevant cards). Intended to support save/restore of encounter progress so a player can retry an encounter with the same state it was left in.
+`encounterStore.ts` — `useDevEncounterStore`: persistent store for encounter configs created/edited via Dev tools. Uses `btdev-encounters` localStorage key. Encounters are keyed by ID and survive page reloads. Backs the Encounter Config editor in DevPanel.
 
-Both stores will be wired in when collection management and encounter save/restore are implemented (tracked in issue #120).
+## Game session stores (integration stubs)
+
+`saveStore.ts` — persists per-encounter save data (broken shield indices, played non-relevant cards). Intended to support save/restore of encounter progress so a player can retry an encounter with the same state it was left in. Not yet wired into the game loop.

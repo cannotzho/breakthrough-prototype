@@ -1,4 +1,3 @@
-// TODO(#120): wire into game loop
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
