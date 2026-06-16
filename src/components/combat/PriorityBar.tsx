@@ -12,13 +12,13 @@ export default function PriorityBar({ priority, maxPriority }: PriorityBarProps)
   const isPositive = priority > 0;
 
   return (
-    <div className="w-full max-w-2xl mx-auto px-4">
-      <div className="flex items-center gap-3">
-        <span className="text-zinc-500 text-xs font-semibold tracking-[0.2em] uppercase shrink-0">
+    <div className="w-full max-w-3xl mx-auto px-4">
+      <div className="flex items-center gap-4">
+        <span className="text-zinc-500 text-sm font-semibold tracking-[0.2em] uppercase shrink-0">
           Priority
         </span>
 
-        <div className="flex-1 flex items-center gap-0.5">
+        <div className="flex-1 flex items-center gap-1">
           {/* Negative side (left) — pips fill leftward from center */}
           {Array.from({ length: totalPerSide }, (_, i) => {
             const distFromCenter = totalPerSide - i;
@@ -27,7 +27,7 @@ export default function PriorityBar({ priority, maxPriority }: PriorityBarProps)
             return (
               <motion.div
                 key={`neg-${i}`}
-                className="flex-1 h-6 rounded-sm border"
+                className="flex-1 h-10 rounded-sm border"
                 initial={false}
                 animate={{
                   backgroundColor: isFilled
@@ -51,7 +51,7 @@ export default function PriorityBar({ priority, maxPriority }: PriorityBarProps)
           })}
 
           {/* Center zero marker */}
-          <div className="w-1 h-8 rounded-full bg-zinc-500 shrink-0 mx-0.5" />
+          <div className="w-1.5 h-14 rounded-full bg-zinc-500 shrink-0 mx-1" />
 
           {/* Positive side (right) — pips fill rightward from center */}
           {Array.from({ length: totalPerSide }, (_, i) => {
@@ -61,7 +61,7 @@ export default function PriorityBar({ priority, maxPriority }: PriorityBarProps)
             return (
               <motion.div
                 key={`pos-${i}`}
-                className="flex-1 h-6 rounded-sm border"
+                className="flex-1 h-10 rounded-sm border"
                 initial={false}
                 animate={{
                   backgroundColor: isFilled
@@ -90,7 +90,7 @@ export default function PriorityBar({ priority, maxPriority }: PriorityBarProps)
           key={priority}
           initial={{ scale: 1.3, opacity: 0.6 }}
           animate={{ scale: 1, opacity: 1 }}
-          className={`text-2xl font-black tabular-nums min-w-[2.5rem] text-right ${
+          className={`text-4xl font-black tabular-nums min-w-[3.5rem] text-right ${
             isNegative ? 'text-red-400' : isPositive ? 'text-amber-400' : 'text-zinc-500'
           }`}
         >

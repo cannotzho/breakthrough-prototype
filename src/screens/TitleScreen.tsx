@@ -15,22 +15,22 @@ export default function TitleScreen({ onStart, onCardCollection, onEncounterGall
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, ease: 'easeOut' }}
       >
-        <div className="w-64 h-64 bg-zinc-800 border border-zinc-700 rounded-lg flex items-center justify-center text-zinc-600 text-sm">
+        <div className="w-96 h-96 bg-zinc-800 border border-zinc-700 rounded-xl flex items-center justify-center text-zinc-600 text-lg">
           [Splash Art]
         </div>
 
         <div className="text-center">
-          <h1 className="text-6xl font-bold tracking-widest uppercase text-white">
+          <h1 className="text-8xl font-bold tracking-widest uppercase text-white">
             Breakthrough
           </h1>
-          <p className="text-zinc-400 text-lg mt-2 tracking-wide">
+          <p className="text-zinc-400 text-2xl mt-3 tracking-wide">
             A detective card game
           </p>
         </div>
 
         <motion.button
           onClick={onStart}
-          className="mt-4 px-12 py-3 border border-white text-white uppercase tracking-widest text-sm hover:bg-white hover:text-zinc-950 transition-colors duration-200"
+          className="mt-6 px-16 py-4 border-2 border-white text-white uppercase tracking-widest text-lg hover:bg-white hover:text-zinc-950 transition-colors duration-200 rounded-lg"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
         >
@@ -38,11 +38,11 @@ export default function TitleScreen({ onStart, onCardCollection, onEncounterGall
         </motion.button>
 
         {(onCardCollection || onEncounterGallery) && (
-          <div className="flex gap-4 mt-2">
+          <div className="flex gap-6 mt-4">
             {onCardCollection && (
               <motion.button
                 onClick={onCardCollection}
-                className="px-4 py-2 border border-zinc-700 text-zinc-500 text-xs uppercase tracking-widest hover:border-zinc-500 hover:text-zinc-300 transition-colors duration-200"
+                className="px-6 py-3 border border-zinc-700 text-zinc-500 text-sm uppercase tracking-widest hover:border-zinc-500 hover:text-zinc-300 transition-colors duration-200 rounded-lg"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
@@ -52,7 +52,7 @@ export default function TitleScreen({ onStart, onCardCollection, onEncounterGall
             {onEncounterGallery && (
               <motion.button
                 onClick={onEncounterGallery}
-                className="px-4 py-2 border border-zinc-700 text-zinc-500 text-xs uppercase tracking-widest hover:border-zinc-500 hover:text-zinc-300 transition-colors duration-200"
+                className="px-6 py-3 border border-zinc-700 text-zinc-500 text-sm uppercase tracking-widest hover:border-zinc-500 hover:text-zinc-300 transition-colors duration-200 rounded-lg"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
