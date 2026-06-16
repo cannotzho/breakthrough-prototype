@@ -39,10 +39,26 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Stage deployment
+        run: |
+          mkdir -p deploy/dev
+          cp -r dist/* deploy/dev/
+          cat > deploy/index.html << 'REDIRECT'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta http-equiv="refresh" content="0;url=dev/">
+            <title>Redirecting…</title>
+          </head>
+          <body><p>Redirecting to <a href="dev/">dev/</a>…</p></body>
+          </html>
+          REDIRECT
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./dist
+          path: ./deploy
 
   deploy:
     environment:
