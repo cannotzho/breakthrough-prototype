@@ -142,8 +142,39 @@ function LogTab({ log }: { log: string[] }) {
 }
 
 function ConfigTab({ state }: { state: CombatState }) {
+  const [copied, setCopied] = useState(false);
+
+  const encounterJson = JSON.stringify(state.config, null, 2);
+
+  const handleDownload = () => {
+    const blob = new Blob([encounterJson], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${state.config.id || 'encounter'}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(encounterJson);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
-    <div className="overflow-auto max-h-96">
+    <div className="flex flex-col gap-3 overflow-auto max-h-96">
+      <div className="flex gap-2">
+        <button onClick={handleDownload}
+          className="text-xs px-3 py-1.5 border border-blue-500 text-blue-400 hover:bg-blue-900 rounded transition-colors">
+          Download JSON
+        </button>
+        <button onClick={handleCopy}
+          className={`text-xs px-3 py-1.5 border rounded transition-colors
+            ${copied ? 'border-green-500 text-green-400' : 'border-zinc-500 text-zinc-400 hover:border-white hover:text-white'}`}>
+          {copied ? 'Copied!' : 'Copy to Clipboard'}
+        </button>
+      </div>
       <pre className="text-xs text-zinc-300 whitespace-pre-wrap">
         {JSON.stringify({ combatConfig: state.combatConfig, encounterConfig: state.config }, null, 2)}
       </pre>
