@@ -10,7 +10,8 @@ export const DEV_SKILL_CARDS: CardDefinition[] = [
     color: 'Red',
     supertype: 'Skill',
     subtype: null,
-    description: '[DEV] Break 1 opponent shield.',
+    effectText: 'Break 1 opponent shield.',
+    longDescription: 'A forceful line of questioning that shatters one of the NPC\'s defences, revealing hidden information.',
   },
   {
     id: 'dev_nudge',
@@ -21,7 +22,8 @@ export const DEV_SKILL_CARDS: CardDefinition[] = [
     color: 'Red',
     supertype: 'Skill',
     subtype: null,
-    description: '[DEV] NPC loses 1 Patience.',
+    effectText: 'NPC loses 1 Patience.',
+    longDescription: 'A subtle provocation that wears down the NPC\'s composure, draining their willingness to continue the conversation.',
   },
   {
     id: 'dev_listen',
@@ -32,7 +34,8 @@ export const DEV_SKILL_CARDS: CardDefinition[] = [
     color: 'Green',
     supertype: 'Skill',
     subtype: null,
-    description: '[DEV] Draw 1 card.',
+    effectText: 'Draw 1 card.',
+    longDescription: 'Take a moment to actively listen, gaining fresh insight and drawing a new card into your hand.',
   },
   {
     id: 'dev_hold',
@@ -43,7 +46,8 @@ export const DEV_SKILL_CARDS: CardDefinition[] = [
     color: 'White',
     supertype: 'Skill',
     subtype: null,
-    description: '[DEV] Place as shield (Safety).',
+    effectText: 'Place as shield.',
+    longDescription: 'Brace yourself defensively. When placed as a shield, the Safety keyword prevents the NPC from draining Patience on break.',
   },
   {
     id: 'dev_interrupt_test',
@@ -54,7 +58,8 @@ export const DEV_SKILL_CARDS: CardDefinition[] = [
     color: 'Red',
     supertype: 'Skill',
     subtype: null,
-    description: '[DEV] Interrupt. +2 Priority.',
+    effectText: '+2 Priority.',
+    longDescription: 'A sharp comeback that can be interjected during the NPC\'s turn, seizing back momentum in the conversation.',
   },
 ];
 
@@ -68,7 +73,8 @@ export const DEV_ENEMY_CARDS: CardDefinition[] = [
     color: 'Colorless',
     supertype: 'Skill',
     subtype: null,
-    description: '[DEV] Break 1 player shield.',
+    effectText: 'Break 1 player shield.',
+    longDescription: 'The NPC dismisses your defences, breaking through one of your shields.',
   },
   {
     id: 'dev_enemy_deflect',
@@ -79,6 +85,7 @@ export const DEV_ENEMY_CARDS: CardDefinition[] = [
     color: 'Colorless',
     supertype: 'Skill',
     subtype: null,
-    description: '[DEV] Priority −3.',
+    effectText: 'Priority −3.',
+    longDescription: 'The NPC deflects your approach, significantly reducing your conversational momentum.',
   },
 ];

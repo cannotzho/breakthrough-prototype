@@ -519,6 +519,18 @@ Subtypes are supplemental classifications within a supertype.
 
 Additional subtypes will be defined as the card vocabulary expands.
 
+### 8.2.1 Card Text Fields
+
+Every card has two text display fields:
+
+**Effect Text** — A short description of the card's mechanical effect. This text is displayed on the card face during combat. For Skill cards, Effect Text is also displayed on the card face within the Card Collection gallery view. When rendered on the card face, the card's keywords are automatically prepended as separate lines above the Effect Text (computed at render time, not stored in data).
+
+**Long Description** — A longer flavour or explanatory description. This text is NOT shown on the card face by default. It is accessible via:
+- A "Details" entry in the card's context menu, which opens a detail modal showing the card's full information (name, keywords, cost, Effect Text, and Long Description).
+- A hover tooltip that appears when the cursor rests over the card.
+
+The `CardDefinition` type stores these as `effectText` and `longDescription`, both optional strings. The deprecated `description` field is retained for backward compatibility but should not be used in new card data.
+
 ### 8.3 Keywords
 
 Keywords are mechanical terms that appear on card text. All keywords expose their definitions via tooltip on hover (see §10.2).

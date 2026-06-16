@@ -67,6 +67,18 @@ function KeywordBadge({ keyword }: { keyword: Keyword }) {
   );
 }
 
+function getCardEffectDisplay(def: import('../combat/types').CardDefinition): string {
+  const lines: string[] = [];
+  for (const kw of def.keywords) lines.push(kw);
+  const text = def.effectText ?? def.description ?? '';
+  if (text) lines.push(text);
+  return lines.join('\n');
+}
+
+function getCardLongDesc(def: import('../combat/types').CardDefinition): string | undefined {
+  return def.longDescription;
+}
+
 function CardView({
   card,
   onClick,
@@ -90,9 +102,12 @@ function CardView({
   onCardDrag?: (event: MouseEvent | TouchEvent | PointerEvent) => void;
   onCardDragEnd?: (event: MouseEvent | TouchEvent | PointerEvent) => void;
 }) {
+  const [showTooltip, setShowTooltip] = useState(false);
   const def = card.definition;
   const border = COLOR_BORDER[def.color] ?? 'border-zinc-500';
   const bg = COLOR_BG[def.color] ?? 'bg-zinc-900';
+  const effectDisplay = getCardEffectDisplay(def);
+  const longDesc = getCardLongDesc(def);
 
   return (
     <motion.div
@@ -104,6 +119,8 @@ function CardView({
           onRightClick(e.clientX, e.clientY);
         }
       }}
+      onMouseEnter={() => { if (longDesc) setShowTooltip(true); }}
+      onMouseLeave={() => setShowTooltip(false)}
       drag={!!isDraggable}
       dragSnapToOrigin={isDraggable ? true : undefined}
       dragElastic={isDraggable ? 0.1 : undefined}
@@ -131,14 +148,22 @@ function CardView({
       <div className="flex-1 flex items-center justify-center">
         <span className="text-white text-xs text-center font-semibold leading-tight">{def.name}</span>
       </div>
-      {def.keywords.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {def.keywords.map(kw => (
-            <KeywordBadge key={kw} keyword={kw} />
-          ))}
-        </div>
-      )}
-      <p className="text-zinc-400 text-xs mt-1 leading-tight line-clamp-2">{def.description}</p>
+      <p className="text-zinc-400 text-[10px] mt-1 leading-tight line-clamp-3 whitespace-pre-line">{effectDisplay}</p>
+
+      {/* Long description hover tooltip */}
+      <AnimatePresence>
+        {showTooltip && longDesc && (
+          <motion.div
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 4 }}
+            className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-2.5 bg-zinc-800 border border-zinc-600 rounded-lg shadow-xl text-xs text-zinc-200 leading-relaxed pointer-events-none"
+          >
+            <span className="font-semibold text-white">{def.name}</span>
+            <p className="mt-1">{longDesc}</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
@@ -367,6 +392,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
   const [priorityRestoreFlash, setPriorityRestoreFlash] = useState(false);
   const [draggingCardId, setDraggingCardId] = useState<string | null>(null);
   const [viewingPile, setViewingPile] = useState<'draw' | 'discard' | null>(null);
+  const [detailCard, setDetailCard] = useState<CardInstance | null>(null);
   const playZoneRef = useRef<HTMLDivElement | null>(null);
   const prevPriorityRef = useRef(state.priority);
 
@@ -590,9 +616,24 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
               </button>
             )}
 
-            {!isPlayerTurn && !isBotMSelect && !isInterrupt && (
-              <div className="px-4 py-2 text-xs text-zinc-500 italic">No actions available</div>
-            )}
+            {/* Details — always available */}
+            {(() => {
+              const ctxCard = contextMenu.source === 'botm'
+                ? backOfMind.find(c => c.instanceId === contextMenu.cardId)
+                : playerHand.find(c => c.instanceId === contextMenu.cardId);
+              if (!ctxCard) return null;
+              return (
+                <button
+                  className="w-full text-left px-4 py-2 text-sm text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-colors border-t border-zinc-800"
+                  onClick={() => {
+                    setDetailCard(ctxCard);
+                    setContextMenu(null);
+                  }}
+                >
+                  Details
+                </button>
+              );
+            })()}
           </motion.div>
         )}
       </AnimatePresence>
@@ -1095,9 +1136,72 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
         )}
       </AnimatePresence>
 
+      {/* Card detail modal */}
+      <AnimatePresence>
+        {detailCard && (
+          <motion.div
+            key="card-detail-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
+            onClick={() => setDetailCard(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-zinc-900/95 backdrop-blur-md border border-zinc-700 rounded-xl p-6 max-w-sm w-full mx-4 flex flex-col gap-3"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-bold text-white">{detailCard.definition.name}</h2>
+                <button
+                  onClick={() => setDetailCard(null)}
+                  className="text-zinc-500 hover:text-white transition-colors text-lg leading-none"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="flex gap-2 flex-wrap text-xs">
+                <span className={`px-1.5 py-0.5 rounded border ${COLOR_BORDER[detailCard.definition.color]} text-zinc-300`}>
+                  {detailCard.definition.color}
+                </span>
+                <span className="px-1.5 py-0.5 rounded border border-zinc-600 text-zinc-400">
+                  {detailCard.definition.supertype}
+                </span>
+                <span className="px-1.5 py-0.5 rounded border border-zinc-600 text-zinc-400">
+                  Cost {detailCard.definition.cost}
+                </span>
+                {detailCard.definition.keywords.map(kw => (
+                  <KeywordBadge key={kw} keyword={kw} />
+                ))}
+              </div>
+              {(detailCard.definition.effectText ?? detailCard.definition.description) && (
+                <div>
+                  <div className="text-[10px] uppercase tracking-widest text-zinc-500 mb-1">Effect</div>
+                  <p className="text-sm text-zinc-200 leading-relaxed">
+                    {detailCard.definition.effectText ?? detailCard.definition.description}
+                  </p>
+                </div>
+              )}
+              {detailCard.definition.longDescription && (
+                <div>
+                  <div className="text-[10px] uppercase tracking-widest text-zinc-500 mb-1">Description</div>
+                  <p className="text-sm text-zinc-300 leading-relaxed">
+                    {detailCard.definition.longDescription}
+                  </p>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Dev panel */}
       <DevPanel
         open={devOpen}
+        onClose={() => setDevOpen(false)}
         state={state}
         dispatch={dispatch}
         onLoadEncounter={loadEncounter}

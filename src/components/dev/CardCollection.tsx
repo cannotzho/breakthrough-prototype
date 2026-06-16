@@ -44,7 +44,8 @@ function CardForm({ initial, onSubmit, submitLabel, onCancel }: CardFormProps) {
   const [supertype, setSupertype] = useState<CardSupertype>(initial?.supertype ?? 'Skill');
   const [subtype, setSubtype] = useState<CardSubtype>(initial?.subtype ?? null);
   const [keywords, setKeywords] = useState<Keyword[]>(initial?.keywords ?? []);
-  const [description, setDescription] = useState(initial?.description ?? '');
+  const [effectText, setEffectText] = useState(initial?.effectText ?? initial?.description ?? '');
+  const [longDescription, setLongDescription] = useState(initial?.longDescription ?? '');
   const [effects, setEffects] = useState<CardEffect[]>(initial?.effects ?? [{ type: 'MODIFY_PRIORITY', value: 1 }]);
 
   useEffect(() => {
@@ -56,7 +57,8 @@ function CardForm({ initial, onSubmit, submitLabel, onCancel }: CardFormProps) {
       setSupertype(initial.supertype);
       setSubtype(initial.subtype);
       setKeywords([...initial.keywords]);
-      setDescription(initial.description ?? '');
+      setEffectText(initial.effectText ?? initial.description ?? '');
+      setLongDescription(initial.longDescription ?? '');
       setEffects([...initial.effects]);
     }
   }, [initial]);
@@ -65,7 +67,7 @@ function CardForm({ initial, onSubmit, submitLabel, onCancel }: CardFormProps) {
     setKeywords(prev => prev.includes(kw) ? prev.filter(k => k !== kw) : [...prev, kw]);
 
   const handleSubmit = () => {
-    onSubmit({ id, name, cost, color, supertype, subtype, keywords, effects, description });
+    onSubmit({ id, name, cost, color, supertype, subtype, keywords, effects, effectText, longDescription });
   };
 
   return (
@@ -138,8 +140,15 @@ function CardForm({ initial, onSubmit, submitLabel, onCancel }: CardFormProps) {
       </div>
 
       <label className="flex flex-col gap-1">
-        <span className="text-xs text-zinc-500">Description</span>
-        <input value={description} onChange={e => setDescription(e.target.value)} className={INPUT} />
+        <span className="text-xs text-zinc-500">Effect Text</span>
+        <input value={effectText} onChange={e => setEffectText(e.target.value)} className={INPUT}
+          placeholder="Short text shown on the card face" />
+      </label>
+      <label className="flex flex-col gap-1">
+        <span className="text-xs text-zinc-500">Long Description</span>
+        <textarea value={longDescription} onChange={e => setLongDescription(e.target.value)}
+          className={`${INPUT} resize-y`} rows={2}
+          placeholder="Detailed description shown in Details view and hover tooltip" />
       </label>
 
       <div className="flex gap-2">
@@ -166,9 +175,15 @@ function CardGalleryItem({ card, isBuiltIn, onEdit, onDelete, onAddToHand }: {
   onAddToHand?: () => void;
 }) {
   const badgeClass = COLOR_BADGE[card.color] ?? COLOR_BADGE.Colorless;
+  const displayText = card.supertype === 'Skill'
+    ? [
+        ...card.keywords,
+        card.effectText ?? card.description ?? '',
+      ].filter(Boolean).join('\n')
+    : card.effectText ?? card.description ?? '';
 
   return (
-    <div className="border border-zinc-700 rounded p-2 flex flex-col gap-1 hover:border-zinc-500 transition-colors">
+    <div className="border border-zinc-700 rounded p-2 flex flex-col gap-1 hover:border-zinc-500 transition-colors group relative">
       <div className="flex items-start justify-between gap-1">
         <span className="text-xs text-white font-medium truncate">{card.name}</span>
         <span className="text-xs text-zinc-500 shrink-0">{card.cost}</span>
@@ -180,8 +195,8 @@ function CardGalleryItem({ card, isBuiltIn, onEdit, onDelete, onAddToHand }: {
           <span key={kw} className="text-xs px-1 rounded border border-zinc-600 text-zinc-400">{kw}</span>
         ))}
       </div>
-      {card.description && (
-        <p className="text-xs text-zinc-400 line-clamp-2">{card.description}</p>
+      {displayText && (
+        <p className="text-xs text-zinc-400 line-clamp-3 whitespace-pre-line">{displayText}</p>
       )}
       <div className="flex gap-1 mt-1">
         {!isBuiltIn && (
@@ -197,6 +212,12 @@ function CardGalleryItem({ card, isBuiltIn, onEdit, onDelete, onAddToHand }: {
           <button onClick={onAddToHand} className="text-xs text-green-400 hover:text-green-300 ml-auto">+ Hand</button>
         )}
       </div>
+      {/* Long description tooltip on hover */}
+      {card.longDescription && (
+        <div className="absolute z-40 bottom-full left-0 mb-1 w-64 p-2 bg-zinc-800 border border-zinc-600 rounded-lg shadow-xl text-xs text-zinc-200 leading-relaxed pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+          {card.longDescription}
+        </div>
+      )}
     </div>
   );
 }

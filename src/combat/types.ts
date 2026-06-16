@@ -33,6 +33,9 @@ export interface CardDefinition {
   color: ColorIdentity;
   supertype: CardSupertype;
   subtype: CardSubtype;
+  effectText?: string;
+  longDescription?: string;
+  /** @deprecated Use effectText/longDescription instead */
   description?: string;
 }
 
