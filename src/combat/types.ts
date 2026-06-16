@@ -35,6 +35,7 @@ export interface CardDefinition {
   subtype: CardSubtype;
   effectText?: string;
   longDescription?: string;
+  imageUrl?: string;
   /** @deprecated Use effectText/longDescription instead */
   description?: string;
 }
