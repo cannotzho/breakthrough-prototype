@@ -7,8 +7,9 @@ import {
 } from '../../combat/types';
 import { DEV_SKILL_CARDS, DEV_ENEMY_CARDS } from '../../data/devCards';
 import EncounterEditor from './EncounterEditor';
+import CardCollection from './CardCollection';
 
-type Tab = 'State' | 'Log' | 'Config' | 'Cards' | 'RelevantCards' | 'Encounters';
+type Tab = 'State' | 'Log' | 'Config' | 'Cards' | 'RelevantCards' | 'Encounters' | 'Collection';
 
 const PHASES: CombatPhase[] = [
   'Check', 'PlayerPending', 'PlayerPlay', 'RevealPending', 'PlayerShieldChoice',
@@ -344,7 +345,7 @@ function RelevantCardCreatorTab({ dispatch }: { dispatch: (a: CombatAction) => v
 export default function DevPanel({ open, state, dispatch }: Props) {
   const [tab, setTab] = useState<Tab>('State');
 
-  const tabs: Tab[] = ['State', 'Log', 'Config', 'Cards', 'RelevantCards', 'Encounters'];
+  const tabs: Tab[] = ['State', 'Log', 'Config', 'Cards', 'RelevantCards', 'Encounters', 'Collection'];
 
   return (
     <AnimatePresence>
@@ -369,7 +370,7 @@ export default function DevPanel({ open, state, dispatch }: Props) {
                 className={`flex-1 text-xs py-2 transition-colors
                   ${tab === t ? 'text-white border-b-2 border-blue-400' : 'text-zinc-500 hover:text-zinc-300'}`}
               >
-                {t === 'RelevantCards' ? 'RC' : t === 'Encounters' ? 'Enc' : t}
+                {t === 'RelevantCards' ? 'RC' : t === 'Encounters' ? 'Enc' : t === 'Collection' ? 'Col' : t}
               </button>
             ))}
           </div>
@@ -381,6 +382,7 @@ export default function DevPanel({ open, state, dispatch }: Props) {
             {tab === 'Cards' && <CardCreatorTab dispatch={dispatch} />}
             {tab === 'RelevantCards' && <RelevantCardCreatorTab dispatch={dispatch} />}
             {tab === 'Encounters' && <EncounterEditor />}
+            {tab === 'Collection' && <CardCollection dispatch={dispatch} />}
           </div>
         </motion.div>
       )}

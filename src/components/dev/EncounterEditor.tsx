@@ -182,7 +182,7 @@ interface EncounterEditorProps {
 }
 
 export default function EncounterEditor({ onLoadEncounter }: EncounterEditorProps) {
-  const { encounters, addEncounter, updateEncounter, removeEncounter, getAllEncounters } = useDevEncounterStore();
+  const { addEncounter, updateEncounter, removeEncounter, getAllEncounters } = useDevEncounterStore();
   const [config, setConfig] = useState<EncounterConfig>(defaultEncounter);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
