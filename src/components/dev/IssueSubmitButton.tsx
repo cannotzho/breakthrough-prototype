@@ -50,10 +50,10 @@ export default function IssueSubmitButton() {
       {/* Sticky icon button */}
       <button
         onClick={() => setOpen(v => !v)}
-        className="fixed bottom-4 left-4 z-50 w-10 h-10 rounded-full bg-zinc-800 border border-zinc-600 hover:border-blue-500 text-zinc-400 hover:text-blue-400 flex items-center justify-center shadow-lg transition-colors"
+        className="fixed bottom-[40px] left-[40px] z-50 w-20 h-20 rounded-full bg-zinc-800 border border-zinc-600 hover:border-blue-500 text-zinc-400 hover:text-blue-400 flex items-center justify-center shadow-lg transition-colors"
         title="Submit an issue"
       >
-        <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
+        <svg width="36" height="36" viewBox="0 0 16 16" fill="currentColor">
           <path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Zm3.25-1a.75.75 0 0 1 .75-.75h5a.75.75 0 0 1 0 1.5h-5A.75.75 0 0 1 4.75 7Zm.75 2.25a.75.75 0 0 0 0 1.5h3.5a.75.75 0 0 0 0-1.5h-3.5Z" />
         </svg>
       </button>
@@ -66,7 +66,7 @@ export default function IssueSubmitButton() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.95 }}
             transition={{ duration: 0.15 }}
-            className="fixed bottom-16 left-4 z-50 w-80 bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl flex flex-col"
+            className="fixed bottom-[130px] left-[40px] z-50 w-80 bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl flex flex-col"
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
