@@ -3,6 +3,7 @@ import TitleScreen from './screens/TitleScreen';
 import CombatScreen from './screens/CombatScreen';
 import CardCollectionScreen from './screens/CardCollectionScreen';
 import EncounterGalleryScreen from './screens/EncounterGalleryScreen';
+import IssueSubmitButton from './components/dev/IssueSubmitButton';
 import { EncounterConfig } from './combat/types';
 
 type Screen = 'title' | 'combat' | 'cardCollection' | 'encounterGallery';
@@ -16,30 +17,42 @@ export default function App() {
     setScreen('combat');
   }, []);
 
+  let content: React.ReactNode;
   switch (screen) {
     case 'title':
-      return (
+      content = (
         <TitleScreen
           onStart={() => startPlaytest()}
           onCardCollection={() => setScreen('cardCollection')}
           onEncounterGallery={() => setScreen('encounterGallery')}
         />
       );
+      break;
     case 'combat':
-      return (
+      content = (
         <CombatScreen
           onExit={() => setScreen('title')}
           encounterConfig={encounterConfig ?? undefined}
         />
       );
+      break;
     case 'cardCollection':
-      return <CardCollectionScreen onBack={() => setScreen('title')} />;
+      content = <CardCollectionScreen onBack={() => setScreen('title')} />;
+      break;
     case 'encounterGallery':
-      return (
+      content = (
         <EncounterGalleryScreen
           onBack={() => setScreen('title')}
           onPlaytestEncounter={startPlaytest}
         />
       );
+      break;
   }
+
+  return (
+    <>
+      {content}
+      <IssueSubmitButton />
+    </>
+  );
 }
