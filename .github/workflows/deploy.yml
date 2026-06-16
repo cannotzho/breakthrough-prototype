@@ -43,17 +43,64 @@ jobs:
         run: |
           mkdir -p deploy/dev
           cp -r dist/* deploy/dev/
-          cat > deploy/index.html << 'REDIRECT'
+          cat > deploy/index.html << 'WIP'
           <!DOCTYPE html>
           <html lang="en">
           <head>
             <meta charset="UTF-8">
-            <meta http-equiv="refresh" content="0;url=dev/">
-            <title>Redirecting…</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Breakthrough — Work in Progress</title>
+            <style>
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              body {
+                min-height: 100vh;
+                background: #09090b;
+                color: #a1a1aa;
+                font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                text-align: center;
+                padding: 2rem;
+              }
+              h1 {
+                color: #fff;
+                font-size: 2.5rem;
+                letter-spacing: 0.2em;
+                text-transform: uppercase;
+                margin-bottom: 0.5rem;
+              }
+              .subtitle { font-size: 1.1rem; margin-bottom: 2rem; }
+              .wip {
+                display: inline-block;
+                border: 1px solid #3f3f46;
+                padding: 0.5rem 1.5rem;
+                font-size: 0.85rem;
+                letter-spacing: 0.15em;
+                text-transform: uppercase;
+                color: #71717a;
+                margin-bottom: 2.5rem;
+              }
+              .link {
+                color: #52525b;
+                font-size: 0.75rem;
+                text-decoration: none;
+                border-bottom: 1px solid #3f3f46;
+                padding-bottom: 1px;
+                transition: color 0.2s;
+              }
+              .link:hover { color: #a1a1aa; }
+            </style>
           </head>
-          <body><p>Redirecting to <a href="dev/">dev/</a>…</p></body>
+          <body>
+            <h1>Breakthrough</h1>
+            <p class="subtitle">A detective card game</p>
+            <div class="wip">Work in Progress</div>
+            <p><a class="link" href="dev/">Tester access</a></p>
+          </body>
           </html>
-          REDIRECT
+          WIP
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

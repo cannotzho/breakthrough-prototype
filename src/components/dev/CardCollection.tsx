@@ -204,7 +204,7 @@ function CardGalleryItem({ card, isBuiltIn, onEdit, onDelete, onAddToHand }: {
 type View = 'gallery' | 'create' | 'edit';
 
 interface CardCollectionProps {
-  dispatch: (action: CombatAction) => void;
+  dispatch?: (action: CombatAction) => void;
 }
 
 export default function CardCollection({ dispatch }: CardCollectionProps) {
@@ -333,7 +333,7 @@ export default function CardCollection({ dispatch }: CardCollectionProps) {
             isBuiltIn={builtIn}
             onEdit={() => handleEdit(card, builtIn)}
             onDelete={builtIn ? undefined : () => removeCard(card.id)}
-            onAddToHand={() => dispatch({ type: 'DEV_ADD_CARD_TO_HAND', card })}
+            onAddToHand={dispatch ? () => dispatch({ type: 'DEV_ADD_CARD_TO_HAND', card }) : undefined}
           />
         ))}
         {filtered.length === 0 && (

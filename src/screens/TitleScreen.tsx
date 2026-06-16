@@ -2,9 +2,11 @@ import { motion } from 'framer-motion';
 
 interface TitleScreenProps {
   onStart: () => void;
+  onCardCollection?: () => void;
+  onEncounterGallery?: () => void;
 }
 
-export default function TitleScreen({ onStart }: TitleScreenProps) {
+export default function TitleScreen({ onStart, onCardCollection, onEncounterGallery }: TitleScreenProps) {
   return (
     <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center text-white">
       <motion.div
@@ -34,6 +36,31 @@ export default function TitleScreen({ onStart }: TitleScreenProps) {
         >
           Begin
         </motion.button>
+
+        {(onCardCollection || onEncounterGallery) && (
+          <div className="flex gap-4 mt-2">
+            {onCardCollection && (
+              <motion.button
+                onClick={onCardCollection}
+                className="px-4 py-2 border border-zinc-700 text-zinc-500 text-xs uppercase tracking-widest hover:border-zinc-500 hover:text-zinc-300 transition-colors duration-200"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                Dev: Card Collection
+              </motion.button>
+            )}
+            {onEncounterGallery && (
+              <motion.button
+                onClick={onEncounterGallery}
+                className="px-4 py-2 border border-zinc-700 text-zinc-500 text-xs uppercase tracking-widest hover:border-zinc-500 hover:text-zinc-300 transition-colors duration-200"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                Dev: Encounter Gallery
+              </motion.button>
+            )}
+          </div>
+        )}
       </motion.div>
     </div>
   );
