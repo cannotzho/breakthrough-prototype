@@ -176,6 +176,53 @@ function CardView({
   );
 }
 
+function HandCard({
+  card,
+  onClick,
+  onRightClick,
+  selected,
+  dimmed,
+  isDraggable,
+  onCardDragStart,
+  onCardDrag,
+  onCardDragEnd,
+}: {
+  card: CardInstance;
+  onClick?: (e: React.MouseEvent) => void;
+  onRightClick?: (x: number, y: number) => void;
+  selected?: boolean;
+  dimmed?: boolean;
+  isDraggable?: boolean;
+  onCardDragStart?: () => void;
+  onCardDrag?: (event: MouseEvent | TouchEvent | PointerEvent) => void;
+  onCardDragEnd?: (event: MouseEvent | TouchEvent | PointerEvent) => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <motion.div
+      className="relative"
+      style={{ zIndex: hovered ? 50 : 1 }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      animate={{ y: hovered ? -80 : 0 }}
+      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+    >
+      <CardView
+        card={card}
+        onClick={onClick}
+        onRightClick={onRightClick}
+        selected={selected}
+        dimmed={dimmed}
+        isDraggable={isDraggable}
+        onCardDragStart={onCardDragStart}
+        onCardDrag={onCardDrag}
+        onCardDragEnd={onCardDragEnd}
+      />
+    </motion.div>
+  );
+}
+
 function ShieldBack({ broken, loreText, hintText, isHint }: {
   broken: boolean;
   loreText?: string;
@@ -222,7 +269,7 @@ function PlayerShieldSlot({ slot, idx, selectable, selected, onSelect, isDropTar
   return (
     <motion.div
       layout
-      className={`w-44 h-60 rounded-xl border-2 flex flex-col items-center justify-center cursor-pointer transition-all
+      className={`w-44 h-[84px] rounded-lg border-2 flex items-center px-3 cursor-pointer transition-all
         ${slot ? 'border-blue-400 bg-blue-950' : 'border-zinc-700 bg-zinc-900/40 border-dashed'}
         ${selectable ? 'hover:border-yellow-400' : ''}
         ${selected ? 'border-yellow-400 ring-2 ring-yellow-400' : ''}
@@ -235,22 +282,20 @@ function PlayerShieldSlot({ slot, idx, selectable, selected, onSelect, isDropTar
       onDrop={isDropTarget && !slot ? (e) => { e.preventDefault(); setDragOver(false); onDrop?.(); } : undefined}
     >
       {slot ? (
-        <div className="text-center p-2">
-          <div className="text-white text-sm font-semibold leading-tight">{slot.card.definition.name}</div>
-          <div className="text-zinc-400 text-xs mt-1">Cost {slot.card.definition.cost}</div>
-          {slot.card.definition.keywords.length > 0 && (
-            <div className="flex flex-wrap gap-1 justify-center mt-2">
-              {slot.card.definition.keywords.map(kw => (
-                <KeywordBadge key={kw} keyword={kw} />
-              ))}
-            </div>
+        <div className="flex items-center gap-2 min-w-0 w-full">
+          <span className="text-white text-sm font-semibold truncate flex-1">{slot.card.definition.name}</span>
+          {slot.card.definition.keywords.includes('Safety') && (
+            <span className="text-[11px] bg-green-900/60 text-green-400 px-1.5 py-0.5 rounded shrink-0">Safety</span>
+          )}
+          {slot.card.definition.keywords.includes('Counter') && (
+            <span className="text-[11px] bg-blue-900/60 text-blue-400 px-1.5 py-0.5 rounded shrink-0">Counter</span>
           )}
         </div>
       ) : (
-        <div className="text-center">
+        <div className="flex items-center justify-center w-full">
           <span className="text-zinc-600 text-sm">Slot {idx + 1}</span>
           {isDropTarget && (
-            <div className="text-amber-500/60 text-xs mt-2">Drop here</div>
+            <span className="text-amber-500/60 text-xs ml-2">Drop</span>
           )}
         </div>
       )}
@@ -516,7 +561,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
     setContextMenu({ cardId, x, y, source });
   }, []);
 
-  const { phase, priority, patience, lieCounter, playerHand, playerShields,
+  const { phase, priority, patience, playerHand, playerShields,
     opponentShields, stagedEnemyCard, backOfMind, pendingReveal,
     pendingShieldChoiceSlotIdx } = state;
 
@@ -791,12 +836,10 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
                     />
                   </div>
 
-                  {/* Patience + Lie counter */}
+                  {/* Patience */}
                   <PatienceDisplay
                     patience={patience}
                     maxPatience={state.config.opponentPatience}
-                    lieCounter={lieCounter}
-                    lieThreshold={state.config.lieThreshold}
                   />
 
                   {/* Player shields — also the drop zone for shield placement */}
@@ -814,9 +857,10 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
                             onSelect={() => {
                               if (state.pendingPlaceAsShield && slot === null) {
                                 dispatch({ type: 'CONFIRM_PLACE_AS_SHIELD', slotIdx: i });
-                              }
-                              if (isShieldChoice && slot !== null) {
+                              } else if (isShieldChoice && slot !== null) {
                                 dispatch({ type: 'SELECT_SHIELD_SACRIFICE', slotIdx: i });
+                              } else if (slot !== null) {
+                                setDetailCard(slot.card);
                               }
                             }}
                           />
@@ -872,86 +916,90 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
               </div>
             )}
 
-            {/* Player hand — BotM mode uses distinct background color */}
-            <div className={`px-4 lg:px-6 py-2 lg:py-3 transition-colors duration-300 ${
+            {/* Player hand — sits partially below viewport, cards pop up on hover */}
+            <div className={`px-4 lg:px-6 pt-2 lg:pt-3 transition-colors duration-300 ${
               isBotMSelect || isInterrupt ? 'bg-indigo-950/80' : 'bg-zinc-950/60'
             }`}>
-
-              <div className="flex gap-2 lg:gap-4 flex-wrap justify-center">
-                <AnimatePresence mode="popLayout">
-                  {playerHand.map(card => {
-                    const isInterruptCard = card.definition.keywords.includes('Interrupt');
-                    const canDrag = isPlayerTurn || (isInterrupt && isInterruptCard);
-                    const isBotMSelected = isBotMSelect && backOfMind.some(c => c.instanceId === card.instanceId);
-                    return (
-                      <CardView
-                        key={card.instanceId}
-                        card={card}
-                        onClick={(e: React.MouseEvent) => {
-                          if (isBotMSelect) {
-                            dispatch({ type: 'SELECT_BOTM', cardInstanceId: card.instanceId });
-                          } else if (isPlayerTurn || (isInterrupt && isInterruptCard)) {
-                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                            const x = rect.left + rect.width / 2;
-                            const y = rect.top;
-                            openContextMenu(card.instanceId, x, y, 'hand');
-                          }
-                        }}
-                        onRightClick={(isPlayerTurn || isBotMSelect || (isInterrupt && isInterruptCard))
-                          ? (x, y) => openContextMenu(card.instanceId, x, y, 'hand')
-                          : undefined}
-                        selected={isBotMSelected}
-                        dimmed={
-                          (!isBotMSelect && !isPlayerTurn && !isInterrupt) ||
-                          (isInterrupt && !isInterruptCard)
-                        }
-                        isDraggable={canDrag}
-                        onCardDragStart={canDrag ? () => handleCardDragStart(card.instanceId) : undefined}
-                        onCardDrag={canDrag ? (e) => handleCardDrag(e) : undefined}
-                        onCardDragEnd={canDrag ? (e) => handleCardDragEnd(card.instanceId, e) : undefined}
-                      />
-                    );
-                  })}
-                </AnimatePresence>
-              </div>
-
-              {/* Action bar */}
-              <div className="flex gap-4 mt-4 justify-center">
-                {isPlayerTurn && (
-                  <button
-                    onClick={() => dispatch({ type: 'END_TURN' })}
-                    className="px-8 py-3 border border-zinc-600 text-zinc-300 hover:text-white hover:border-white text-lg rounded-lg transition-colors"
-                  >
-                    End Turn
-                  </button>
-                )}
-                {isInterrupt && (
-                  <button
-                    onClick={() => dispatch({ type: 'PASS_INTERRUPT' })}
-                    className="px-8 py-3 border border-zinc-600 text-zinc-300 hover:text-white text-lg rounded-lg transition-colors"
-                  >
-                    Pass
-                  </button>
-                )}
-                {isBotMSelect && (
-                  <div className="flex items-center gap-4">
-                    <span className="text-sm text-indigo-300 py-2">
-                      Select up to {state.combatConfig.backOfMindLimit} card(s) to keep
-                    </span>
-                    <button
-                      onClick={() => dispatch({ type: 'CONFIRM_BOTM' })}
-                      className={`px-5 py-2 border text-sm rounded-lg transition-colors ${
-                        backOfMind.length > 0
-                          ? 'border-yellow-400 text-yellow-400 hover:bg-yellow-900'
-                          : 'border-zinc-500 text-zinc-400 hover:bg-zinc-700'
-                      }`}
-                    >
-                      {backOfMind.length > 0
-                        ? `Confirm (${backOfMind.length}/${state.combatConfig.backOfMindLimit})`
-                        : 'Pass (keep no cards)'}
-                    </button>
+              <div className="flex items-end gap-4">
+                {/* Hand cards — clipped at bottom, individual cards pop up on hover */}
+                <div className="flex-1 min-w-0 h-[140px] lg:h-[160px] overflow-visible relative">
+                  <div className="flex gap-2 lg:gap-4 flex-wrap justify-center absolute bottom-0 left-0 right-0 translate-y-[40%] lg:translate-y-[35%]">
+                    <AnimatePresence mode="popLayout">
+                      {playerHand.map(card => {
+                        const isInterruptCard = card.definition.keywords.includes('Interrupt');
+                        const canDrag = isPlayerTurn || (isInterrupt && isInterruptCard);
+                        const isBotMSelected = isBotMSelect && backOfMind.some(c => c.instanceId === card.instanceId);
+                        return (
+                          <HandCard
+                            key={card.instanceId}
+                            card={card}
+                            onClick={(e: React.MouseEvent) => {
+                              if (isBotMSelect) {
+                                dispatch({ type: 'SELECT_BOTM', cardInstanceId: card.instanceId });
+                              } else if (isPlayerTurn || (isInterrupt && isInterruptCard)) {
+                                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                const x = rect.left + rect.width / 2;
+                                const y = rect.top;
+                                openContextMenu(card.instanceId, x, y, 'hand');
+                              }
+                            }}
+                            onRightClick={(isPlayerTurn || isBotMSelect || (isInterrupt && isInterruptCard))
+                              ? (x, y) => openContextMenu(card.instanceId, x, y, 'hand')
+                              : undefined}
+                            selected={isBotMSelected}
+                            dimmed={
+                              (!isBotMSelect && !isPlayerTurn && !isInterrupt) ||
+                              (isInterrupt && !isInterruptCard)
+                            }
+                            isDraggable={canDrag}
+                            onCardDragStart={canDrag ? () => handleCardDragStart(card.instanceId) : undefined}
+                            onCardDrag={canDrag ? (e) => handleCardDrag(e) : undefined}
+                            onCardDragEnd={canDrag ? (e) => handleCardDragEnd(card.instanceId, e) : undefined}
+                          />
+                        );
+                      })}
+                    </AnimatePresence>
                   </div>
-                )}
+                </div>
+
+                {/* Action buttons — right of hand */}
+                <div className="flex flex-col gap-2 shrink-0 pb-2">
+                  {isPlayerTurn && (
+                    <button
+                      onClick={() => dispatch({ type: 'END_TURN' })}
+                      className="px-6 py-3 border border-zinc-600 text-zinc-300 hover:text-white hover:border-white text-base rounded-lg transition-colors whitespace-nowrap"
+                    >
+                      End Turn
+                    </button>
+                  )}
+                  {isInterrupt && (
+                    <button
+                      onClick={() => dispatch({ type: 'PASS_INTERRUPT' })}
+                      className="px-6 py-3 border border-zinc-600 text-zinc-300 hover:text-white text-base rounded-lg transition-colors whitespace-nowrap"
+                    >
+                      Pass
+                    </button>
+                  )}
+                  {isBotMSelect && (
+                    <div className="flex flex-col items-center gap-2">
+                      <span className="text-xs text-indigo-300 text-center leading-tight">
+                        Keep up to {state.combatConfig.backOfMindLimit}
+                      </span>
+                      <button
+                        onClick={() => dispatch({ type: 'CONFIRM_BOTM' })}
+                        className={`px-4 py-2 border text-sm rounded-lg transition-colors whitespace-nowrap ${
+                          backOfMind.length > 0
+                            ? 'border-yellow-400 text-yellow-400 hover:bg-yellow-900'
+                            : 'border-zinc-500 text-zinc-400 hover:bg-zinc-700'
+                        }`}
+                      >
+                        {backOfMind.length > 0
+                          ? `Confirm (${backOfMind.length}/${state.combatConfig.backOfMindLimit})`
+                          : 'Pass'}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
