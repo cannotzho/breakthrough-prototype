@@ -34,6 +34,8 @@ const COLOR_BG: Record<string, string> = {
   Colorless: 'bg-zinc-900',
 };
 
+const SHIELD_BREAK_SHAKE = [0, -8, 8, -6, 4, 0];
+
 const KEYWORD_DEFINITIONS: Record<Keyword, string> = {
   Interrupt: 'May be played during the NPC\'s turn before the staged card resolves. No Priority cost.',
   Safety: 'No effect when played normally. When this card is used as a shield and that shield is broken, the NPC loses 0 Patience instead of 1.',
@@ -127,9 +129,9 @@ function CardView({
       onDragStart={isDraggable ? (_e: MouseEvent | TouchEvent | PointerEvent, _i: PanInfo) => onCardDragStart?.() : undefined}
       onDrag={isDraggable ? (e: MouseEvent | TouchEvent | PointerEvent, _i: PanInfo) => onCardDrag?.(e) : undefined}
       onDragEnd={isDraggable ? (e: MouseEvent | TouchEvent | PointerEvent, _i: PanInfo) => onCardDragEnd?.(e) : undefined}
-      initial={{ opacity: 0, y: 20, scale: 0.9 }}
-      animate={{ opacity: dimmed ? 0.4 : 1, y: 0, scale: selected ? 1.05 : 1 }}
-      exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.2 } }}
+      initial={{ opacity: 0, x: -60, scale: 0.9 }}
+      animate={{ opacity: dimmed ? 0.4 : 1, x: 0, scale: selected ? 1.05 : 1 }}
+      exit={{ opacity: 0, x: 60, scale: 0.8, transition: { duration: 0.2 } }}
       transition={{ type: 'spring', stiffness: 300, damping: 25 }}
       className={`relative w-[104px] h-36 lg:w-[156px] lg:h-[216px] shrink-0 rounded-xl border-2 ${border} ${bg} flex flex-col p-1.5 lg:p-3 select-none
         ${isDraggable ? 'cursor-grab active:cursor-grabbing' : onClick ? 'cursor-pointer hover:scale-105 transition-transform' : ''}
@@ -234,26 +236,37 @@ function ShieldBack({ broken, loreText, hintText, isHint }: {
 }) {
   return (
     <motion.div
-      animate={broken
-        ? { opacity: 0.6, scale: 1 }
-        : { opacity: 1, scale: 1 }}
+      animate={{ opacity: broken ? 0.7 : 1 }}
       className={`w-44 h-60 rounded-xl border-2 flex flex-col items-center justify-center p-4
         ${broken ? 'border-zinc-600 bg-zinc-800/40' : 'border-zinc-500 bg-zinc-800'}
       `}
     >
-      {broken ? (
-        <motion.div
-          initial={{ rotateZ: -2, scale: 1.05 }}
-          animate={{ rotateZ: 0, scale: 1 }}
-          transition={{ type: 'spring', stiffness: 200, damping: 10 }}
-          className="text-center"
-        >
-          <div className="text-zinc-500 text-sm mb-2">{isHint ? 'HINT' : 'BROKEN'}</div>
-          <p className="text-zinc-400 text-sm leading-tight">{hintText ?? loreText}</p>
-        </motion.div>
-      ) : (
-        <div className="text-zinc-600 text-5xl">?</div>
-      )}
+      <AnimatePresence mode="wait">
+        {broken ? (
+          <motion.div
+            key="broken-content"
+            initial={{ opacity: 0, scale: 1.15 }}
+            animate={{ opacity: 1, scale: 1, x: SHIELD_BREAK_SHAKE }}
+            exit={{ opacity: 0 }}
+            transition={{
+              x: { duration: 0.4, ease: 'easeOut' },
+              opacity: { duration: 0.5 },
+              scale: { type: 'spring', stiffness: 200, damping: 12 },
+            }}
+            className="text-center"
+          >
+            <div className="text-zinc-500 text-sm mb-2">{isHint ? 'HINT' : 'BROKEN'}</div>
+            <p className="text-zinc-400 text-sm leading-tight">{hintText ?? loreText}</p>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="intact-content"
+            exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.2 } }}
+          >
+            <div className="text-zinc-600 text-5xl">?</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
@@ -284,24 +297,37 @@ function PlayerShieldSlot({ slot, idx, selectable, selected, onSelect, isDropTar
       onDragLeave={isDropTarget ? () => setDragOver(false) : undefined}
       onDrop={isDropTarget && !slot ? (e) => { e.preventDefault(); setDragOver(false); onDrop?.(); } : undefined}
     >
-      {slot ? (
-        <div className="flex items-center gap-2 min-w-0 w-full">
-          <span className="text-white text-sm font-semibold truncate flex-1">{slot.card.definition.name}</span>
-          {slot.card.definition.keywords.includes('Safety') && (
-            <span className="text-[11px] bg-green-900/60 text-green-400 px-1.5 py-0.5 rounded shrink-0">Safety</span>
-          )}
-          {slot.card.definition.keywords.includes('Counter') && (
-            <span className="text-[11px] bg-blue-900/60 text-blue-400 px-1.5 py-0.5 rounded shrink-0">Counter</span>
-          )}
-        </div>
-      ) : (
-        <div className="flex items-center justify-center w-full">
-          <span className="text-zinc-600 text-sm">Slot {idx + 1}</span>
-          {isDropTarget && (
-            <span className="text-amber-500/60 text-xs ml-2">Drop</span>
-          )}
-        </div>
-      )}
+      <AnimatePresence mode="wait">
+        {slot ? (
+          <motion.div
+            key="filled"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 60, scale: 0.8, transition: { duration: 0.3 } }}
+            className="flex items-center gap-2 min-w-0 w-full"
+          >
+            <span className="text-white text-sm font-semibold truncate flex-1">{slot.card.definition.name}</span>
+            {slot.card.definition.keywords.includes('Safety') && (
+              <span className="text-[11px] bg-green-900/60 text-green-400 px-1.5 py-0.5 rounded shrink-0">Safety</span>
+            )}
+            {slot.card.definition.keywords.includes('Counter') && (
+              <span className="text-[11px] bg-blue-900/60 text-blue-400 px-1.5 py-0.5 rounded shrink-0">Counter</span>
+            )}
+          </motion.div>
+        ) : (
+          <motion.div
+            key="empty"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex items-center justify-center w-full"
+          >
+            <span className="text-zinc-600 text-sm">Slot {idx + 1}</span>
+            {isDropTarget && (
+              <span className="text-amber-500/60 text-xs ml-2">Drop</span>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
@@ -442,10 +468,15 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
   const [draggingCardId, setDraggingCardId] = useState<string | null>(null);
   const [viewingPile, setViewingPile] = useState<'draw' | 'discard' | null>(null);
   const [detailCard, setDetailCard] = useState<CardInstance | null>(null);
+  const [playedCardAnim, setPlayedCardAnim] = useState<CardInstance | null>(null);
   const playZoneRef = useRef<HTMLDivElement | null>(null);
   const shieldSlotRefs = useRef<(HTMLDivElement | null)[]>([]);
   const dragOccurredRef = useRef(false);
   const prevPriorityRef = useRef(state.priority);
+  const handRef = useRef(state.playerHand);
+  const botmRef = useRef(state.backOfMind);
+  handRef.current = state.playerHand;
+  botmRef.current = state.backOfMind;
 
   useEffect(() => {
     const prev = prevPriorityRef.current;
@@ -456,6 +487,19 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
       return () => clearTimeout(t);
     }
   }, [state.priority]);
+
+  useEffect(() => {
+    if (playedCardAnim) {
+      const t = setTimeout(() => setPlayedCardAnim(null), 800);
+      return () => clearTimeout(t);
+    }
+  }, [playedCardAnim]);
+
+  const capturePlayedCard = useCallback((instanceId: string) => {
+    const card = handRef.current.find(c => c.instanceId === instanceId)
+      ?? botmRef.current.find(c => c.instanceId === instanceId);
+    if (card) setPlayedCardAnim(card);
+  }, []);
 
   useEffect(() => {
     if (state.phase === 'Check') {
@@ -524,6 +568,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
 
   const handleCardDragEnd = useCallback((instanceId: string, event: MouseEvent | TouchEvent | PointerEvent) => {
     if (isOverZone(event)) {
+      capturePlayedCard(instanceId);
       if (state.phase === 'Interrupt') {
         dispatch({ type: 'PLAY_INTERRUPT', cardInstanceId: instanceId });
       } else {
@@ -546,7 +591,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
     setPlayZoneHovered(false);
     setDraggingCardId(null);
     setTimeout(() => { dragOccurredRef.current = false; }, 200);
-  }, [isOverZone, state.phase, state.playerShields, getClientPos]);
+  }, [isOverZone, state.phase, state.playerShields, getClientPos, capturePlayedCard]);
 
   const handleShieldDrop = useCallback((slotIdx: number) => {
     if (!draggingCardId) return;
@@ -638,6 +683,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
               <button
                 className="w-full text-left px-5 py-3 text-base text-zinc-200 hover:bg-zinc-700 transition-colors"
                 onClick={() => {
+                  capturePlayedCard(contextMenu.cardId);
                   dispatch({ type: 'PLAY_CARD', cardInstanceId: contextMenu.cardId });
                   setContextMenu(null);
                 }}
@@ -655,6 +701,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
                 <button
                   className="w-full text-left px-5 py-3 text-base text-zinc-200 hover:bg-zinc-700 transition-colors"
                   onClick={() => {
+                    capturePlayedCard(contextMenu.cardId);
                     dispatch({ type: 'PLAY_INTERRUPT', cardInstanceId: contextMenu.cardId });
                     setContextMenu(null);
                   }}
@@ -736,7 +783,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
         <div className="flex-1 flex flex-col overflow-hidden min-h-0">
 
           {/* ═══ TOP: Opponent area + staged card + play zone ═══ */}
-          <div className="flex-1 flex flex-col gap-2 lg:gap-4 p-2 lg:p-4 min-h-0 overflow-hidden relative">
+          <div className="flex-1 flex flex-col p-2 lg:p-4 min-h-0 overflow-hidden relative">
 
             {/* Play zone overlay — covers entire top area */}
             <PlayZone
@@ -745,42 +792,36 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
               zoneRef={playZoneRef}
             />
 
-            {/* Enemy Panel — left-aligned so background splash art is visible center/right */}
-            <div data-testid="enemy-panel" className="flex justify-start relative z-20 pl-4">
-              <div className="bg-zinc-950/70 backdrop-blur-sm rounded-xl p-6 inline-flex flex-col items-center gap-3">
-                <div className="text-base text-zinc-500 uppercase tracking-widest">{activeEncounter.displayName}</div>
-                <div className="flex gap-4">
-                  <AnimatePresence mode="popLayout">
-                    {opponentShields.map((shield, i) => (
-                      <motion.div key={i} layout>
-                        <ShieldBack
-                          broken={shield.broken}
-                          loreText={shield.loreDescription}
-                          hintText={shield.hintText}
-                          isHint={shield.isHint}
-                        />
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
-                </div>
-                <TraitZone traits={state.config.traits} />
-              </div>
-            </div>
-
-            {/* Staged enemy card */}
-            <div className="flex justify-center min-h-[8rem] relative z-10">
+            {/* Staged enemy card — centered in the play zone */}
+            <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
               <AnimatePresence>
                 {stagedEnemyCard && (
                   <motion.div
                     key={stagedEnemyCard.instanceId}
-                    initial={{ opacity: 0, y: -30, scale: 0.85 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, x: 60, scale: 0.7, transition: { duration: 0.3 } }}
+                    initial={{ opacity: 0, x: -60, scale: 0.85 }}
+                    animate={{ opacity: 1, x: 0, scale: 1 }}
+                    exit={{ opacity: 0, x: 80, scale: 0.7, transition: { duration: 0.3 } }}
                     transition={{ type: 'spring', stiffness: 200, damping: 20 }}
-                    className="flex flex-col items-center gap-1"
+                    className="flex flex-col items-center gap-1 pointer-events-auto"
                   >
                     <span className="text-sm text-red-400 uppercase tracking-widest">NPC plays</span>
                     <CardView card={stagedEnemyCard} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Player played card — appears briefly then dissolves (#2/#6) */}
+              <AnimatePresence>
+                {playedCardAnim && !stagedEnemyCard && (
+                  <motion.div
+                    key={playedCardAnim.instanceId + '-played'}
+                    initial={{ opacity: 0.9, scale: 1.1, y: 40 }}
+                    animate={{ opacity: 0.7, scale: 0.95, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.5, x: 80, transition: { duration: 0.3 } }}
+                    transition={{ duration: 0.4 }}
+                    className="flex flex-col items-center gap-1 pointer-events-none"
+                  >
+                    <CardView card={playedCardAnim} />
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -801,6 +842,28 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
             {state.pendingPlaceAsShield && (
               <div className="text-center text-base text-yellow-400 py-2 relative z-10">Choose a shield slot to place the card</div>
             )}
+
+            {/* Enemy Panel — bottom-anchored, left-aligned */}
+            <div data-testid="enemy-panel" className="absolute bottom-0 left-0 z-20 pl-4 pb-2">
+              <div className="bg-zinc-950/70 backdrop-blur-sm rounded-xl p-6 inline-flex flex-col items-center gap-3">
+                <div className="text-base text-zinc-500 uppercase tracking-widest">{activeEncounter.displayName}</div>
+                <div className="flex gap-4">
+                  <AnimatePresence mode="popLayout">
+                    {opponentShields.map((shield, i) => (
+                      <motion.div key={i} layout>
+                        <ShieldBack
+                          broken={shield.broken}
+                          loreText={shield.loreDescription}
+                          hintText={shield.hintText}
+                          isHint={shield.isHint}
+                        />
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </div>
+                <TraitZone traits={state.config.traits} />
+              </div>
+            </div>
           </div>
 
           {/* ═══ BOTTOM: Stats row (Priority + Patience + Player Shields) + Hand ═══ */}
@@ -941,6 +1004,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
                               if (isBotMSelect) {
                                 dispatch({ type: 'SELECT_BOTM', cardInstanceId: card.instanceId });
                               } else if (isInterrupt && isInterruptCard) {
+                                capturePlayedCard(card.instanceId);
                                 dispatch({ type: 'PLAY_INTERRUPT', cardInstanceId: card.instanceId });
                               } else if (isPlayerTurn) {
                                 const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -1034,9 +1098,14 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
               <div className="text-sm uppercase tracking-widest text-amber-500 mb-3">
                 Information Discovered
               </div>
-              <p className="text-white text-xl leading-relaxed mb-8">
+              <motion.p
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3, duration: 0.4 }}
+                className="text-white text-xl leading-relaxed mb-8"
+              >
                 {state.pendingDiscovery.effectDescription}
-              </p>
+              </motion.p>
               <button
                 onClick={() => dispatch({ type: 'DISMISS_DISCOVERY' })}
                 className="px-10 py-3 border border-amber-500 text-amber-400 hover:bg-amber-900 text-base uppercase tracking-widest rounded-lg transition-colors"
@@ -1066,9 +1135,14 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
               <div className="text-sm uppercase tracking-widest text-zinc-500 mb-3">
                 {pendingReveal.isHint ? 'Hint Revealed' : 'Shield Broken'}
               </div>
-              <p className="text-white text-xl leading-relaxed mb-8">
+              <motion.p
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3, duration: 0.4 }}
+                className="text-white text-xl leading-relaxed mb-8"
+              >
                 {pendingReveal.loreDescription ?? pendingReveal.hintText}
-              </p>
+              </motion.p>
               <button
                 onClick={() => dispatch({ type: 'DISMISS_REVEAL' })}
                 className="px-10 py-3 border border-white text-white hover:bg-white hover:text-zinc-950 text-base uppercase tracking-widest rounded-lg transition-colors"
