@@ -4,6 +4,7 @@ import {
   CardEffect, CardEffectType,
 } from '../../combat/types';
 import { useDevEncounterStore } from '../../stores/encounterStore';
+import SupabaseStatus from './SupabaseStatus';
 
 const EFFECT_TYPES: CardEffectType[] = [
   'BREAK_OPPONENT_SHIELD', 'BREAK_PLAYER_SHIELD', 'MODIFY_PRIORITY',
@@ -183,7 +184,7 @@ interface EncounterEditorProps {
 }
 
 export default function EncounterEditor({ onLoadEncounter, onStartPlaytest }: EncounterEditorProps) {
-  const { addEncounter, updateEncounter, removeEncounter, getAllEncounters } = useDevEncounterStore();
+  const { addEncounter, updateEncounter, removeEncounter, getAllEncounters, loading, error, importFromLocalStorage } = useDevEncounterStore();
   const [config, setConfig] = useState<EncounterConfig>(defaultEncounter);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -263,9 +264,15 @@ export default function EncounterEditor({ onLoadEncounter, onStartPlaytest }: En
     input.click();
   };
 
-  if (showList && savedEncounters.length > 0) {
+  if (showList && (savedEncounters.length > 0 || loading)) {
     return (
       <div className="flex flex-col gap-3">
+        <SupabaseStatus
+          loading={loading}
+          error={error}
+          table="encounters"
+          importFromLocalStorage={importFromLocalStorage}
+        />
         <div className="flex gap-2">
           <button onClick={handleNew} className={`${BTN} border-blue-500 text-blue-400 hover:bg-blue-900`}>
             + New Encounter
@@ -299,6 +306,12 @@ export default function EncounterEditor({ onLoadEncounter, onStartPlaytest }: En
 
   return (
     <div className="flex flex-col gap-3">
+      <SupabaseStatus
+        loading={loading}
+        error={error}
+        table="encounters"
+        importFromLocalStorage={importFromLocalStorage}
+      />
       {savedEncounters.length > 0 && (
         <button onClick={() => setShowList(true)}
           className="text-xs text-zinc-400 hover:text-white self-start">

@@ -2,9 +2,9 @@
 
 ## Dev tool stores (active)
 
-`collectionStore.ts` — `useDevCardStore`: persistent store for cards created/edited via Dev tools. Uses `btdev-cards` localStorage key. Cards are keyed by ID and survive page reloads. Backs the Card Collection viewer/editor in DevPanel.
+`collectionStore.ts` — `useDevCardStore`: persistent store for cards created/edited via Dev tools. Persists to the `cards` table in Supabase (jsonb `data` column). Hydrates on page load; writes are optimistic. Includes `importFromLocalStorage()` for one-time migration from the old `btdev-cards` localStorage key.
 
-`encounterStore.ts` — `useDevEncounterStore`: persistent store for encounter configs created/edited via Dev tools. Uses `btdev-encounters` localStorage key. Encounters are keyed by ID and survive page reloads. Backs the Encounter Config editor in DevPanel.
+`encounterStore.ts` — `useDevEncounterStore`: persistent store for encounter configs created/edited via Dev tools. Persists to the `encounters` table in Supabase (jsonb `data` column). Hydrates on page load; writes are optimistic. Includes `importFromLocalStorage()` for one-time migration from the old `btdev-encounters` localStorage key.
 
 ## Game session stores (integration stubs)
 

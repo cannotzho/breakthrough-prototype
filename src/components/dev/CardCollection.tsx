@@ -5,6 +5,7 @@ import {
 } from '../../combat/types';
 import { DEV_SKILL_CARDS, DEV_ENEMY_CARDS } from '../../data/devCards';
 import { useDevCardStore } from '../../stores/collectionStore';
+import SupabaseStatus from './SupabaseStatus';
 
 const COLORS: ColorIdentity[] = ['Red', 'Blue', 'Green', 'White', 'Black', 'Orange', 'Purple', 'Colorless'];
 const SUPERTYPES: CardSupertype[] = ['Skill', 'Information'];
@@ -229,7 +230,7 @@ interface CardCollectionProps {
 }
 
 export default function CardCollection({ dispatch }: CardCollectionProps) {
-  const { addCard, updateCard, removeCard, getAllCards } = useDevCardStore();
+  const { addCard, updateCard, removeCard, getAllCards, loading, error, importFromLocalStorage } = useDevCardStore();
   const [view, setView] = useState<View>('gallery');
   const [editingCard, setEditingCard] = useState<CardDefinition | null>(null);
   const [editingOriginalId, setEditingOriginalId] = useState<string | null>(null);
@@ -327,6 +328,13 @@ export default function CardCollection({ dispatch }: CardCollectionProps) {
 
   return (
     <div className="flex flex-col gap-3">
+      <SupabaseStatus
+        loading={loading}
+        error={error}
+        table="cards"
+        importFromLocalStorage={importFromLocalStorage}
+      />
+
       <div className="flex gap-2">
         <button onClick={() => { setEditingCard(null); setView('create'); }}
           className={`${BTN} border-blue-500 text-blue-400 hover:bg-blue-900`}>
