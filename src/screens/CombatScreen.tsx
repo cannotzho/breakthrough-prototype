@@ -183,6 +183,7 @@ function HandCard({
   selected,
   dimmed,
   isDraggable,
+  isAnyDragging,
   onCardDragStart,
   onCardDrag,
   onCardDragEnd,
@@ -193,19 +194,21 @@ function HandCard({
   selected?: boolean;
   dimmed?: boolean;
   isDraggable?: boolean;
+  isAnyDragging?: boolean;
   onCardDragStart?: () => void;
   onCardDrag?: (event: MouseEvent | TouchEvent | PointerEvent) => void;
   onCardDragEnd?: (event: MouseEvent | TouchEvent | PointerEvent) => void;
 }) {
   const [hovered, setHovered] = useState(false);
+  const showHover = hovered && !isAnyDragging;
 
   return (
     <motion.div
       className="relative"
-      style={{ zIndex: hovered ? 50 : 1 }}
+      style={{ zIndex: showHover ? 50 : 1 }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      animate={{ y: hovered ? -80 : 0 }}
+      animate={{ y: showHover ? -80 : 0 }}
       transition={{ type: 'spring', stiffness: 400, damping: 30 }}
     >
       <CardView
@@ -742,8 +745,8 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
               zoneRef={playZoneRef}
             />
 
-            {/* Enemy Panel — above play zone, blocks drag */}
-            <div data-testid="enemy-panel" className="flex justify-center relative z-20">
+            {/* Enemy Panel — left-aligned so background splash art is visible center/right */}
+            <div data-testid="enemy-panel" className="flex justify-start relative z-20 pl-4">
               <div className="bg-zinc-950/70 backdrop-blur-sm rounded-xl p-6 inline-flex flex-col items-center gap-3">
                 <div className="text-base text-zinc-500 uppercase tracking-widest">{activeEncounter.displayName}</div>
                 <div className="flex gap-4">
@@ -955,6 +958,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
                               (isInterrupt && !isInterruptCard)
                             }
                             isDraggable={canDrag}
+                            isAnyDragging={isDragging}
                             onCardDragStart={canDrag ? () => handleCardDragStart(card.instanceId) : undefined}
                             onCardDrag={canDrag ? (e) => handleCardDrag(e) : undefined}
                             onCardDragEnd={canDrag ? (e) => handleCardDragEnd(card.instanceId, e) : undefined}
