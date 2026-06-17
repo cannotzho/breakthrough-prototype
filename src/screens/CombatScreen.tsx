@@ -131,7 +131,7 @@ function CardView({
       animate={{ opacity: dimmed ? 0.4 : 1, y: 0, scale: selected ? 1.05 : 1 }}
       exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.2 } }}
       transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-      className={`relative w-52 h-72 rounded-xl border-2 ${border} ${bg} flex flex-col p-3 select-none
+      className={`relative w-[104px] h-36 lg:w-[156px] lg:h-[216px] shrink-0 rounded-xl border-2 ${border} ${bg} flex flex-col p-1.5 lg:p-3 select-none
         ${isDraggable ? 'cursor-grab active:cursor-grabbing' : onClick ? 'cursor-pointer hover:scale-105 transition-transform' : ''}
         ${selected ? 'ring-2 ring-yellow-400' : ''}`}
       whileTap={onClick && !isDraggable ? { scale: 0.95 } : {}}
@@ -142,21 +142,21 @@ function CardView({
         </span>
       )}
       <div className="flex justify-between items-start gap-1">
-        <span className="text-sm text-white font-semibold truncate leading-tight">{def.name}</span>
-        <span className="text-lg font-bold text-white shrink-0">{def.cost}</span>
+        <span className="text-[10px] lg:text-sm text-white font-semibold truncate leading-tight">{def.name}</span>
+        <span className="text-sm lg:text-lg font-bold text-white shrink-0">{def.cost}</span>
       </div>
       <div className="flex-1 flex items-center justify-center bg-zinc-800/50 rounded-lg overflow-hidden mt-1">
         {def.imageUrl ? (
           <img src={def.imageUrl} alt={def.name} className="w-full h-full object-cover" />
         ) : (
-          <svg viewBox="0 0 48 48" className="w-16 h-16 text-zinc-600" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg viewBox="0 0 48 48" className="w-10 h-10 lg:w-14 lg:h-14 text-zinc-600" fill="none" xmlns="http://www.w3.org/2000/svg">
             <rect x="6" y="10" width="36" height="28" rx="2" stroke="currentColor" strokeWidth="2" />
             <circle cx="17" cy="21" r="4" stroke="currentColor" strokeWidth="1.5" />
             <path d="M6 34l12-10 10 8 8-6 6 6v4a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-2z" stroke="currentColor" strokeWidth="1.5" />
           </svg>
         )}
       </div>
-      <p className="text-zinc-400 text-xs mt-1.5 leading-tight line-clamp-3 whitespace-pre-line">{effectDisplay}</p>
+      <p className="text-zinc-400 text-[10px] lg:text-xs mt-1 lg:mt-1.5 leading-tight line-clamp-2 lg:line-clamp-3 whitespace-pre-line">{effectDisplay}</p>
 
       {/* Long description hover tooltip */}
       <AnimatePresence>
@@ -348,15 +348,12 @@ function PlayZone({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="w-full flex justify-center pointer-events-none"
-          style={{ height: 320 }}
+          className="w-full flex justify-center pointer-events-none flex-1 min-h-0"
         >
           <div
             ref={zoneRef}
-            className="rounded-[50%] flex items-center justify-center transition-all duration-150"
+            className="rounded-[50%] flex items-center justify-center transition-all duration-150 w-full max-w-[720px] h-full"
             style={{
-              width: 720,
-              height: 320,
               border: isHovered
                 ? '2px solid rgba(251,191,36,0.8)'
                 : '1px dashed rgba(161,161,170,0.28)',
@@ -535,7 +532,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
   const isDragging = draggingCardId !== null;
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-zinc-950">
+    <div className="relative h-screen overflow-hidden bg-zinc-950">
       {/* Background */}
       <img
         src={`${import.meta.env.BASE_URL}assets/bg-placeholder.svg`}
@@ -675,7 +672,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
       </AnimatePresence>
 
       {/* Game UI */}
-      <div className="relative z-10 min-h-screen text-white flex flex-col select-none">
+      <div className="relative z-10 h-full text-white flex flex-col select-none overflow-hidden">
 
         {/* Header bar */}
         <div className="flex items-center justify-between px-6 py-3 bg-zinc-900/90 border-b border-zinc-800 backdrop-blur-sm">
@@ -692,10 +689,10 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
         </div>
 
         {/* Main layout: top area (opponent + play zone) expands, stats + hand anchored bottom */}
-        <div className="flex-1 flex flex-col overflow-auto">
+        <div className="flex-1 flex flex-col overflow-hidden min-h-0">
 
           {/* ═══ TOP: Opponent area + staged card + play zone ═══ */}
-          <div className="flex-1 flex flex-col gap-4 p-4">
+          <div className="flex-1 flex flex-col gap-2 lg:gap-4 p-2 lg:p-4 min-h-0 overflow-hidden">
 
             {/* Opponent shields + traits */}
             <div className="flex justify-center">
@@ -766,49 +763,81 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
           <div className="flex flex-col">
 
             {/* Central stats row */}
-            <div className="bg-zinc-950/80 backdrop-blur-sm border-t border-zinc-800 px-6 py-4">
-              <div className="flex items-center justify-center gap-8 flex-wrap">
+            <div className="bg-zinc-950/80 backdrop-blur-sm border-t border-zinc-800 px-4 lg:px-6 py-2 lg:py-3">
+              <div className="flex flex-col gap-2 lg:gap-3">
+                {/* Top: draw pile + priority + patience + shields + discard pile */}
+                <div className="flex items-center justify-center gap-3 lg:gap-6">
 
-                {/* Priority bar */}
-                <div className="flex-1 max-w-md">
-                  <PriorityBar
-                    priority={priority}
-                    maxPriority={state.config.defaultRestorePriority}
+                  {/* Draw pile — left of priority bar */}
+                  <button
+                    onClick={() => setViewingPile('draw')}
+                    className="group flex flex-col items-center gap-1 text-zinc-500 hover:text-zinc-200 transition-colors shrink-0"
+                    title="View draw pile"
+                  >
+                    <svg viewBox="0 0 24 28" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-9 h-10 lg:w-[72px] lg:h-[84px] group-hover:scale-110 transition-transform">
+                      <rect x="4" y="0" width="18" height="24" rx="2" className="fill-zinc-700 stroke-zinc-500" strokeWidth="1"/>
+                      <rect x="2" y="2" width="18" height="24" rx="2" className="fill-zinc-800 stroke-zinc-500" strokeWidth="1"/>
+                      <rect x="0" y="4" width="18" height="24" rx="2" className="fill-zinc-900 stroke-zinc-400" strokeWidth="1.5"/>
+                      <text x="9" y="19" textAnchor="middle" className="fill-zinc-400" fontSize="10" fontWeight="bold">?</text>
+                    </svg>
+                    <span className="tabular-nums font-medium text-sm lg:text-base">{state.playerDeck.length}</span>
+                  </button>
+
+                  {/* Priority bar */}
+                  <div className="flex-1 max-w-md min-w-0">
+                    <PriorityBar
+                      priority={priority}
+                      maxPriority={state.config.defaultRestorePriority}
+                    />
+                  </div>
+
+                  {/* Patience + Lie counter */}
+                  <PatienceDisplay
+                    patience={patience}
+                    maxPatience={state.config.opponentPatience}
+                    lieCounter={lieCounter}
+                    lieThreshold={state.config.lieThreshold}
                   />
-                </div>
 
-                {/* Patience + Lie counter */}
-                <PatienceDisplay
-                  patience={patience}
-                  maxPatience={state.config.opponentPatience}
-                  lieCounter={lieCounter}
-                  lieThreshold={state.config.lieThreshold}
-                />
+                  {/* Player shields — also the drop zone for shield placement */}
+                  <div className="flex gap-2 lg:gap-4 shrink-0">
+                    <AnimatePresence mode="popLayout">
+                      {playerShields.map((slot, i) => (
+                        <div key={i} ref={el => { shieldSlotRefs.current[i] = el; }}>
+                          <PlayerShieldSlot
+                            slot={slot}
+                            idx={i}
+                            selectable={state.pendingPlaceAsShield && slot === null}
+                            selected={false}
+                            isDropTarget={isPlayerTurn && isDragging}
+                            onDrop={() => handleShieldDrop(i)}
+                            onSelect={() => {
+                              if (state.pendingPlaceAsShield && slot === null) {
+                                dispatch({ type: 'CONFIRM_PLACE_AS_SHIELD', slotIdx: i });
+                              }
+                              if (isShieldChoice && slot !== null) {
+                                dispatch({ type: 'SELECT_SHIELD_SACRIFICE', slotIdx: i });
+                              }
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </AnimatePresence>
+                  </div>
 
-                {/* Player shields — also the drop zone for shield placement */}
-                <div className="flex gap-4">
-                  <AnimatePresence mode="popLayout">
-                    {playerShields.map((slot, i) => (
-                      <div key={i} ref={el => { shieldSlotRefs.current[i] = el; }}>
-                        <PlayerShieldSlot
-                          slot={slot}
-                          idx={i}
-                          selectable={state.pendingPlaceAsShield && slot === null}
-                          selected={false}
-                          isDropTarget={isPlayerTurn && isDragging}
-                          onDrop={() => handleShieldDrop(i)}
-                          onSelect={() => {
-                            if (state.pendingPlaceAsShield && slot === null) {
-                              dispatch({ type: 'CONFIRM_PLACE_AS_SHIELD', slotIdx: i });
-                            }
-                            if (isShieldChoice && slot !== null) {
-                              dispatch({ type: 'SELECT_SHIELD_SACRIFICE', slotIdx: i });
-                            }
-                          }}
-                        />
-                      </div>
-                    ))}
-                  </AnimatePresence>
+                  {/* Discard pile — right of shields */}
+                  <button
+                    onClick={() => setViewingPile('discard')}
+                    className="group flex flex-col items-center gap-1 text-zinc-500 hover:text-zinc-200 transition-colors shrink-0"
+                    title="View discard pile"
+                  >
+                    <svg viewBox="0 0 22 28" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-8 h-10 lg:w-[68px] lg:h-[84px] group-hover:scale-110 transition-transform">
+                      <rect x="2" y="2" width="18" height="24" rx="2" className="fill-zinc-800 stroke-zinc-600" strokeWidth="1" opacity="0.5" transform="rotate(-6 11 14)"/>
+                      <rect x="0" y="2" width="18" height="24" rx="2" className="fill-zinc-900 stroke-zinc-500" strokeWidth="1.5"/>
+                      <path d="M12 2 L18 2 Q20 2 20 4 L20 8 Z" className="fill-zinc-700" opacity="0.6"/>
+                    </svg>
+                    <span className="tabular-nums font-medium text-sm lg:text-base">{state.playerDiscard.length}</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -844,11 +873,11 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
             )}
 
             {/* Player hand — BotM mode uses distinct background color */}
-            <div className={`px-6 py-4 transition-colors duration-300 ${
+            <div className={`px-4 lg:px-6 py-2 lg:py-3 transition-colors duration-300 ${
               isBotMSelect || isInterrupt ? 'bg-indigo-950/80' : 'bg-zinc-950/60'
             }`}>
 
-              <div className="flex gap-4 flex-wrap justify-center">
+              <div className="flex gap-2 lg:gap-4 flex-wrap justify-center">
                 <AnimatePresence mode="popLayout">
                   {playerHand.map(card => {
                     const isInterruptCard = card.definition.keywords.includes('Interrupt');
@@ -928,40 +957,6 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
           </div>
         </div>
 
-        {/* Deck/discard counters */}
-        <div className="flex justify-between items-center px-6 py-3 bg-zinc-900/90 border-t border-zinc-800 text-sm text-zinc-500 backdrop-blur-sm">
-          {/* Draw pile — left */}
-          <button
-            onClick={() => setViewingPile('draw')}
-            className="group flex items-center gap-2 hover:text-zinc-200 transition-colors"
-            title="View draw pile"
-          >
-            <svg width="36" height="42" viewBox="0 0 24 28" fill="none" xmlns="http://www.w3.org/2000/svg" className="group-hover:scale-110 transition-transform">
-              <rect x="4" y="0" width="18" height="24" rx="2" className="fill-zinc-700 stroke-zinc-500" strokeWidth="1"/>
-              <rect x="2" y="2" width="18" height="24" rx="2" className="fill-zinc-800 stroke-zinc-500" strokeWidth="1"/>
-              <rect x="0" y="4" width="18" height="24" rx="2" className="fill-zinc-900 stroke-zinc-400" strokeWidth="1.5"/>
-              <text x="9" y="19" textAnchor="middle" className="fill-zinc-400" fontSize="10" fontWeight="bold">?</text>
-            </svg>
-            <span className="tabular-nums font-medium text-base">{state.playerDeck.length}</span>
-          </button>
-
-          {/* Enemy info — center */}
-          <span className="text-sm">Enemy deck: {state.enemyDeck.length} | Enemy discard: {state.enemyDiscard.length}</span>
-
-          {/* Discard pile — right */}
-          <button
-            onClick={() => setViewingPile('discard')}
-            className="group flex items-center gap-2 hover:text-zinc-200 transition-colors"
-            title="View discard pile"
-          >
-            <span className="tabular-nums font-medium text-base">{state.playerDiscard.length}</span>
-            <svg width="34" height="42" viewBox="0 0 22 28" fill="none" xmlns="http://www.w3.org/2000/svg" className="group-hover:scale-110 transition-transform">
-              <rect x="2" y="2" width="18" height="24" rx="2" className="fill-zinc-800 stroke-zinc-600" strokeWidth="1" opacity="0.5" transform="rotate(-6 11 14)"/>
-              <rect x="0" y="2" width="18" height="24" rx="2" className="fill-zinc-900 stroke-zinc-500" strokeWidth="1.5"/>
-              <path d="M12 2 L18 2 Q20 2 20 4 L20 8 Z" className="fill-zinc-700" opacity="0.6"/>
-            </svg>
-          </button>
-        </div>
       </div>
 
       {/* ── Modals ── */}
