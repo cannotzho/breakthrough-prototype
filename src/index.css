@@ -6,3 +6,11 @@ html, body, #root {
   background-color: #09090b;
   min-height: 100vh;
 }
+
+@keyframes indigo-pulse {
+  0%, 100% { background-color: rgba(30, 27, 75, 0.8); }
+  50% { background-color: rgba(55, 48, 163, 0.65); }
+}
+.animate-indigo-pulse {
+  animation: indigo-pulse 1.8s ease-in-out infinite;
+}

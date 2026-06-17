@@ -390,37 +390,33 @@ function PlayZone({
       {visible && (
         <motion.div
           key="play-zone-outer"
+          ref={zoneRef}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="w-full flex justify-center pointer-events-none flex-1 min-h-0"
+          className="absolute inset-0 z-0 pointer-events-none flex items-center justify-center transition-all duration-150 rounded-xl"
+          style={{
+            border: isHovered
+              ? '2px solid rgba(251,191,36,0.8)'
+              : '1px dashed rgba(161,161,170,0.18)',
+            background: isHovered
+              ? 'radial-gradient(ellipse, rgba(248,200,80,0.08) 0%, transparent 70%)'
+              : 'transparent',
+          }}
         >
-          <div
-            ref={zoneRef}
-            className="rounded-[50%] flex items-center justify-center transition-all duration-150 w-full max-w-[720px] h-full"
-            style={{
-              border: isHovered
-                ? '2px solid rgba(251,191,36,0.8)'
-                : '1px dashed rgba(161,161,170,0.28)',
-              background: isHovered
-                ? 'radial-gradient(ellipse, rgba(248,200,80,0.08) 0%, transparent 70%)'
-                : 'transparent',
-            }}
-          >
-            <AnimatePresence>
-              {isHovered && (
-                <motion.span
-                  key="play-label"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="text-amber-400 text-xl font-semibold tracking-widest uppercase"
-                >
-                  Play
-                </motion.span>
-              )}
-            </AnimatePresence>
-          </div>
+          <AnimatePresence>
+            {isHovered && (
+              <motion.span
+                key="play-label"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="text-amber-400 text-xl font-semibold tracking-widest uppercase"
+              >
+                Play
+              </motion.span>
+            )}
+          </AnimatePresence>
         </motion.div>
       )}
     </AnimatePresence>
@@ -737,10 +733,17 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
         <div className="flex-1 flex flex-col overflow-hidden min-h-0">
 
           {/* ═══ TOP: Opponent area + staged card + play zone ═══ */}
-          <div className="flex-1 flex flex-col gap-2 lg:gap-4 p-2 lg:p-4 min-h-0 overflow-hidden">
+          <div className="flex-1 flex flex-col gap-2 lg:gap-4 p-2 lg:p-4 min-h-0 overflow-hidden relative">
 
-            {/* Opponent shields + traits */}
-            <div className="flex justify-center">
+            {/* Play zone overlay — covers entire top area */}
+            <PlayZone
+              isHovered={playZoneHovered}
+              visible={showPlayZone}
+              zoneRef={playZoneRef}
+            />
+
+            {/* Opponent shields + traits — above play zone, blocks drag */}
+            <div className="flex justify-center relative z-20">
               <div className="bg-zinc-950/70 backdrop-blur-sm rounded-xl p-6 inline-flex flex-col items-center gap-3">
                 <div className="text-base text-zinc-500 uppercase tracking-widest">{activeEncounter.displayName}</div>
                 <div className="flex gap-4">
@@ -762,7 +765,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
             </div>
 
             {/* Staged enemy card */}
-            <div className="flex justify-center min-h-[8rem]">
+            <div className="flex justify-center min-h-[8rem] relative z-10">
               <AnimatePresence>
                 {stagedEnemyCard && (
                   <motion.div
@@ -782,7 +785,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
 
             {/* Field impressions */}
             {state.fieldImpressions.length > 0 && (
-              <div className="flex justify-center gap-4">
+              <div className="flex justify-center gap-4 relative z-10">
                 <AnimatePresence>
                   {state.fieldImpressions.map(c => (
                     <CardView key={c.instanceId} card={c} label="Field" />
@@ -791,16 +794,9 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
               </div>
             )}
 
-            {/* Play zone (above the stats row) */}
-            <PlayZone
-              isHovered={playZoneHovered}
-              visible={showPlayZone}
-              zoneRef={playZoneRef}
-            />
-
             {/* Placement hint */}
             {state.pendingPlaceAsShield && (
-              <div className="text-center text-base text-yellow-400 py-2">Choose a shield slot to place the card</div>
+              <div className="text-center text-base text-yellow-400 py-2 relative z-10">Choose a shield slot to place the card</div>
             )}
           </div>
 
@@ -886,8 +882,8 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
               </div>
             </div>
 
-            {/* Retained cards (shown during non-BotM phases when BotM has cards) */}
-            {backOfMind.length > 0 && !isBotMSelect && (
+            {/* Retained cards (shown during non-BotM, non-Interrupt phases when BotM has cards) */}
+            {backOfMind.length > 0 && !isBotMSelect && !isInterrupt && (
               <div className="flex justify-center gap-4 items-center px-6 py-3 bg-zinc-950/60">
                 <AnimatePresence>
                   {backOfMind.map(card => {
@@ -917,16 +913,21 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
             )}
 
             {/* Player hand — sits partially below viewport, cards pop up on hover */}
-            <div className={`px-4 lg:px-6 pt-2 lg:pt-3 transition-colors duration-300 ${
-              isBotMSelect || isInterrupt ? 'bg-indigo-950/80' : 'bg-zinc-950/60'
+            <div className={`px-4 lg:px-6 pt-2 lg:pt-3 ${
+              isBotMSelect || isInterrupt ? 'animate-indigo-pulse' : 'bg-zinc-950/60'
             }`}>
               <div className="flex items-end gap-4">
                 {/* Hand cards — clipped at bottom, individual cards pop up on hover */}
                 <div className="flex-1 min-w-0 h-[140px] lg:h-[160px] overflow-visible relative">
                   <div className="flex gap-2 lg:gap-4 flex-wrap justify-center absolute bottom-0 left-0 right-0 translate-y-[40%] lg:translate-y-[35%]">
                     <AnimatePresence mode="popLayout">
-                      {playerHand.map(card => {
+                      {/* During interrupt, merge BotM interrupt cards into hand display */}
+                      {(isInterrupt
+                        ? [...playerHand, ...backOfMind.filter(c => c.definition.keywords.includes('Interrupt'))]
+                        : playerHand
+                      ).map(card => {
                         const isInterruptCard = card.definition.keywords.includes('Interrupt');
+                        const isBotMCard = backOfMind.some(c => c.instanceId === card.instanceId);
                         const canDrag = isPlayerTurn || (isInterrupt && isInterruptCard);
                         const isBotMSelected = isBotMSelect && backOfMind.some(c => c.instanceId === card.instanceId);
                         return (
@@ -936,7 +937,9 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
                             onClick={(e: React.MouseEvent) => {
                               if (isBotMSelect) {
                                 dispatch({ type: 'SELECT_BOTM', cardInstanceId: card.instanceId });
-                              } else if (isPlayerTurn || (isInterrupt && isInterruptCard)) {
+                              } else if (isInterrupt && isInterruptCard) {
+                                dispatch({ type: 'PLAY_INTERRUPT', cardInstanceId: card.instanceId });
+                              } else if (isPlayerTurn) {
                                 const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                                 const x = rect.left + rect.width / 2;
                                 const y = rect.top;
@@ -944,7 +947,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
                               }
                             }}
                             onRightClick={(isPlayerTurn || isBotMSelect || (isInterrupt && isInterruptCard))
-                              ? (x, y) => openContextMenu(card.instanceId, x, y, 'hand')
+                              ? (x, y) => openContextMenu(card.instanceId, x, y, isBotMCard ? 'botm' : 'hand')
                               : undefined}
                             selected={isBotMSelected}
                             dimmed={
