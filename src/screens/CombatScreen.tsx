@@ -715,8 +715,8 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
       {/* Game UI */}
       <div className="relative z-10 h-full text-white flex flex-col select-none overflow-hidden">
 
-        {/* Header bar */}
-        <div className="flex items-center justify-between px-6 py-3 bg-zinc-900/90 border-b border-zinc-800 backdrop-blur-sm">
+        {/* Nav Bar */}
+        <div data-testid="nav-bar" className="flex items-center justify-between px-6 py-3 bg-zinc-900/90 border-b border-zinc-800 backdrop-blur-sm">
           <button onClick={onExit} className="text-zinc-400 hover:text-white text-lg transition-colors">
             ← Exit
           </button>
@@ -742,8 +742,8 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
               zoneRef={playZoneRef}
             />
 
-            {/* Opponent shields + traits — above play zone, blocks drag */}
-            <div className="flex justify-center relative z-20">
+            {/* Enemy Panel — above play zone, blocks drag */}
+            <div data-testid="enemy-panel" className="flex justify-center relative z-20">
               <div className="bg-zinc-950/70 backdrop-blur-sm rounded-xl p-6 inline-flex flex-col items-center gap-3">
                 <div className="text-base text-zinc-500 uppercase tracking-widest">{activeEncounter.displayName}</div>
                 <div className="flex gap-4">
@@ -803,8 +803,8 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
           {/* ═══ BOTTOM: Stats row (Priority + Patience + Player Shields) + Hand ═══ */}
           <div className="flex flex-col">
 
-            {/* Central stats row */}
-            <div className="bg-zinc-950/80 backdrop-blur-sm border-t border-zinc-800 px-4 lg:px-6 py-2 lg:py-3">
+            {/* Combat Bar */}
+            <div data-testid="combat-bar" className="bg-zinc-950/80 backdrop-blur-sm border-t border-zinc-800 px-4 lg:px-6 py-2 lg:py-3">
               <div className="flex flex-col gap-2 lg:gap-3">
                 {/* Top: draw pile + priority + patience + shields + discard pile */}
                 <div className="flex items-center justify-center gap-3 lg:gap-6">
@@ -912,8 +912,8 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
               </div>
             )}
 
-            {/* Player hand — sits partially below viewport, cards pop up on hover */}
-            <div className={`px-4 lg:px-6 pt-2 lg:pt-3 ${
+            {/* Hand Area — sits partially below viewport, cards pop up on hover */}
+            <div data-testid="hand-area" className={`px-4 lg:px-6 pt-2 lg:pt-3 ${
               isBotMSelect || isInterrupt ? 'animate-indigo-pulse' : 'bg-zinc-950/60'
             }`}>
               <div className="flex items-end gap-4">
