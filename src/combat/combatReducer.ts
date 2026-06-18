@@ -1,6 +1,7 @@
 import { CombatState, CombatAction, CardInstance, CardEffect, RelevantCard, SHIELD_PLACEMENT_COST } from './types';
 import { applyEffect, priorityRestore, selectEnemyCard, makeInstance, clampPriority } from './effectHandlers';
 import { COMBINATIONS } from '../data/combinations';
+import { PONDER_DEFINITION } from '../data/devCards';
 
 function computeCost(cost: number, priority: number) {
   const priorityCovered = Math.min(cost, priority);
@@ -133,9 +134,9 @@ function completeShieldBreak(state: CombatState): CombatState {
   });
 }
 
-// Ponder card definition for non-relevant Information Card conversion (Gap #6)
-const PONDER_EFFECTS: CardEffect[] = [{ type: 'DRAW_CARDS', value: 1 }];
-const PONDER_COST = 1;
+// Ponder conversion constants derived from the shared definition (Gap #6)
+const PONDER_EFFECTS: CardEffect[] = PONDER_DEFINITION.effects;
+const PONDER_COST = PONDER_DEFINITION.cost;
 
 export function combatReducer(state: CombatState, action: CombatAction): CombatState {
   switch (action.type) {
@@ -207,6 +208,10 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
         s = { ...s, lieCounter: s.lieCounter + 1 };
       }
 
+      const discardCard: CardInstance = isNonRelevantConversion
+        ? { ...card, definition: PONDER_DEFINITION }
+        : card;
+
       return resolveEffectList(s, effectiveEffects, card, (resolved) => {
         if (resolved.pendingPlaceAsShield) {
           return addLog(
@@ -220,7 +225,7 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
         if (isCombined) {
           discardAdditions = card.combinedFrom!;
         } else {
-          discardAdditions = isImpression ? [] : [card];
+          discardAdditions = isImpression ? [] : [discardCard];
         }
         return checkState({
           ...resolved,

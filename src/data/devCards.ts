@@ -63,6 +63,19 @@ export const DEV_SKILL_CARDS: CardDefinition[] = [
   },
 ];
 
+export const PONDER_DEFINITION: CardDefinition = {
+  id: 'ponder',
+  name: 'Ponder',
+  cost: 1,
+  keywords: [],
+  effects: [{ type: 'DRAW_CARDS', value: 1 }],
+  color: 'Colorless',
+  supertype: 'Skill',
+  subtype: null,
+  effectText: 'Draw 1 card.',
+  longDescription: 'Some leads need time to breathe before they turn into something useful.',
+};
+
 export const DEV_ENEMY_CARDS: CardDefinition[] = [
   {
     id: 'dev_enemy_dismiss',

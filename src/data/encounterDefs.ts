@@ -1,6 +1,6 @@
 import { EncounterConfig, CombatState, DEFAULT_COMBAT_CONFIG } from '../combat/types';
 import { makeInstance, shuffle } from '../combat/effectHandlers';
-import { DEV_SKILL_CARDS, DEV_ENEMY_CARDS } from './devCards';
+import { DEV_SKILL_CARDS, DEV_ENEMY_CARDS, PONDER_DEFINITION } from './devCards';
 
 export const TEST_ENCOUNTER: EncounterConfig = {
   id: 'test_encounter',
@@ -29,7 +29,11 @@ export function buildInitialCombatState(config: EncounterConfig): CombatState {
   const allEnemyDefs = [...DEV_ENEMY_CARDS];
 
   const playerDeckDefs = [...DEV_SKILL_CARDS, ...DEV_SKILL_CARDS];
-  const shuffledPlayer = shuffle([...playerDeckDefs]);
+  const relevantCardIds = new Set(config.relevantCards.map(rc => rc.cardId));
+  const convertedDefs = playerDeckDefs.map(def =>
+    def.supertype === 'Information' && !relevantCardIds.has(def.id) ? PONDER_DEFINITION : def
+  );
+  const shuffledPlayer = shuffle([...convertedDefs]);
   const playerInstances = shuffledPlayer.map(def => makeInstance(def));
   const initialHand = playerInstances.slice(0, DEFAULT_COMBAT_CONFIG.handLimit);
   let initialDeck = playerInstances.slice(DEFAULT_COMBAT_CONFIG.handLimit);

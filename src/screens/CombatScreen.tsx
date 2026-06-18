@@ -135,7 +135,7 @@ function CardView({
         ? { opacity: 0, x: initialOffset.x, y: initialOffset.y, scale: 0.5 }
         : { opacity: 0, x: -60, scale: 0.9 }}
       animate={{ opacity: dimmed ? 0.4 : 1, x: 0, y: 0, scale: selected ? 1.05 : 1 }}
-      exit={{ opacity: 0, x: 60, scale: 0.8, transition: { duration: 0.2 } }}
+      exit={{ opacity: 0, x: 60, scale: 0.8, transition: { duration: 0.7 } }}
       transition={{ type: 'spring', stiffness: 300, damping: 25 }}
       className={`relative w-[104px] h-36 lg:w-[156px] lg:h-[216px] shrink-0 rounded-xl border-2 ${border} ${bg} flex flex-col p-1.5 lg:p-3 select-none
         ${isDraggable ? 'cursor-grab active:cursor-grabbing' : onClick ? 'cursor-pointer hover:scale-105 transition-transform' : ''}
@@ -258,8 +258,8 @@ function ShieldBack({ broken, loreText, hintText, isHint, compact }: {
             animate={{ opacity: 1, scale: 1, x: SHIELD_BREAK_SHAKE }}
             exit={{ opacity: 0 }}
             transition={{
-              x: { duration: 0.4, ease: 'easeOut' },
-              opacity: { duration: 0.5 },
+              x: { duration: 0.9, ease: 'easeOut' },
+              opacity: { duration: 1.0 },
               scale: { type: 'spring', stiffness: 200, damping: 12 },
             }}
             className="text-center"
@@ -270,7 +270,7 @@ function ShieldBack({ broken, loreText, hintText, isHint, compact }: {
         ) : (
           <motion.div
             key="intact-content"
-            exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.2 } }}
+            exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.7 } }}
           >
             <div className={`text-zinc-600 ${compact ? 'text-2xl' : 'text-5xl'}`}>?</div>
           </motion.div>
@@ -280,16 +280,18 @@ function ShieldBack({ broken, loreText, hintText, isHint, compact }: {
   );
 }
 
-function PlayerShieldSlot({ slot, idx, selectable, selected, onSelect, isDropTarget, onDrop }: {
+function PlayerShieldSlot({ slot, idx, selectable, selected, onSelect, isDropTarget, isDragHovered, onDrop }: {
   slot: CombatState['playerShields'][0];
   idx: number;
   selectable?: boolean;
   selected?: boolean;
   onSelect?: () => void;
   isDropTarget?: boolean;
+  isDragHovered?: boolean;
   onDrop?: () => void;
 }) {
   const [dragOver, setDragOver] = useState(false);
+  const hovered = (dragOver || isDragHovered) && isDropTarget && !slot;
 
   return (
     <motion.div
@@ -299,7 +301,7 @@ function PlayerShieldSlot({ slot, idx, selectable, selected, onSelect, isDropTar
         ${selectable ? 'hover:border-yellow-400' : ''}
         ${selected ? 'border-yellow-400 ring-2 ring-yellow-400' : ''}
         ${isDropTarget && !slot ? 'border-amber-400 border-solid bg-amber-950/30' : ''}
-        ${dragOver && isDropTarget && !slot ? 'ring-2 ring-amber-400 bg-amber-950/50' : ''}
+        ${hovered ? 'ring-2 ring-amber-400 bg-amber-950/50 shadow-[0_0_16px_rgba(245,158,11,0.4)]' : ''}
       `}
       onClick={onSelect}
       onDragOver={isDropTarget && !slot ? (e) => { e.preventDefault(); setDragOver(true); } : undefined}
@@ -312,7 +314,7 @@ function PlayerShieldSlot({ slot, idx, selectable, selected, onSelect, isDropTar
             key="filled"
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 60, scale: 0.8, transition: { duration: 0.3 } }}
+            exit={{ opacity: 0, x: 60, scale: 0.8, transition: { duration: 0.8 } }}
             className="flex items-center gap-2 min-w-0 w-full"
           >
             <span className="text-white text-sm font-semibold truncate flex-1">{slot.card.definition.name}</span>
@@ -476,6 +478,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
   const [contextMenu, setContextMenu] = useState<{ cardId: string; x: number; y: number; source: 'hand' | 'botm' } | null>(null);
   const [priorityRestoreFlash, setPriorityRestoreFlash] = useState(false);
   const [draggingCardId, setDraggingCardId] = useState<string | null>(null);
+  const [hoveredShieldIdx, setHoveredShieldIdx] = useState(-1);
   const [viewingPile, setViewingPile] = useState<'draw' | 'discard' | null>(null);
   const [enemyPanelCollapsed, setEnemyPanelCollapsed] = useState(false);
   const [detailCard, setDetailCard] = useState<CardInstance | null>(null);
@@ -513,14 +516,14 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
     prevPriorityRef.current = state.priority;
     if (prev <= 0 && state.priority > 0) {
       setPriorityRestoreFlash(true);
-      const t = setTimeout(() => setPriorityRestoreFlash(false), 800);
+      const t = setTimeout(() => setPriorityRestoreFlash(false), 1300);
       return () => clearTimeout(t);
     }
   }, [state.priority]);
 
   useEffect(() => {
     if (playedCardAnim) {
-      const t = setTimeout(() => setPlayedCardAnim(null), 800);
+      const t = setTimeout(() => setPlayedCardAnim(null), 1300);
       return () => clearTimeout(t);
     }
   }, [playedCardAnim]);
@@ -551,7 +554,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
 
   useEffect(() => {
     if (state.phase === 'EnemyPending') {
-      const t = setTimeout(() => dispatch({ type: 'TRIGGER_ENEMY_ACTION' }), 600);
+      const t = setTimeout(() => dispatch({ type: 'TRIGGER_ENEMY_ACTION' }), 1100);
       return () => clearTimeout(t);
     }
   }, [state.phase]);
@@ -560,7 +563,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
     if (state.phase === 'InterruptCheck') {
       const t = setTimeout(() => {
         dispatch({ type: 'RESOLVE_INTERRUPT_CHECK' });
-      }, 300);
+      }, 800);
       return () => clearTimeout(t);
     }
   }, [state.phase]);
@@ -569,7 +572,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
     if (state.phase === 'EnemyPlay' && state.stagedEnemyCard) {
       const t = setTimeout(() => {
         dispatch({ type: 'RESOLVE_ENEMY_CARD' });
-      }, 500);
+      }, 1000);
       return () => clearTimeout(t);
     }
   }, [state.phase, state.stagedEnemyCard]);
@@ -591,13 +594,6 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
     dragOccurredRef.current = true;
   }, []);
 
-  const handleCardDrag = useCallback((event: MouseEvent | TouchEvent | PointerEvent) => {
-    setPlayZoneHovered(prev => {
-      const over = Boolean(playZoneRef.current && isOverZone(event));
-      return over === prev ? prev : over;
-    });
-  }, [isOverZone]);
-
   const getClientPos = useCallback((event: MouseEvent | TouchEvent | PointerEvent) => {
     const clientX = 'clientX' in event
       ? (event as MouseEvent | PointerEvent).clientX
@@ -607,6 +603,25 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
       : ((event as TouchEvent).touches[0] ?? (event as TouchEvent).changedTouches[0])?.clientY ?? 0;
     return { clientX, clientY };
   }, []);
+
+  const handleCardDrag = useCallback((event: MouseEvent | TouchEvent | PointerEvent) => {
+    setPlayZoneHovered(prev => {
+      const over = Boolean(playZoneRef.current && isOverZone(event));
+      return over === prev ? prev : over;
+    });
+    const { clientX, clientY } = getClientPos(event);
+    let found = -1;
+    for (let i = 0; i < shieldSlotRefs.current.length; i++) {
+      const el = shieldSlotRefs.current[i];
+      if (!el) continue;
+      const rect = el.getBoundingClientRect();
+      if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) {
+        found = i;
+        break;
+      }
+    }
+    setHoveredShieldIdx(prev => prev === found ? prev : found);
+  }, [isOverZone, getClientPos]);
 
   const handleCardDragEnd = useCallback((instanceId: string, event: MouseEvent | TouchEvent | PointerEvent) => {
     if (isOverZone(event)) {
@@ -632,6 +647,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
     }
     setPlayZoneHovered(false);
     setDraggingCardId(null);
+    setHoveredShieldIdx(-1);
     setTimeout(() => { dragOccurredRef.current = false; }, 200);
   }, [isOverZone, state.phase, state.playerShields, getClientPos, capturePlayedCard]);
 
@@ -680,7 +696,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
             initial={{ opacity: 0.5 }}
             animate={{ opacity: 0 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.8 }}
+            transition={{ duration: 1.3 }}
             className="fixed inset-0 z-15 pointer-events-none bg-blue-400/10"
           />
         )}
@@ -842,7 +858,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
                     key={stagedEnemyCard.instanceId}
                     initial={{ opacity: 0, x: -60, scale: 0.85 }}
                     animate={{ opacity: 1, x: 0, scale: 1 }}
-                    exit={{ opacity: 0, x: 80, scale: 0.7, transition: { duration: 0.3 } }}
+                    exit={{ opacity: 0, x: 80, scale: 0.7, transition: { duration: 0.8 } }}
                     transition={{ type: 'spring', stiffness: 200, damping: 20 }}
                     className="flex flex-col items-center gap-1 pointer-events-auto"
                   >
@@ -864,9 +880,9 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
                       initial={{ opacity: 0.9, scale: 1.1, y: 40 }}
                       animate={{ opacity: 0.7, scale: 0.95, y: 0 }}
                       exit={isConsumed
-                        ? { opacity: 0, scale: 0.5, transition: { duration: 0.3 } }
-                        : { opacity: 0.3, scale: 0.2, x: discardExitOffset.x, y: discardExitOffset.y, transition: { duration: 0.4, ease: 'easeIn' } }}
-                      transition={{ duration: 0.4 }}
+                        ? { opacity: 0, scale: 0.5, transition: { duration: 0.8 } }
+                        : { opacity: 0.3, scale: 0.2, x: discardExitOffset.x, y: discardExitOffset.y, transition: { duration: 0.9, ease: 'easeIn' } }}
+                      transition={{ duration: 0.9 }}
                       className="flex flex-col items-center gap-1 pointer-events-none"
                     >
                       <CardView card={playedCardAnim} />
@@ -982,6 +998,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
                             selectable={state.pendingPlaceAsShield && slot === null}
                             selected={false}
                             isDropTarget={isPlayerTurn && isDragging}
+                            isDragHovered={hoveredShieldIdx === i}
                             onDrop={() => handleShieldDrop(i)}
                             onSelect={() => {
                               if (state.pendingPlaceAsShield && slot === null) {
@@ -1170,7 +1187,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
               <motion.p
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3, duration: 0.4 }}
+                transition={{ delay: 0.3, duration: 0.9 }}
                 className="text-white text-xl leading-relaxed mb-8"
               >
                 {state.pendingDiscovery.effectDescription}
@@ -1207,7 +1224,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
               <motion.p
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3, duration: 0.4 }}
+                transition={{ delay: 0.3, duration: 0.9 }}
                 className="text-white text-xl leading-relaxed mb-8"
               >
                 {pendingReveal.loreDescription ?? pendingReveal.hintText}
