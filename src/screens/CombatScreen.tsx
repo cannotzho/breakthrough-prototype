@@ -235,16 +235,18 @@ function HandCard({
   );
 }
 
-function ShieldBack({ broken, loreText, hintText, isHint }: {
+function ShieldBack({ broken, loreText, hintText, isHint, compact }: {
   broken: boolean;
   loreText?: string;
   hintText?: string;
   isHint: boolean;
+  compact?: boolean;
 }) {
   return (
     <motion.div
       animate={{ opacity: broken ? 0.7 : 1 }}
-      className={`w-44 h-60 rounded-xl border-2 flex flex-col items-center justify-center p-4
+      className={`rounded-xl border-2 flex flex-col items-center justify-center
+        ${compact ? 'w-[6.5rem] h-[8.5rem] p-2' : 'w-44 h-60 p-4'}
         ${broken ? 'border-zinc-600 bg-zinc-800/40' : 'border-zinc-500 bg-zinc-800'}
       `}
     >
@@ -262,15 +264,15 @@ function ShieldBack({ broken, loreText, hintText, isHint }: {
             }}
             className="text-center"
           >
-            <div className="text-zinc-500 text-sm mb-2">{isHint ? 'HINT' : 'BROKEN'}</div>
-            <p className="text-zinc-400 text-sm leading-tight">{hintText ?? loreText}</p>
+            <div className={`text-zinc-500 mb-1 ${compact ? 'text-[10px]' : 'text-sm mb-2'}`}>{isHint ? 'HINT' : 'BROKEN'}</div>
+            <p className={`text-zinc-400 leading-tight ${compact ? 'text-[10px] line-clamp-3' : 'text-sm'}`}>{hintText ?? loreText}</p>
           </motion.div>
         ) : (
           <motion.div
             key="intact-content"
             exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.2 } }}
           >
-            <div className="text-zinc-600 text-5xl">?</div>
+            <div className={`text-zinc-600 ${compact ? 'text-2xl' : 'text-5xl'}`}>?</div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -339,19 +341,19 @@ function PlayerShieldSlot({ slot, idx, selectable, selected, onSelect, isDropTar
   );
 }
 
-function TraitZone({ traits }: { traits: CombatState['config']['traits'] }) {
+function TraitZone({ traits, compact }: { traits: CombatState['config']['traits']; compact?: boolean }) {
   if (traits.length === 0) return null;
   return (
-    <div className="flex items-center gap-2 justify-center mt-1">
-      <span className="text-xs text-zinc-500 uppercase tracking-widest">Traits</span>
+    <div className="flex items-center gap-1.5 justify-center mt-0.5">
+      <span className={`text-zinc-500 uppercase tracking-widest ${compact ? 'text-[9px]' : 'text-xs'}`}>Traits</span>
       {traits.map(trait => (
-        <TraitIcon key={trait.id} trait={trait} />
+        <TraitIcon key={trait.id} trait={trait} compact={compact} />
       ))}
     </div>
   );
 }
 
-function TraitIcon({ trait }: { trait: CombatState['config']['traits'][0] }) {
+function TraitIcon({ trait, compact }: { trait: CombatState['config']['traits'][0]; compact?: boolean }) {
   const [showTooltip, setShowTooltip] = useState(false);
   return (
     <span
@@ -363,7 +365,8 @@ function TraitIcon({ trait }: { trait: CombatState['config']['traits'][0] }) {
         key={trait.discovered ? 'discovered' : 'hidden'}
         initial={{ rotateY: 90 }}
         animate={{ rotateY: 0 }}
-        className={`inline-flex items-center justify-center w-12 h-12 rounded-full border-2 text-base font-bold
+        className={`inline-flex items-center justify-center rounded-full border-2 font-bold
+          ${compact ? 'w-7 h-7 text-xs' : 'w-12 h-12 text-base'}
           ${trait.discovered
             ? 'border-amber-500 bg-amber-950 text-amber-400'
             : 'border-zinc-600 bg-zinc-800 text-zinc-500'}`}
@@ -474,6 +477,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
   const [priorityRestoreFlash, setPriorityRestoreFlash] = useState(false);
   const [draggingCardId, setDraggingCardId] = useState<string | null>(null);
   const [viewingPile, setViewingPile] = useState<'draw' | 'discard' | null>(null);
+  const [enemyPanelCollapsed, setEnemyPanelCollapsed] = useState(false);
   const [detailCard, setDetailCard] = useState<CardInstance | null>(null);
   const [playedCardAnim, setPlayedCardAnim] = useState<CardInstance | null>(null);
   const playedCardContainerRef = useRef<HTMLDivElement | null>(null);
@@ -888,25 +892,42 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
               <div className="text-center text-base text-yellow-400 py-2 relative z-10">Choose a shield slot to place the card</div>
             )}
 
-            {/* Enemy Panel — bottom-anchored, left-aligned */}
-            <div data-testid="enemy-panel" className="absolute bottom-0 left-0 z-20 pl-4 pb-2">
-              <div className="bg-zinc-950/70 backdrop-blur-sm rounded-xl p-6 inline-flex flex-col items-center gap-3">
-                <div className="text-base text-zinc-500 uppercase tracking-widest">{activeEncounter.displayName}</div>
-                <div className="flex gap-4">
-                  <AnimatePresence mode="popLayout">
-                    {opponentShields.map((shield, i) => (
-                      <motion.div key={i} layout>
+            {/* Enemy Panel — compact, bottom-left, collapsible */}
+            <div data-testid="enemy-panel" className="absolute bottom-0 left-0 z-20 pl-2 pb-1 max-w-[33%] max-h-[50%]">
+              <div className="bg-zinc-950/70 backdrop-blur-sm rounded-lg p-3 inline-flex flex-col items-center gap-2">
+                <button
+                  onClick={() => setEnemyPanelCollapsed(v => !v)}
+                  className="flex items-center gap-1.5 w-full justify-center group"
+                >
+                  <span className="text-[11px] text-zinc-500 uppercase tracking-widest group-hover:text-zinc-300 transition-colors">{activeEncounter.displayName}</span>
+                  <motion.svg
+                    animate={{ rotate: enemyPanelCollapsed ? 180 : 0 }}
+                    transition={{ duration: 0.2 }}
+                    viewBox="0 0 12 12"
+                    className="w-3 h-3 text-zinc-500 group-hover:text-zinc-300 transition-colors shrink-0"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path d="M3 5l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </motion.svg>
+                </button>
+                {!enemyPanelCollapsed && (
+                  <div className="flex flex-col items-center gap-1.5">
+                    <div className="flex gap-2">
+                      {opponentShields.map((shield, i) => (
                         <ShieldBack
+                          key={i}
                           broken={shield.broken}
                           loreText={shield.loreDescription}
                           hintText={shield.hintText}
                           isHint={shield.isHint}
+                          compact
                         />
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
-                </div>
-                <TraitZone traits={state.config.traits} />
+                      ))}
+                    </div>
+                    <TraitZone traits={state.config.traits} compact />
+                  </div>
+                )}
               </div>
             </div>
           </div>
