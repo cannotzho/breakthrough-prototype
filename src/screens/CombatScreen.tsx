@@ -1,4 +1,4 @@
-import { useReducer, useEffect, useCallback, useState, useRef } from 'react';
+import { useReducer, useEffect, useLayoutEffect, useCallback, useState, useRef } from 'react';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { combatReducer } from '../combat/combatReducer';
 import { buildInitialCombatState, TEST_ENCOUNTER } from '../data/encounterDefs';
@@ -92,6 +92,7 @@ function CardView({
   onCardDragStart,
   onCardDrag,
   onCardDragEnd,
+  initialOffset,
 }: {
   card: CardInstance;
   onClick?: (e: React.MouseEvent) => void;
@@ -103,6 +104,7 @@ function CardView({
   onCardDragStart?: () => void;
   onCardDrag?: (event: MouseEvent | TouchEvent | PointerEvent) => void;
   onCardDragEnd?: (event: MouseEvent | TouchEvent | PointerEvent) => void;
+  initialOffset?: { x: number; y: number };
 }) {
   const [showTooltip, setShowTooltip] = useState(false);
   const def = card.definition;
@@ -129,8 +131,10 @@ function CardView({
       onDragStart={isDraggable ? (_e: MouseEvent | TouchEvent | PointerEvent, _i: PanInfo) => onCardDragStart?.() : undefined}
       onDrag={isDraggable ? (e: MouseEvent | TouchEvent | PointerEvent, _i: PanInfo) => onCardDrag?.(e) : undefined}
       onDragEnd={isDraggable ? (e: MouseEvent | TouchEvent | PointerEvent, _i: PanInfo) => onCardDragEnd?.(e) : undefined}
-      initial={{ opacity: 0, x: -60, scale: 0.9 }}
-      animate={{ opacity: dimmed ? 0.4 : 1, x: 0, scale: selected ? 1.05 : 1 }}
+      initial={initialOffset
+        ? { opacity: 0, x: initialOffset.x, y: initialOffset.y, scale: 0.5 }
+        : { opacity: 0, x: -60, scale: 0.9 }}
+      animate={{ opacity: dimmed ? 0.4 : 1, x: 0, y: 0, scale: selected ? 1.05 : 1 }}
       exit={{ opacity: 0, x: 60, scale: 0.8, transition: { duration: 0.2 } }}
       transition={{ type: 'spring', stiffness: 300, damping: 25 }}
       className={`relative w-[104px] h-36 lg:w-[156px] lg:h-[216px] shrink-0 rounded-xl border-2 ${border} ${bg} flex flex-col p-1.5 lg:p-3 select-none
@@ -189,6 +193,7 @@ function HandCard({
   onCardDragStart,
   onCardDrag,
   onCardDragEnd,
+  initialOffset,
 }: {
   card: CardInstance;
   onClick?: (e: React.MouseEvent) => void;
@@ -200,6 +205,7 @@ function HandCard({
   onCardDragStart?: () => void;
   onCardDrag?: (event: MouseEvent | TouchEvent | PointerEvent) => void;
   onCardDragEnd?: (event: MouseEvent | TouchEvent | PointerEvent) => void;
+  initialOffset?: { x: number; y: number };
 }) {
   const [hovered, setHovered] = useState(false);
   const showHover = hovered && !isAnyDragging;
@@ -223,6 +229,7 @@ function HandCard({
         onCardDragStart={onCardDragStart}
         onCardDrag={onCardDrag}
         onCardDragEnd={onCardDragEnd}
+        initialOffset={initialOffset}
       />
     </motion.div>
   );
@@ -469,7 +476,13 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
   const [viewingPile, setViewingPile] = useState<'draw' | 'discard' | null>(null);
   const [detailCard, setDetailCard] = useState<CardInstance | null>(null);
   const [playedCardAnim, setPlayedCardAnim] = useState<CardInstance | null>(null);
+  const playedCardContainerRef = useRef<HTMLDivElement | null>(null);
+  const [discardExitOffset, setDiscardExitOffset] = useState<{ x: number; y: number }>({ x: 80, y: 0 });
   const playZoneRef = useRef<HTMLDivElement | null>(null);
+  const drawPileRef = useRef<HTMLButtonElement | null>(null);
+  const discardPileRef = useRef<HTMLButtonElement | null>(null);
+  const handContainerRef = useRef<HTMLDivElement | null>(null);
+  const drawPileOffset = useRef<{ x: number; y: number } | undefined>(undefined);
   const shieldSlotRefs = useRef<(HTMLDivElement | null)[]>([]);
   const dragOccurredRef = useRef(false);
   const prevPriorityRef = useRef(state.priority);
@@ -477,6 +490,19 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
   const botmRef = useRef(state.backOfMind);
   handRef.current = state.playerHand;
   botmRef.current = state.backOfMind;
+
+  useLayoutEffect(() => {
+    const dp = drawPileRef.current;
+    const hc = handContainerRef.current;
+    if (dp && hc) {
+      const dpRect = dp.getBoundingClientRect();
+      const hcRect = hc.getBoundingClientRect();
+      drawPileOffset.current = {
+        x: dpRect.left + dpRect.width / 2 - (hcRect.left + hcRect.width / 2),
+        y: dpRect.top + dpRect.height / 2 - (hcRect.top + hcRect.height / 2),
+      };
+    }
+  });
 
   useEffect(() => {
     const prev = prevPriorityRef.current;
@@ -498,7 +524,19 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
   const capturePlayedCard = useCallback((instanceId: string) => {
     const card = handRef.current.find(c => c.instanceId === instanceId)
       ?? botmRef.current.find(c => c.instanceId === instanceId);
-    if (card) setPlayedCardAnim(card);
+    if (card) {
+      setPlayedCardAnim(card);
+      const container = playedCardContainerRef.current;
+      const dp = discardPileRef.current;
+      if (container && dp) {
+        const containerRect = container.getBoundingClientRect();
+        const dpRect = dp.getBoundingClientRect();
+        setDiscardExitOffset({
+          x: dpRect.left + dpRect.width / 2 - (containerRect.left + containerRect.width / 2),
+          y: dpRect.top + dpRect.height / 2 - (containerRect.top + containerRect.height / 2),
+        });
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -793,7 +831,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
             />
 
             {/* Staged enemy card — centered in the play zone */}
-            <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+            <div ref={playedCardContainerRef} className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
               <AnimatePresence>
                 {stagedEnemyCard && (
                   <motion.div
@@ -810,20 +848,27 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
                 )}
               </AnimatePresence>
 
-              {/* Player played card — appears briefly then dissolves (#2/#6) */}
+              {/* Player played card — appears briefly then exits:
+                   Impression cards dissolve in place (consumed),
+                   normal cards shrink and fly toward the discard pile */}
               <AnimatePresence>
-                {playedCardAnim && !stagedEnemyCard && (
-                  <motion.div
-                    key={playedCardAnim.instanceId + '-played'}
-                    initial={{ opacity: 0.9, scale: 1.1, y: 40 }}
-                    animate={{ opacity: 0.7, scale: 0.95, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.5, x: 80, transition: { duration: 0.3 } }}
-                    transition={{ duration: 0.4 }}
-                    className="flex flex-col items-center gap-1 pointer-events-none"
-                  >
-                    <CardView card={playedCardAnim} />
-                  </motion.div>
-                )}
+                {playedCardAnim && !stagedEnemyCard && (() => {
+                  const isConsumed = playedCardAnim.definition.subtype === 'Impression';
+                  return (
+                    <motion.div
+                      key={playedCardAnim.instanceId + '-played'}
+                      initial={{ opacity: 0.9, scale: 1.1, y: 40 }}
+                      animate={{ opacity: 0.7, scale: 0.95, y: 0 }}
+                      exit={isConsumed
+                        ? { opacity: 0, scale: 0.5, transition: { duration: 0.3 } }
+                        : { opacity: 0.3, scale: 0.2, x: discardExitOffset.x, y: discardExitOffset.y, transition: { duration: 0.4, ease: 'easeIn' } }}
+                      transition={{ duration: 0.4 }}
+                      className="flex flex-col items-center gap-1 pointer-events-none"
+                    >
+                      <CardView card={playedCardAnim} />
+                    </motion.div>
+                  );
+                })()}
               </AnimatePresence>
             </div>
 
@@ -877,6 +922,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
 
                   {/* Draw pile — left of priority bar */}
                   <button
+                    ref={drawPileRef}
                     onClick={() => setViewingPile('draw')}
                     className="group flex flex-col items-center gap-1 text-zinc-500 hover:text-zinc-200 transition-colors shrink-0"
                     title="View draw pile"
@@ -933,6 +979,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
 
                   {/* Discard pile — right of shields */}
                   <button
+                    ref={discardPileRef}
                     onClick={() => setViewingPile('discard')}
                     className="group flex flex-col items-center gap-1 text-zinc-500 hover:text-zinc-200 transition-colors shrink-0"
                     title="View discard pile"
@@ -985,7 +1032,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
               <div className="flex items-end gap-4">
                 {/* Hand cards — clipped at bottom, individual cards pop up on hover */}
                 <div className="flex-1 min-w-0 h-[140px] lg:h-[160px] overflow-visible relative">
-                  <div className="flex gap-2 lg:gap-4 flex-wrap justify-center absolute bottom-0 left-0 right-0 translate-y-[40%] lg:translate-y-[35%]">
+                  <div ref={handContainerRef} className="flex gap-2 lg:gap-4 flex-wrap justify-center absolute bottom-0 left-0 right-0 translate-y-[40%] lg:translate-y-[35%]">
                     <AnimatePresence mode="popLayout">
                       {/* During interrupt, merge BotM interrupt cards into hand display */}
                       {(isInterrupt
@@ -1026,6 +1073,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
                             onCardDragStart={canDrag ? () => handleCardDragStart(card.instanceId) : undefined}
                             onCardDrag={canDrag ? (e) => handleCardDrag(e) : undefined}
                             onCardDragEnd={canDrag ? (e) => handleCardDragEnd(card.instanceId, e) : undefined}
+                            initialOffset={drawPileOffset.current}
                           />
                         );
                       })}
