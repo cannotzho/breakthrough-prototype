@@ -29,6 +29,19 @@ export interface InfoNugget {
   defaultCardId?: string;
 }
 
+// ─── Deck Types ───────────────────────────────────────────────
+export interface DeckCardEntry {
+  cardId: string;
+  quantity: number;
+}
+
+export interface DeckDefinition {
+  id: string;
+  name: string;
+  description: string;
+  cards: DeckCardEntry[];
+}
+
 // ─── Card Definition ───────────────────────────────────────────
 export type CardSupertype = 'Skill' | 'Information';
 export type CardSubtype = 'Impression' | null;

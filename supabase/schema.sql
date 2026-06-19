@@ -73,6 +73,20 @@ create trigger info_nuggets_updated_at
   before update on info_nuggets
   for each row execute function update_updated_at();
 
+-- ── Decks (curated starter / personality decks) ────────────────
+create table if not exists decks (
+  id text primary key,
+  name text not null,
+  description text not null default '',
+  card_list jsonb not null default '{"cards":[]}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create trigger decks_updated_at
+  before update on decks
+  for each row execute function update_updated_at();
+
 -- Permissive RLS: allow all operations via anon key
 alter table cards enable row level security;
 alter table encounters enable row level security;
@@ -93,4 +107,9 @@ create policy "Allow all on encounter_relevant_cards" on encounter_relevant_card
   for all using (true) with check (true);
 
 create policy "Allow all on nugget_discovery" on nugget_discovery
+  for all using (true) with check (true);
+
+alter table decks enable row level security;
+
+create policy "Allow all on decks" on decks
   for all using (true) with check (true);

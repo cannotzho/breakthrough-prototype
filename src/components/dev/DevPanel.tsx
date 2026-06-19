@@ -8,8 +8,9 @@ import {
 import { DEV_SKILL_CARDS, DEV_ENEMY_CARDS } from '../../data/devCards';
 import EncounterEditor from './EncounterEditor';
 import CardCollection from './CardCollection';
+import DeckBuilder from './DeckBuilder';
 
-type Tab = 'State' | 'Log' | 'Config' | 'Cards' | 'NuggetOvr' | 'Encounters' | 'Collection';
+type Tab = 'State' | 'Log' | 'Config' | 'Cards' | 'NuggetOvr' | 'Encounters' | 'Collection' | 'Decks';
 
 const PHASES: CombatPhase[] = [
   'Check', 'PlayerPending', 'PlayerPlay', 'RevealPending', 'PlayerShieldChoice',
@@ -373,7 +374,7 @@ function NuggetOverrideCreatorTab({ dispatch }: { dispatch: (a: CombatAction) =>
 export default function DevPanel({ open, onClose, state, dispatch, onLoadEncounter }: Props) {
   const [tab, setTab] = useState<Tab>('State');
 
-  const tabs: Tab[] = ['State', 'Log', 'Config', 'Cards', 'NuggetOvr', 'Encounters', 'Collection'];
+  const tabs: Tab[] = ['State', 'Log', 'Config', 'Cards', 'NuggetOvr', 'Encounters', 'Collection', 'Decks'];
 
   return (
     <AnimatePresence>
@@ -406,7 +407,7 @@ export default function DevPanel({ open, onClose, state, dispatch, onLoadEncount
                 className={`flex-1 text-xs lg:text-sm py-2 lg:py-2.5 transition-colors
                   ${tab === t ? 'text-white border-b-2 border-blue-400' : 'text-zinc-500 hover:text-zinc-300'}`}
               >
-                {t === 'NuggetOvr' ? 'Ovr' : t === 'Encounters' ? 'Enc' : t === 'Collection' ? 'Col' : t}
+                {t === 'NuggetOvr' ? 'Ovr' : t === 'Encounters' ? 'Enc' : t === 'Collection' ? 'Col' : t === 'Decks' ? 'Deck' : t}
               </button>
             ))}
           </div>
@@ -419,6 +420,7 @@ export default function DevPanel({ open, onClose, state, dispatch, onLoadEncount
             {tab === 'NuggetOvr' && <NuggetOverrideCreatorTab dispatch={dispatch} />}
             {tab === 'Encounters' && <EncounterEditor onLoadEncounter={onLoadEncounter} />}
             {tab === 'Collection' && <CardCollection dispatch={dispatch} />}
+            {tab === 'Decks' && <DeckBuilder />}
           </div>
         </motion.div>
       )}

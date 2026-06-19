@@ -4,9 +4,10 @@ interface TitleScreenProps {
   onStart: () => void;
   onCardCollection?: () => void;
   onEncounterGallery?: () => void;
+  onDeckBuilder?: () => void;
 }
 
-export default function TitleScreen({ onStart, onCardCollection, onEncounterGallery }: TitleScreenProps) {
+export default function TitleScreen({ onStart, onCardCollection, onEncounterGallery, onDeckBuilder }: TitleScreenProps) {
   return (
     <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center text-white">
       <motion.div
@@ -37,8 +38,8 @@ export default function TitleScreen({ onStart, onCardCollection, onEncounterGall
           Playtest
         </motion.button>
 
-        {(onCardCollection || onEncounterGallery) && (
-          <div className="flex gap-6 mt-4">
+        {(onCardCollection || onEncounterGallery || onDeckBuilder) && (
+          <div className="flex gap-6 mt-4 flex-wrap justify-center">
             {onCardCollection && (
               <motion.button
                 onClick={onCardCollection}
@@ -57,6 +58,16 @@ export default function TitleScreen({ onStart, onCardCollection, onEncounterGall
                 whileTap={{ scale: 0.98 }}
               >
                 Dev: Encounter Gallery
+              </motion.button>
+            )}
+            {onDeckBuilder && (
+              <motion.button
+                onClick={onDeckBuilder}
+                className="px-6 py-3 border border-zinc-700 text-zinc-500 text-sm uppercase tracking-widest hover:border-zinc-500 hover:text-zinc-300 transition-colors duration-200 rounded-lg"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                Dev: Deck Builder
               </motion.button>
             )}
           </div>
