@@ -1,15 +1,12 @@
 import { useState } from 'react';
 import {
-  EncounterConfig, OpponentShieldSlot, RelevantCard, Trait,
-  CardEffect, CardEffectType,
+  EncounterConfig, OpponentShieldSlot, Trait,
 } from '../../combat/types';
 import { useDevEncounterStore } from '../../stores/encounterStore';
+import { useNuggetStore } from '../../stores/nuggetStore';
+import { useDevCardStore } from '../../stores/collectionStore';
+import { useEncounterRelevantCardStore } from '../../stores/encounterRelevantCardStore';
 import SupabaseStatus from './SupabaseStatus';
-
-const EFFECT_TYPES: CardEffectType[] = [
-  'BREAK_OPPONENT_SHIELD', 'BREAK_PLAYER_SHIELD', 'MODIFY_PRIORITY',
-  'MODIFY_PATIENCE', 'DRAW_CARDS', 'PLACE_AS_SHIELD', 'INCREMENT_LIE_COUNTER', 'PLACE_IMPRESSION',
-];
 
 const INPUT = 'text-xs bg-zinc-800 border border-zinc-600 rounded px-2 py-1 text-white w-full';
 const LABEL = 'text-xs text-zinc-500';
@@ -28,7 +25,7 @@ function defaultEncounter(): EncounterConfig {
     shieldBreakOrder: [0],
     playerShields: [],
     unbreakablePlayerShields: false,
-    relevantCards: [],
+    nuggetOverrides: [],
     traits: [],
     retryable: true,
     lieThreshold: 3,
@@ -110,70 +107,98 @@ function TraitEditor({ traits, onChange }: {
   );
 }
 
-function RelevantCardEditor({ cards, onChange }: {
-  cards: RelevantCard[];
-  onChange: (cards: RelevantCard[]) => void;
-}) {
-  const addCard = () => onChange([
-    ...cards,
-    { cardId: '', effectDescription: '', discovered: false, effects: [] },
-  ]);
-  const removeCard = (i: number) => onChange(cards.filter((_, j) => j !== i));
-  const update = (i: number, partial: Partial<RelevantCard>) =>
-    onChange(cards.map((c, j) => j === i ? { ...c, ...partial } : c));
-  const updateEffect = (ci: number, ei: number, partial: Partial<CardEffect>) =>
-    onChange(cards.map((c, j) => j === ci ? {
-      ...c,
-      effects: c.effects.map((e, k) => k === ei ? { ...e, ...partial } : e),
-    } : c));
-  const addEffect = (ci: number) =>
-    onChange(cards.map((c, j) => j === ci ? {
-      ...c, effects: [...c.effects, { type: 'MODIFY_PRIORITY' as CardEffectType, value: 1 }],
-    } : c));
-  const removeEffect = (ci: number, ei: number) =>
-    onChange(cards.map((c, j) => j === ci ? {
-      ...c, effects: c.effects.filter((_, k) => k !== ei),
-    } : c));
+function NuggetOverrideEditor({ encounterId }: { encounterId: string }) {
+  const { getCompleteNuggets, getNugget } = useNuggetStore();
+  const { getCardsByNugget } = useDevCardStore();
+  const { getByEncounter, addRow, removeRow, updateRow } = useEncounterRelevantCardStore();
+
+  const overrides = getByEncounter(encounterId);
+  const completeNuggets = getCompleteNuggets();
+
+  const usedNuggetIds = new Set(overrides.map(o => o.nuggetId));
+  const availableNuggets = completeNuggets.filter(n => !usedNuggetIds.has(n.id));
+
+  const [selectedNuggetId, setSelectedNuggetId] = useState('');
+  const [selectedCardId, setSelectedCardId] = useState('');
+
+  const selectedNugget = completeNuggets.find(n => n.id === selectedNuggetId);
+  const variantCards = selectedNugget
+    ? getCardsByNugget(selectedNugget.id).filter(c => c.id !== selectedNugget.defaultCardId)
+    : [];
+
+  const handleAdd = async () => {
+    if (!selectedNuggetId || !selectedCardId) return;
+    await addRow(encounterId, selectedNuggetId, selectedCardId);
+    setSelectedNuggetId('');
+    setSelectedCardId('');
+  };
 
   return (
     <div className="flex flex-col gap-2">
       <div className="flex justify-between items-center">
-        <span className={LABEL}>Relevant Cards ({cards.length})</span>
-        <button onClick={addCard} className="text-xs text-blue-400 hover:text-blue-300">+ Add</button>
+        <span className={LABEL}>Nugget Overrides ({overrides.length})</span>
       </div>
-      {cards.map((c, i) => (
-        <div key={i} className="border border-zinc-700 rounded p-2 flex flex-col gap-1">
-          <div className="flex gap-1 items-center">
-            <input value={c.cardId} onChange={e => update(i, { cardId: e.target.value })}
-              placeholder="Card ID" className={INPUT} />
-            <button onClick={() => removeCard(i)} className="text-xs text-red-500 hover:text-red-400">✕</button>
-          </div>
-          <input value={c.effectDescription} onChange={e => update(i, { effectDescription: e.target.value })}
-            placeholder="Effect description" className={INPUT} />
-          <label className="flex items-center gap-1 text-xs text-zinc-300 cursor-pointer">
-            <input type="checkbox" checked={c.discovered} onChange={e => update(i, { discovered: e.target.checked })} />
-            Discovered
-          </label>
-          <div className="ml-2 flex flex-col gap-1">
+
+      {overrides.map(o => {
+        const nugget = getNugget(o.nuggetId);
+        const cards = getCardsByNugget(o.nuggetId).filter(c => c.id !== nugget?.defaultCardId);
+        return (
+          <div key={o.id} className="border border-amber-700/50 rounded p-2 flex flex-col gap-1 bg-amber-950/10">
             <div className="flex justify-between items-center">
-              <span className="text-xs text-zinc-600">Effects</span>
-              <button onClick={() => addEffect(i)} className="text-xs text-blue-400 hover:text-blue-300">+</button>
+              <span className="text-xs text-amber-400">{nugget?.name ?? o.nuggetId}</span>
+              <button onClick={() => removeRow(o.id)} className="text-xs text-red-500 hover:text-red-400">✕</button>
             </div>
-            {c.effects.map((eff, ei) => (
-              <div key={ei} className="flex gap-1 items-center">
-                <select value={eff.type} onChange={e => updateEffect(i, ei, { type: e.target.value as CardEffectType })}
-                  className="text-xs bg-zinc-800 border border-zinc-600 rounded px-1 py-1 text-white flex-1">
-                  {EFFECT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-                <input type="number" value={eff.value ?? 0}
-                  onChange={e => updateEffect(i, ei, { value: Number(e.target.value) })}
-                  className="text-xs bg-zinc-800 border border-zinc-600 rounded px-1 py-1 text-white w-12" />
-                <button onClick={() => removeEffect(i, ei)} className="text-xs text-red-500">✕</button>
-              </div>
-            ))}
+            <select value={o.cardId} onChange={e => updateRow(o.id, e.target.value)} className={INPUT}>
+              {cards.map(c => (
+                <option key={c.id} value={c.id}>{c.name} — {c.effectText ?? c.id}</option>
+              ))}
+              {!cards.find(c => c.id === o.cardId) && (
+                <option value={o.cardId}>{o.cardId} (missing)</option>
+              )}
+            </select>
           </div>
+        );
+      })}
+
+      {availableNuggets.length > 0 && (
+        <div className="border border-zinc-700 rounded p-2 flex flex-col gap-1 border-dashed">
+          <span className="text-xs text-zinc-600">Add Override</span>
+          <select value={selectedNuggetId} onChange={e => {
+            setSelectedNuggetId(e.target.value);
+            setSelectedCardId('');
+          }} className={INPUT}>
+            <option value="">— Select Nugget —</option>
+            {availableNuggets.map(n => (
+              <option key={n.id} value={n.id}>{n.name}</option>
+            ))}
+          </select>
+
+          {selectedNugget && (
+            <>
+              <select value={selectedCardId} onChange={e => setSelectedCardId(e.target.value)} className={INPUT}>
+                <option value="">— Select Override Card —</option>
+                {variantCards.map(c => (
+                  <option key={c.id} value={c.id}>{c.name} — {c.effectText ?? c.id}</option>
+                ))}
+              </select>
+              {variantCards.length === 0 && (
+                <span className="text-xs text-amber-400">No non-default card variants for this nugget. Create one in Card Collection first.</span>
+              )}
+            </>
+          )}
+
+          {selectedNuggetId && selectedCardId && (
+            <button onClick={handleAdd}
+              className={`${BTN} border-amber-500 text-amber-400 hover:bg-amber-900`}>
+              Add Override
+            </button>
+          )}
         </div>
-      ))}
+      )}
+
+      {completeNuggets.length === 0 && (
+        <span className="text-xs text-zinc-500">No info nuggets created yet. Create one via Card Collection → New Card → Information.</span>
+      )}
     </div>
   );
 }
@@ -185,6 +210,9 @@ interface EncounterEditorProps {
 
 export default function EncounterEditor({ onLoadEncounter, onStartPlaytest }: EncounterEditorProps) {
   const { addEncounter, updateEncounter, removeEncounter, getAllEncounters, loading, error, importFromLocalStorage } = useDevEncounterStore();
+  const { getByEncounter } = useEncounterRelevantCardStore();
+  const { getCard } = useDevCardStore();
+
   const [config, setConfig] = useState<EncounterConfig>(defaultEncounter);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -194,6 +222,17 @@ export default function EncounterEditor({ onLoadEncounter, onStartPlaytest }: En
   const savedEncounters = getAllEncounters();
 
   const patch = (partial: Partial<EncounterConfig>) => setConfig(c => ({ ...c, ...partial }));
+
+  const resolveNuggetOverrides = (encId: string): EncounterConfig['nuggetOverrides'] => {
+    const rows = getByEncounter(encId);
+    return rows
+      .map(r => {
+        const cardDef = getCard(r.cardId);
+        if (!cardDef) return null;
+        return { nuggetId: r.nuggetId, overrideCardDef: cardDef };
+      })
+      .filter((o): o is NonNullable<typeof o> => o !== null);
+  };
 
   const handleSave = () => {
     if (editingId && editingId !== config.id) {
@@ -244,7 +283,13 @@ export default function EncounterEditor({ onLoadEncounter, onStartPlaytest }: En
   };
 
   const handleLoadIntoCombat = () => {
-    onLoadEncounter?.(config);
+    const resolved = { ...config, nuggetOverrides: resolveNuggetOverrides(config.id) };
+    onLoadEncounter?.(resolved);
+  };
+
+  const handlePlaytest = (enc: EncounterConfig) => {
+    const resolved = { ...enc, nuggetOverrides: resolveNuggetOverrides(enc.id) };
+    onStartPlaytest?.(resolved);
   };
 
   const handleImport = () => {
@@ -257,6 +302,7 @@ export default function EncounterEditor({ onLoadEncounter, onStartPlaytest }: En
       const text = await file.text();
       try {
         const imported = JSON.parse(text) as EncounterConfig;
+        if (!imported.nuggetOverrides) imported.nuggetOverrides = [];
         setConfig(imported);
         setEditingId(null);
       } catch { /* ignore invalid files */ }
@@ -290,7 +336,7 @@ export default function EncounterEditor({ onLoadEncounter, onStartPlaytest }: En
             </div>
             <div className="flex gap-1 ml-2">
               {onStartPlaytest && (
-                <button onClick={() => onStartPlaytest(enc)}
+                <button onClick={() => handlePlaytest(enc)}
                   className="text-xs px-2 py-1 text-green-400 hover:text-green-300">Playtest</button>
               )}
               <button onClick={() => handleLoad(enc)}
@@ -391,7 +437,10 @@ export default function EncounterEditor({ onLoadEncounter, onStartPlaytest }: En
 
       <TraitEditor traits={config.traits} onChange={traits => patch({ traits })} />
 
-      <RelevantCardEditor cards={config.relevantCards} onChange={relevantCards => patch({ relevantCards })} />
+      {editingId && <NuggetOverrideEditor encounterId={editingId} />}
+      {!editingId && (
+        <div className="text-xs text-zinc-500 italic">Save encounter first to manage nugget overrides.</div>
+      )}
 
       <div className="flex gap-2 flex-wrap border-t border-zinc-700 pt-3">
         <button onClick={handleSave}
@@ -413,7 +462,7 @@ export default function EncounterEditor({ onLoadEncounter, onStartPlaytest }: En
           </button>
         )}
         {onStartPlaytest && (
-          <button onClick={() => onStartPlaytest(config)}
+          <button onClick={() => handlePlaytest(config)}
             className={`${BTN} border-green-500 text-green-400 hover:bg-green-900`}>
             Playtest
           </button>

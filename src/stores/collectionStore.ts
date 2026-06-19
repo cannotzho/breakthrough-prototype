@@ -11,13 +11,14 @@ interface DevCardStore {
   removeCard: (id: string) => void;
   getCard: (id: string) => CardDefinition | undefined;
   getAllCards: () => CardDefinition[];
+  getCardsByNugget: (nuggetId: string) => CardDefinition[];
   importFromLocalStorage: () => Promise<number>;
 }
 
 export const useDevCardStore = create<DevCardStore>()((set, get) => {
   supabase
     .from('cards')
-    .select('id, data')
+    .select('id, data, nugget_id')
     .then(({ data, error }) => {
       if (error) {
         console.error('[cards] fetch failed:', error.message);
@@ -25,7 +26,11 @@ export const useDevCardStore = create<DevCardStore>()((set, get) => {
         return;
       }
       const cards: Record<string, CardDefinition> = {};
-      for (const row of data ?? []) cards[row.id] = row.data as CardDefinition;
+      for (const row of data ?? []) {
+        const card = row.data as CardDefinition;
+        if (row.nugget_id) card.nuggetId = row.nugget_id;
+        cards[row.id] = card;
+      }
       set({ cards, loading: false });
     });
 
@@ -38,7 +43,7 @@ export const useDevCardStore = create<DevCardStore>()((set, get) => {
       set((s) => ({ cards: { ...s.cards, [card.id]: card } }));
       supabase
         .from('cards')
-        .upsert({ id: card.id, data: card })
+        .upsert({ id: card.id, data: card, nugget_id: card.nuggetId ?? null })
         .then(({ error }) => {
           if (error) console.error('[cards] upsert failed:', error.message);
         });
@@ -56,7 +61,9 @@ export const useDevCardStore = create<DevCardStore>()((set, get) => {
           const { error: delErr } = await supabase.from('cards').delete().eq('id', id);
           if (delErr) console.error('[cards] delete old id failed:', delErr.message);
         }
-        const { error: upsErr } = await supabase.from('cards').upsert({ id: card.id, data: card });
+        const { error: upsErr } = await supabase
+          .from('cards')
+          .upsert({ id: card.id, data: card, nugget_id: card.nuggetId ?? null });
         if (upsErr) console.error('[cards] upsert failed:', upsErr.message);
       })();
     },
@@ -79,6 +86,9 @@ export const useDevCardStore = create<DevCardStore>()((set, get) => {
     getCard: (id) => get().cards[id],
     getAllCards: () => Object.values(get().cards),
 
+    getCardsByNugget: (nuggetId) =>
+      Object.values(get().cards).filter(c => c.nuggetId === nuggetId),
+
     importFromLocalStorage: async () => {
       const raw = localStorage.getItem('btdev-cards');
       if (!raw) return 0;
@@ -88,7 +98,7 @@ export const useDevCardStore = create<DevCardStore>()((set, get) => {
         const entries = Object.values(cards);
         if (entries.length === 0) return 0;
 
-        const rows = entries.map((c) => ({ id: c.id, data: c }));
+        const rows = entries.map((c) => ({ id: c.id, data: c, nugget_id: c.nuggetId ?? null }));
         const { error } = await supabase.from('cards').upsert(rows);
         if (error) throw new Error(error.message);
 

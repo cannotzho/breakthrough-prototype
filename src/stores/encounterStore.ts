@@ -14,6 +14,11 @@ interface DevEncounterStore {
   importFromLocalStorage: () => Promise<number>;
 }
 
+function toStorable(enc: EncounterConfig) {
+  const { nuggetOverrides: _, ...rest } = enc;
+  return rest;
+}
+
 export const useDevEncounterStore = create<DevEncounterStore>()((set, get) => {
   supabase
     .from('encounters')
@@ -25,7 +30,11 @@ export const useDevEncounterStore = create<DevEncounterStore>()((set, get) => {
         return;
       }
       const encounters: Record<string, EncounterConfig> = {};
-      for (const row of data ?? []) encounters[row.id] = row.data as EncounterConfig;
+      for (const row of data ?? []) {
+        const enc = row.data as EncounterConfig;
+        if (!enc.nuggetOverrides) enc.nuggetOverrides = [];
+        encounters[row.id] = enc;
+      }
       set({ encounters, loading: false });
     });
 
@@ -38,7 +47,7 @@ export const useDevEncounterStore = create<DevEncounterStore>()((set, get) => {
       set((s) => ({ encounters: { ...s.encounters, [encounter.id]: encounter } }));
       supabase
         .from('encounters')
-        .upsert({ id: encounter.id, data: encounter })
+        .upsert({ id: encounter.id, data: toStorable(encounter) })
         .then(({ error }) => {
           if (error) console.error('[encounters] upsert failed:', error.message);
         });
@@ -56,7 +65,9 @@ export const useDevEncounterStore = create<DevEncounterStore>()((set, get) => {
           const { error: delErr } = await supabase.from('encounters').delete().eq('id', id);
           if (delErr) console.error('[encounters] delete old id failed:', delErr.message);
         }
-        const { error: upsErr } = await supabase.from('encounters').upsert({ id: encounter.id, data: encounter });
+        const { error: upsErr } = await supabase
+          .from('encounters')
+          .upsert({ id: encounter.id, data: toStorable(encounter) });
         if (upsErr) console.error('[encounters] upsert failed:', upsErr.message);
       })();
     },
@@ -88,12 +99,15 @@ export const useDevEncounterStore = create<DevEncounterStore>()((set, get) => {
         const entries = Object.values(encounters);
         if (entries.length === 0) return 0;
 
-        const rows = entries.map((e) => ({ id: e.id, data: e }));
+        const rows = entries.map((e) => ({ id: e.id, data: toStorable(e) }));
         const { error } = await supabase.from('encounters').upsert(rows);
         if (error) throw new Error(error.message);
 
         const merged = { ...get().encounters };
-        for (const e of entries) merged[e.id] = e;
+        for (const e of entries) {
+          if (!e.nuggetOverrides) e.nuggetOverrides = [];
+          merged[e.id] = e;
+        }
         set({ encounters: merged });
         return entries.length;
       } catch (e) {

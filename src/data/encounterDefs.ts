@@ -1,6 +1,6 @@
 import { EncounterConfig, CombatState, DEFAULT_COMBAT_CONFIG } from '../combat/types';
 import { makeInstance, shuffle } from '../combat/effectHandlers';
-import { DEV_SKILL_CARDS, DEV_ENEMY_CARDS, PONDER_DEFINITION } from './devCards';
+import { DEV_SKILL_CARDS, DEV_ENEMY_CARDS } from './devCards';
 
 export const TEST_ENCOUNTER: EncounterConfig = {
   id: 'test_encounter',
@@ -16,7 +16,7 @@ export const TEST_ENCOUNTER: EncounterConfig = {
   shieldBreakOrder: [0, 1, 2],
   playerShields: [],
   unbreakablePlayerShields: false,
-  relevantCards: [],
+  nuggetOverrides: [],
   traits: [
     { id: 'trait_nervous', name: 'Nervous', description: 'Cards with Intimidate have no effect.', discovered: false },
   ],
@@ -29,11 +29,7 @@ export function buildInitialCombatState(config: EncounterConfig): CombatState {
   const allEnemyDefs = [...DEV_ENEMY_CARDS];
 
   const playerDeckDefs = [...DEV_SKILL_CARDS, ...DEV_SKILL_CARDS];
-  const relevantCardIds = new Set(config.relevantCards.map(rc => rc.cardId));
-  const convertedDefs = playerDeckDefs.map(def =>
-    def.supertype === 'Information' && !relevantCardIds.has(def.id) ? PONDER_DEFINITION : def
-  );
-  const shuffledPlayer = shuffle([...convertedDefs]);
+  const shuffledPlayer = shuffle([...playerDeckDefs]);
   const playerInstances = shuffledPlayer.map(def => makeInstance(def));
   const initialHand = playerInstances.slice(0, DEFAULT_COMBAT_CONFIG.handLimit);
   let initialDeck = playerInstances.slice(DEFAULT_COMBAT_CONFIG.handLimit);
@@ -43,7 +39,6 @@ export function buildInitialCombatState(config: EncounterConfig): CombatState {
     return makeInstance(def);
   });
 
-  // Pre-place shields from config (Gap #15)
   const shieldSlots: (CombatState['playerShields'][0])[] = Array(DEFAULT_COMBAT_CONFIG.maxPlayerShields).fill(null);
   let shieldEverOccupied = false;
   if (config.playerShields && config.playerShields.length > 0) {
@@ -84,6 +79,7 @@ export function buildInitialCombatState(config: EncounterConfig): CombatState {
     pendingPlaceAsShield: false,
     counterPending: null,
     pendingDiscovery: null,
+    discoveredNuggetIds: [],
     actionLog: ['Encounter started.'],
   };
 }

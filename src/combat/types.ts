@@ -20,6 +20,15 @@ export interface CardEffect {
   value?: number;
 }
 
+// ─── Info Nuggets ──────────────────────────────────────────────
+export interface InfoNugget {
+  id: string;
+  name: string;
+  longDescription: string;
+  imageUrl?: string;
+  defaultCardId?: string;
+}
+
 // ─── Card Definition ───────────────────────────────────────────
 export type CardSupertype = 'Skill' | 'Information';
 export type CardSubtype = 'Impression' | null;
@@ -36,6 +45,7 @@ export interface CardDefinition {
   effectText?: string;
   longDescription?: string;
   imageUrl?: string;
+  nuggetId?: string;
   /** @deprecated Use effectText/longDescription instead */
   description?: string;
 }
@@ -64,12 +74,17 @@ export interface PlayerShieldSlot {
   card: CardInstance;
 }
 
-// ─── Relevant Cards ────────────────────────────────────────────
-export interface RelevantCard {
-  cardId: string;
-  effects: CardEffect[];
+// ─── Nugget Override (runtime, resolved from encounter_relevant_cards) ──
+export interface NuggetOverride {
+  nuggetId: string;
+  overrideCardDef: CardDefinition;
+}
+
+// ─── Nugget Discovery Event (emitted by reducer for side-effect write) ──
+export interface NuggetDiscoveryEvent {
+  nuggetId: string;
+  nuggetName: string;
   effectDescription: string;
-  discovered: boolean;
 }
 
 // ─── Traits ────────────────────────────────────────────────────
@@ -91,7 +106,7 @@ export interface EncounterConfig {
   shieldBreakOrder?: number[];
   playerShields?: string[];
   unbreakablePlayerShields?: boolean;
-  relevantCards: RelevantCard[];
+  nuggetOverrides: NuggetOverride[];
   traits: Trait[];
   retryable: boolean;
   lieThreshold?: number;
@@ -173,7 +188,8 @@ export interface CombatState {
   pendingEffectCard: CardInstance | null;
   pendingPlaceAsShield: boolean;
   counterPending: CounterPendingState | null;
-  pendingDiscovery: RelevantCard | null;
+  pendingDiscovery: NuggetDiscoveryEvent | null;
+  discoveredNuggetIds: string[];
 
   actionLog: string[];
 }
@@ -201,7 +217,7 @@ export type CombatAction =
   | { type: 'DEV_SET_PHASE'; phase: CombatPhase }
   | { type: 'DEV_ADD_CARD_TO_HAND'; card: CardDefinition }
   | { type: 'DEV_SET_ENEMY_CARD'; card: CardDefinition }
-  | { type: 'DEV_ADD_RELEVANT_CARD'; card: RelevantCard }
+  | { type: 'DEV_ADD_NUGGET_OVERRIDE'; override: NuggetOverride }
   | { type: 'RESOLVE_ENEMY_CARD' }
   | { type: 'CONFIRM_PLACE_AS_SHIELD'; slotIdx: number }
   | { type: 'RESOLVE_INTERRUPT_CHECK' }

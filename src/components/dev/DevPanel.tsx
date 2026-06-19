@@ -3,13 +3,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   CombatState, CombatAction, CombatPhase,
   CardDefinition, ColorIdentity, CardSupertype, CardSubtype, Keyword, CardEffectType,
-  RelevantCard, CardEffect,
+  NuggetOverride, CardEffect,
 } from '../../combat/types';
 import { DEV_SKILL_CARDS, DEV_ENEMY_CARDS } from '../../data/devCards';
 import EncounterEditor from './EncounterEditor';
 import CardCollection from './CardCollection';
 
-type Tab = 'State' | 'Log' | 'Config' | 'Cards' | 'RelevantCards' | 'Encounters' | 'Collection';
+type Tab = 'State' | 'Log' | 'Config' | 'Cards' | 'NuggetOvr' | 'Encounters' | 'Collection';
 
 const PHASES: CombatPhase[] = [
   'Check', 'PlayerPending', 'PlayerPlay', 'RevealPending', 'PlayerShieldChoice',
@@ -129,6 +129,17 @@ function StateTab({ state, dispatch }: { state: CombatState; dispatch: (a: Comba
           ))}
         </div>
       </div>
+
+      {state.discoveredNuggetIds.length > 0 && (
+        <div>
+          <div className="text-xs text-zinc-500 mb-2">Discovered Nuggets</div>
+          <div className="flex gap-1 flex-wrap">
+            {state.discoveredNuggetIds.map(id => (
+              <span key={id} className="text-xs px-2 py-0.5 rounded border border-amber-700 text-amber-400 bg-amber-950/30">{id}</span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -302,11 +313,10 @@ function CardCreatorTab({ dispatch }: { dispatch: (a: CombatAction) => void }) {
   );
 }
 
-function RelevantCardCreatorTab({ dispatch }: { dispatch: (a: CombatAction) => void }) {
-  const [cardId, setCardId] = useState('info_example');
-  const [effectDescription, setEffectDescription] = useState('');
-  const [discovered, setDiscovered] = useState(false);
-  const [effectsJson, setEffectsJson] = useState('[]');
+function NuggetOverrideCreatorTab({ dispatch }: { dispatch: (a: CombatAction) => void }) {
+  const [nuggetId, setNuggetId] = useState('');
+  const [effectText, setEffectText] = useState('');
+  const [effectsJson, setEffectsJson] = useState('[{"type":"MODIFY_PATIENCE","value":-1}]');
   const [error, setError] = useState('');
 
   const handleAdd = () => {
@@ -318,20 +328,32 @@ function RelevantCardCreatorTab({ dispatch }: { dispatch: (a: CombatAction) => v
       setError('Invalid JSON');
       return;
     }
-    const rc: RelevantCard = { cardId, effectDescription, discovered, effects };
-    dispatch({ type: 'DEV_ADD_RELEVANT_CARD', card: rc });
+    const overrideCardDef: CardDefinition = {
+      id: `override_${nuggetId}_${Date.now()}`,
+      name: `Override for ${nuggetId}`,
+      cost: 0,
+      keywords: [],
+      effects,
+      color: 'Colorless',
+      supertype: 'Information',
+      subtype: null,
+      effectText,
+      nuggetId,
+    };
+    const override: NuggetOverride = { nuggetId, overrideCardDef };
+    dispatch({ type: 'DEV_ADD_NUGGET_OVERRIDE', override });
   };
 
   return (
     <div className="flex flex-col gap-3 overflow-y-auto max-h-96">
       <label className="flex flex-col gap-1">
-        <span className="text-xs text-zinc-500">Card ID</span>
-        <input value={cardId} onChange={e => setCardId(e.target.value)}
+        <span className="text-xs text-zinc-500">Nugget ID</span>
+        <input value={nuggetId} onChange={e => setNuggetId(e.target.value)}
           className="text-xs bg-zinc-800 border border-zinc-600 rounded px-2 py-1 text-white" />
       </label>
       <label className="flex flex-col gap-1">
-        <span className="text-xs text-zinc-500">Effect Description</span>
-        <input value={effectDescription} onChange={e => setEffectDescription(e.target.value)}
+        <span className="text-xs text-zinc-500">Effect Text</span>
+        <input value={effectText} onChange={e => setEffectText(e.target.value)}
           className="text-xs bg-zinc-800 border border-zinc-600 rounded px-2 py-1 text-white" />
       </label>
       <label className="flex flex-col gap-1">
@@ -340,13 +362,9 @@ function RelevantCardCreatorTab({ dispatch }: { dispatch: (a: CombatAction) => v
           className="text-xs bg-zinc-800 border border-zinc-600 rounded px-2 py-1 text-white font-mono" />
         {error && <span className="text-xs text-red-400">{error}</span>}
       </label>
-      <label className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer">
-        <input type="checkbox" checked={discovered} onChange={e => setDiscovered(e.target.checked)} />
-        Discovered
-      </label>
       <button onClick={handleAdd}
-        className="text-xs px-4 py-2 border border-green-600 text-green-400 hover:bg-green-900 rounded transition-colors">
-        Add to Encounter
+        className="text-xs px-4 py-2 border border-amber-600 text-amber-400 hover:bg-amber-900 rounded transition-colors">
+        Add Nugget Override to Combat
       </button>
     </div>
   );
@@ -355,7 +373,7 @@ function RelevantCardCreatorTab({ dispatch }: { dispatch: (a: CombatAction) => v
 export default function DevPanel({ open, onClose, state, dispatch, onLoadEncounter }: Props) {
   const [tab, setTab] = useState<Tab>('State');
 
-  const tabs: Tab[] = ['State', 'Log', 'Config', 'Cards', 'RelevantCards', 'Encounters', 'Collection'];
+  const tabs: Tab[] = ['State', 'Log', 'Config', 'Cards', 'NuggetOvr', 'Encounters', 'Collection'];
 
   return (
     <AnimatePresence>
@@ -380,7 +398,6 @@ export default function DevPanel({ open, onClose, state, dispatch, onLoadEncount
             )}
           </div>
 
-          {/* Tabs */}
           <div className="flex border-b border-zinc-800">
             {tabs.map(t => (
               <button
@@ -389,7 +406,7 @@ export default function DevPanel({ open, onClose, state, dispatch, onLoadEncount
                 className={`flex-1 text-xs lg:text-sm py-2 lg:py-2.5 transition-colors
                   ${tab === t ? 'text-white border-b-2 border-blue-400' : 'text-zinc-500 hover:text-zinc-300'}`}
               >
-                {t === 'RelevantCards' ? 'RC' : t === 'Encounters' ? 'Enc' : t === 'Collection' ? 'Col' : t}
+                {t === 'NuggetOvr' ? 'Ovr' : t === 'Encounters' ? 'Enc' : t === 'Collection' ? 'Col' : t}
               </button>
             ))}
           </div>
@@ -399,7 +416,7 @@ export default function DevPanel({ open, onClose, state, dispatch, onLoadEncount
             {tab === 'Log' && <LogTab log={state.actionLog} />}
             {tab === 'Config' && <ConfigTab state={state} />}
             {tab === 'Cards' && <CardCreatorTab dispatch={dispatch} />}
-            {tab === 'RelevantCards' && <RelevantCardCreatorTab dispatch={dispatch} />}
+            {tab === 'NuggetOvr' && <NuggetOverrideCreatorTab dispatch={dispatch} />}
             {tab === 'Encounters' && <EncounterEditor onLoadEncounter={onLoadEncounter} />}
             {tab === 'Collection' && <CardCollection dispatch={dispatch} />}
           </div>

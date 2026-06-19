@@ -6,6 +6,7 @@ import { CardInstance, CombatState, EncounterConfig, Keyword, SHIELD_PLACEMENT_C
 import DevPanel from '../components/dev/DevPanel';
 import PriorityBar from '../components/combat/PriorityBar';
 import PatienceDisplay from '../components/combat/PatienceDisplay';
+import { useNuggetDiscoveryStore } from '../stores/nuggetDiscoveryStore';
 
 interface CombatScreenProps {
   onExit: () => void;
@@ -545,6 +546,18 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
       }
     }
   }, []);
+
+  const recordDiscovery = useNuggetDiscoveryStore(s => s.recordDiscovery);
+  const prevDiscoveredRef = useRef(state.discoveredNuggetIds.length);
+  useEffect(() => {
+    const ids = state.discoveredNuggetIds;
+    if (ids.length > prevDiscoveredRef.current) {
+      for (let i = prevDiscoveredRef.current; i < ids.length; i++) {
+        recordDiscovery(state.config.id, ids[i]);
+      }
+    }
+    prevDiscoveredRef.current = ids.length;
+  }, [state.discoveredNuggetIds, state.config.id, recordDiscovery]);
 
   useEffect(() => {
     if (state.phase === 'Check') {
@@ -1183,6 +1196,9 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
             >
               <div className="text-sm uppercase tracking-widest text-amber-500 mb-3">
                 Information Discovered
+              </div>
+              <div className="text-lg font-semibold text-amber-300 mb-2">
+                {state.pendingDiscovery.nuggetName}
               </div>
               <motion.p
                 initial={{ opacity: 0, y: 8 }}

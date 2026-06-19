@@ -1,4 +1,4 @@
-import { CombatState, CombatAction, CardInstance, CardEffect, RelevantCard, SHIELD_PLACEMENT_COST } from './types';
+import { CombatState, CombatAction, CardInstance, CardEffect, NuggetOverride, SHIELD_PLACEMENT_COST } from './types';
 import { applyEffect, priorityRestore, selectEnemyCard, makeInstance, clampPriority } from './effectHandlers';
 import { COMBINATIONS } from '../data/combinations';
 import { PONDER_DEFINITION } from '../data/devCards';
@@ -13,14 +13,12 @@ function addLog(state: CombatState, msg: string): CombatState {
   return { ...state, actionLog: [...state.actionLog.slice(-49), msg] };
 }
 
-// §4.3 Check State — conditions evaluated top-to-bottom, first match wins (Gap #1, #2, #12)
+// §4.3 Check State — conditions evaluated top-to-bottom, first match wins
 function checkState(state: CombatState): CombatState {
-  // 1. All opponent shields broken → WIN
   if (state.opponentShields.every(s => s.broken)) {
     return addLog({ ...state, phase: 'WIN' }, 'All opponent shields broken — WIN');
   }
 
-  // 2. All player shields broken → LOSE (unless unbreakablePlayerShields)
   if (
     !state.config.unbreakablePlayerShields &&
     state.shieldEverOccupied &&
@@ -29,12 +27,10 @@ function checkState(state: CombatState): CombatState {
     return addLog({ ...state, phase: 'LOSE' }, 'All player shields broken — LOSE');
   }
 
-  // 3. Patience ≤ 0 → LOSE
   if (state.patience <= 0) {
     return addLog({ ...state, phase: 'LOSE' }, 'Patience reached 0 — LOSE');
   }
 
-  // 4. Lie counter exceeded → LOSE (threshold 0 or undefined disables)
   if (
     state.config.lieThreshold != null &&
     state.config.lieThreshold > 0 &&
@@ -43,7 +39,6 @@ function checkState(state: CombatState): CombatState {
     return addLog({ ...state, phase: 'LOSE' }, 'Lie counter exceeded — LOSE');
   }
 
-  // 5. Priority > 0 → cancel staged card → PlayerPending
   if (state.priority > 0) {
     let s = state;
     if (s.stagedEnemyCard) {
@@ -55,17 +50,14 @@ function checkState(state: CombatState): CombatState {
     return { ...s, phase: 'PlayerPending' };
   }
 
-  // 6. Priority ≤ 0 AND staged card → EnemyPlay
   if (state.stagedEnemyCard) {
     return { ...state, phase: 'EnemyPlay' };
   }
 
-  // 7. Priority ≤ 0, no staged card, hand not empty → BotMSelect
   if (state.playerHand.length > 0) {
     return { ...state, phase: 'BotMSelect' };
   }
 
-  // 8. Priority ≤ 0, no staged card, hand empty → EnemyPending
   return { ...state, phase: 'EnemyPending' };
 }
 
@@ -101,7 +93,6 @@ function resolveEffectList(
   return onComplete(s);
 }
 
-// Counter sub-sequence completion: break outcome + resume Enemy Play (Gap #3)
 function completeShieldBreak(state: CombatState): CombatState {
   const cp = state.counterPending;
   if (!cp) return checkState({ ...state, phase: 'Check' });
@@ -134,9 +125,16 @@ function completeShieldBreak(state: CombatState): CombatState {
   });
 }
 
-// Ponder conversion constants derived from the shared definition (Gap #6)
 const PONDER_EFFECTS: CardEffect[] = PONDER_DEFINITION.effects;
 const PONDER_COST = PONDER_DEFINITION.cost;
+
+function isDefaultNuggetVariant(card: CardInstance, nuggetOverrides: NuggetOverride[]): boolean {
+  if (card.definition.supertype !== 'Information') return false;
+  if (!card.definition.nuggetId) return false;
+  const override = nuggetOverrides.find(o => o.nuggetId === card.definition.nuggetId);
+  if (override && override.overrideCardDef.id === card.definition.id) return false;
+  return true;
+}
 
 export function combatReducer(state: CombatState, action: CombatAction): CombatState {
   switch (action.type) {
@@ -144,29 +142,37 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
     case 'CHECK':
       return checkState(state);
 
-    // ── Player actions ────────────────────────────────────────
     case 'PLAY_CARD': {
       if (state.phase !== 'PlayerPending') return state;
       const card = state.playerHand.find(c => c.instanceId === action.cardInstanceId);
       if (!card) return state;
 
-      // Information Card handling (Gap #6)
       let effectiveCost = card.definition.cost;
       let effectiveEffects = card.definition.effects;
-      let isNonRelevantConversion = false;
-      let discoveryCard: RelevantCard | null = null;
+      let isPonderConversion = false;
+      let discoveryEvent: CombatState['pendingDiscovery'] = null;
 
-      if (card.definition.supertype === 'Information') {
-        const relevantCard = state.config.relevantCards.find(rc => rc.cardId === card.definition.id);
-        if (relevantCard) {
-          effectiveEffects = relevantCard.effects;
-          if (!relevantCard.discovered) {
-            discoveryCard = { ...relevantCard, discovered: true };
-          }
+      if (isDefaultNuggetVariant(card, state.config.nuggetOverrides)) {
+        const nuggetId = card.definition.nuggetId!;
+        const override = state.config.nuggetOverrides.find(o => o.nuggetId === nuggetId);
+
+        if (override) {
+          effectiveEffects = override.overrideCardDef.effects;
+          effectiveCost = override.overrideCardDef.cost;
         } else {
           effectiveCost = PONDER_COST;
           effectiveEffects = PONDER_EFFECTS;
-          isNonRelevantConversion = true;
+          isPonderConversion = true;
+        }
+
+        if (!state.discoveredNuggetIds.includes(nuggetId)) {
+          discoveryEvent = {
+            nuggetId,
+            nuggetName: card.definition.name,
+            effectDescription: override
+              ? (override.overrideCardDef.effectText ?? 'Override effect resolved.')
+              : 'This information converts to Ponder in this encounter.',
+          };
         }
       }
 
@@ -182,7 +188,7 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
         pendingEffectCard: null,
       };
 
-      if (isNonRelevantConversion) {
+      if (isPonderConversion) {
         s = {
           ...s,
           playedNonRelevantCards: [...s.playedNonRelevantCards, card.definition.id],
@@ -192,23 +198,21 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
         s = addLog(s, `Played ${card.definition.name} (cost ${cost}${patienceCost > 0 ? `, −${patienceCost} Patience` : ''})`);
       }
 
-      if (discoveryCard) {
-        const updatedRelevantCards = s.config.relevantCards.map(rc =>
-          rc.cardId === card.definition.id ? discoveryCard! : rc
-        );
+      if (discoveryEvent) {
+        const nuggetId = discoveryEvent.nuggetId;
         s = {
           ...s,
-          config: { ...s.config, relevantCards: updatedRelevantCards },
-          pendingDiscovery: discoveryCard,
+          pendingDiscovery: discoveryEvent,
+          discoveredNuggetIds: [...s.discoveredNuggetIds, nuggetId],
         };
-        s = addLog(s, `Discovered: ${discoveryCard.effectDescription}`);
+        s = addLog(s, `Discovered: ${discoveryEvent.effectDescription}`);
       }
 
       if (card.definition.keywords.includes('Lie')) {
         s = { ...s, lieCounter: s.lieCounter + 1 };
       }
 
-      const discardCard: CardInstance = isNonRelevantConversion
+      const discardCard: CardInstance = isPonderConversion
         ? { ...card, definition: PONDER_DEFINITION }
         : card;
 
@@ -284,7 +288,6 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       return checkState(addLog({ ...state, priority: 0 }, 'Player ended turn'));
     }
 
-    // ── BotM Select ───────────────────────────────────────────
     case 'SELECT_BOTM': {
       if (state.phase !== 'BotMSelect') return state;
       const card = state.playerHand.find(c => c.instanceId === action.cardInstanceId);
@@ -321,14 +324,12 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       return selectEnemyCard(s);
     }
 
-    // ── Reveal Pending ────────────────────────────────────────
     case 'DISMISS_REVEAL': {
       if (state.phase !== 'RevealPending') return state;
       let s: CombatState = { ...state, pendingReveal: null };
       const remainingEffects = state.pendingEffects;
       const card = state.pendingEffectCard;
 
-      // If we're in a Counter sub-sequence, route completion through completeShieldBreak (Gap #3)
       if (state.counterPending) {
         if (!card || remainingEffects.length === 0) {
           return completeShieldBreak(addLog(s, 'Reveal dismissed'));
@@ -340,7 +341,6 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
 
       if (!card || remainingEffects.length === 0) {
         let final: CombatState = { ...s, phase: 'Check', pendingEffects: [], pendingEffectCard: null };
-        // Enemy card cleanup (Gap #11)
         if (final.stagedEnemyCard && card && final.stagedEnemyCard.instanceId === card.instanceId) {
           final = { ...final, enemyDiscard: [...final.enemyDiscard, final.stagedEnemyCard], stagedEnemyCard: null };
         }
@@ -348,7 +348,6 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       }
       return resolveEffectList(s, remainingEffects, card, (resolved) => {
         let final: CombatState = { ...resolved, phase: 'Check', pendingEffects: [], pendingEffectCard: null };
-        // Enemy card cleanup (Gap #11)
         if (final.stagedEnemyCard && card && final.stagedEnemyCard.instanceId === card.instanceId) {
           final = { ...final, enemyDiscard: [...final.enemyDiscard, final.stagedEnemyCard], stagedEnemyCard: null };
         }
@@ -356,7 +355,6 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       });
     }
 
-    // ── Player Shield Choice ──────────────────────────────────
     case 'SELECT_SHIELD_SACRIFICE': {
       if (state.phase !== 'PlayerShieldChoice') return state;
       if (state.playerShields[action.slotIdx] === null) return state;
@@ -377,7 +375,6 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
         pendingShieldChoiceSlotIdx: null,
       };
 
-      // Counter keyword: resolve printed effects as sub-sequence before break outcome (Gap #3)
       if (hasCounter) {
         s = {
           ...s,
@@ -393,7 +390,6 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
         });
       }
 
-      // Non-Counter: immediate break outcome
       if (hasSafety) {
         s = addLog(s, `${sacrificed.definition.name} broken (Safety) — NPC loses 0 Patience, Priority Restore`);
       } else {
@@ -421,13 +417,11 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       });
     }
 
-    // ── Enemy Pending ─────────────────────────────────────────
     case 'TRIGGER_ENEMY_ACTION': {
       if (state.phase !== 'EnemyPending') return state;
       return selectEnemyCard(state);
     }
 
-    // ── Interrupt ─────────────────────────────────────────────
     case 'PLAY_INTERRUPT': {
       if (state.phase !== 'Interrupt') return state;
       const card =
@@ -462,7 +456,6 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       return addLog({ ...state, phase: 'EnemyPlay' }, 'Player passed interrupt');
     }
 
-    // ── Interrupt Check ───────────────────────────────────────
     case 'RESOLVE_INTERRUPT_CHECK': {
       if (state.phase !== 'InterruptCheck') return state;
       const hasInterrupt =
@@ -474,7 +467,6 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       );
     }
 
-    // ── Combination / Assemble (Gap #7) ───────────────────────
     case 'COMBINE': {
       if (state.phase !== 'PlayerPending') return state;
       const [idA, idB] = action.cardInstanceIds;
@@ -510,12 +502,10 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       );
     }
 
-    // ── Discovery dismiss (Gap #6) ────────────────────────────
     case 'DISMISS_DISCOVERY': {
       return { ...state, pendingDiscovery: null };
     }
 
-    // ── Dev Actions ───────────────────────────────────────────
     case 'DEV_SET_PRIORITY':
       return addLog({ ...state, priority: clampPriority(action.value) }, `[DEV] Priority → ${action.value}`);
 
@@ -555,7 +545,6 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       return addLog({ ...state, stagedEnemyCard: instance }, `[DEV] Staged enemy card → ${action.card.name}`);
     }
 
-    // ── Enemy Card Resolution (Gap #11: effects resolve before discard) ─
     case 'RESOLVE_ENEMY_CARD': {
       if (state.phase !== 'EnemyPlay' || !state.stagedEnemyCard) return state;
       const card = state.stagedEnemyCard;
@@ -572,13 +561,13 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       });
     }
 
-    case 'DEV_ADD_RELEVANT_CARD': {
-      const rc: RelevantCard = action.card;
+    case 'DEV_ADD_NUGGET_OVERRIDE': {
+      const override: NuggetOverride = action.override;
       const config = {
         ...state.config,
-        relevantCards: [...state.config.relevantCards, rc],
+        nuggetOverrides: [...state.config.nuggetOverrides, override],
       };
-      return addLog({ ...state, config }, `[DEV] Added relevant card ${rc.cardId}`);
+      return addLog({ ...state, config }, `[DEV] Added nugget override for ${override.nuggetId}`);
     }
 
     case 'DEV_RESET':

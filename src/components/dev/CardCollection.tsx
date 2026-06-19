@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import {
   CardDefinition, ColorIdentity, CardSupertype, CardSubtype, Keyword,
-  CardEffectType, CardEffect, CombatAction,
+  CardEffectType, CardEffect, CombatAction, InfoNugget,
 } from '../../combat/types';
 import { DEV_SKILL_CARDS, DEV_ENEMY_CARDS } from '../../data/devCards';
 import { useDevCardStore } from '../../stores/collectionStore';
+import { useNuggetStore } from '../../stores/nuggetStore';
 import SupabaseStatus from './SupabaseStatus';
 
 const COLORS: ColorIdentity[] = ['Red', 'Blue', 'Green', 'White', 'Black', 'Orange', 'Purple', 'Colorless'];
@@ -30,14 +31,67 @@ const COLOR_BADGE: Record<ColorIdentity, string> = {
   Colorless: 'bg-zinc-800/50 text-zinc-400 border-zinc-600',
 };
 
+// ── Nugget Creator (inline) ─────────────────────────────────
+function NuggetCreator({ onCreated, onCancel }: {
+  onCreated: (nugget: InfoNugget) => void;
+  onCancel: () => void;
+}) {
+  const [id, setId] = useState(`nugget_${Date.now()}`);
+  const [name, setName] = useState('');
+  const [longDescription, setLongDescription] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+
+  return (
+    <div className="border border-amber-700 rounded p-3 flex flex-col gap-2 bg-amber-950/20">
+      <div className="text-xs text-amber-400 uppercase tracking-widest">New Info Nugget</div>
+      <label className="flex flex-col gap-1">
+        <span className="text-xs text-zinc-500">Nugget ID</span>
+        <input value={id} onChange={e => setId(e.target.value)} className={INPUT} />
+      </label>
+      <label className="flex flex-col gap-1">
+        <span className="text-xs text-zinc-500">Name</span>
+        <input value={name} onChange={e => setName(e.target.value)} className={INPUT} placeholder="Nugget display name" />
+      </label>
+      <label className="flex flex-col gap-1">
+        <span className="text-xs text-zinc-500">Long Description</span>
+        <textarea value={longDescription} onChange={e => setLongDescription(e.target.value)}
+          className={`${INPUT} resize-y`} rows={2} placeholder="Lore / story description" />
+      </label>
+      <label className="flex flex-col gap-1">
+        <span className="text-xs text-zinc-500">Image URL (optional)</span>
+        <input value={imageUrl} onChange={e => setImageUrl(e.target.value)} className={INPUT} />
+      </label>
+      <div className="flex gap-2">
+        <button
+          onClick={() => {
+            if (!id || !name) return;
+            onCreated({ id, name, longDescription, imageUrl: imageUrl || undefined });
+          }}
+          className={`${BTN} border-amber-500 text-amber-400 hover:bg-amber-900 flex-1`}
+          disabled={!id || !name}
+        >
+          Create Nugget
+        </button>
+        <button onClick={onCancel} className={`${BTN} border-zinc-500 text-zinc-400 hover:border-white hover:text-white`}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Card Form ───────────────────────────────────────────────
 interface CardFormProps {
   initial?: CardDefinition;
-  onSubmit: (card: CardDefinition) => void;
+  onSubmit: (card: CardDefinition, nugget?: InfoNugget) => void;
   submitLabel: string;
   onCancel?: () => void;
 }
 
 function CardForm({ initial, onSubmit, submitLabel, onCancel }: CardFormProps) {
+  const { getAllNuggets, getCompleteNuggets } = useNuggetStore();
+  const allNuggets = getAllNuggets();
+
   const [id, setId] = useState(initial?.id ?? `dev_custom_${Date.now()}`);
   const [name, setName] = useState(initial?.name ?? 'New Card');
   const [cost, setCost] = useState(initial?.cost ?? 1);
@@ -48,6 +102,12 @@ function CardForm({ initial, onSubmit, submitLabel, onCancel }: CardFormProps) {
   const [effectText, setEffectText] = useState(initial?.effectText ?? initial?.description ?? '');
   const [longDescription, setLongDescription] = useState(initial?.longDescription ?? '');
   const [effects, setEffects] = useState<CardEffect[]>(initial?.effects ?? [{ type: 'MODIFY_PRIORITY', value: 1 }]);
+  const [nuggetId, setNuggetId] = useState<string>(initial?.nuggetId ?? '');
+  const [creatingNugget, setCreatingNugget] = useState(false);
+  const [pendingNugget, setPendingNugget] = useState<InfoNugget | null>(null);
+
+  const isInfo = supertype === 'Information';
+  const selectedNugget = pendingNugget ?? allNuggets.find(n => n.id === nuggetId);
 
   useEffect(() => {
     if (initial) {
@@ -61,14 +121,27 @@ function CardForm({ initial, onSubmit, submitLabel, onCancel }: CardFormProps) {
       setEffectText(initial.effectText ?? initial.description ?? '');
       setLongDescription(initial.longDescription ?? '');
       setEffects([...initial.effects]);
+      setNuggetId(initial.nuggetId ?? '');
+      setPendingNugget(null);
     }
   }, [initial]);
+
+  useEffect(() => {
+    if (selectedNugget && isInfo) {
+      setName(selectedNugget.name);
+      setLongDescription(selectedNugget.longDescription);
+    }
+  }, [selectedNugget, isInfo]);
 
   const toggleKw = (kw: Keyword) =>
     setKeywords(prev => prev.includes(kw) ? prev.filter(k => k !== kw) : [...prev, kw]);
 
   const handleSubmit = () => {
-    onSubmit({ id, name, cost, color, supertype, subtype, keywords, effects, effectText, longDescription });
+    const card: CardDefinition = {
+      id, name, cost, color, supertype, subtype, keywords, effects, effectText, longDescription,
+      ...(isInfo && nuggetId ? { nuggetId } : {}),
+    };
+    onSubmit(card, pendingNugget ?? undefined);
   };
 
   return (
@@ -79,8 +152,72 @@ function CardForm({ initial, onSubmit, submitLabel, onCancel }: CardFormProps) {
           <input value={id} onChange={e => setId(e.target.value)} className={INPUT} />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-xs text-zinc-500">Name</span>
-          <input value={name} onChange={e => setName(e.target.value)} className={INPUT} />
+          <span className="text-xs text-zinc-500">Supertype</span>
+          <select value={supertype} onChange={e => {
+            const st = e.target.value as CardSupertype;
+            setSupertype(st);
+            if (st !== 'Information') {
+              setNuggetId('');
+              setPendingNugget(null);
+            }
+          }} className={INPUT}>
+            {SUPERTYPES.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </label>
+      </div>
+
+      {/* Nugget selection for Information cards */}
+      {isInfo && (
+        <div className="border border-amber-700/50 rounded p-2 flex flex-col gap-2 bg-amber-950/10">
+          <div className="text-xs text-amber-400 uppercase tracking-widest">Info Nugget</div>
+          {creatingNugget ? (
+            <NuggetCreator
+              onCreated={(nugget) => {
+                setPendingNugget(nugget);
+                setNuggetId(nugget.id);
+                setCreatingNugget(false);
+              }}
+              onCancel={() => setCreatingNugget(false)}
+            />
+          ) : (
+            <div className="flex gap-2 items-end">
+              <label className="flex flex-col gap-1 flex-1">
+                <span className="text-xs text-zinc-500">Select Nugget</span>
+                <select value={nuggetId} onChange={e => {
+                  setNuggetId(e.target.value);
+                  setPendingNugget(null);
+                }} className={INPUT}>
+                  <option value="">— Select —</option>
+                  {allNuggets.map(n => (
+                    <option key={n.id} value={n.id}>{n.name} ({n.id})</option>
+                  ))}
+                  {pendingNugget && !allNuggets.find(n => n.id === pendingNugget.id) && (
+                    <option value={pendingNugget.id}>{pendingNugget.name} (new)</option>
+                  )}
+                </select>
+              </label>
+              <button onClick={() => setCreatingNugget(true)}
+                className={`${BTN} border-amber-500 text-amber-400 hover:bg-amber-900`}>
+                + New
+              </button>
+            </div>
+          )}
+          {selectedNugget && (
+            <div className="text-xs text-zinc-400">
+              <span className="text-zinc-500">Name:</span> {selectedNugget.name}
+              {selectedNugget.longDescription && (
+                <> · <span className="text-zinc-500">Desc:</span> {selectedNugget.longDescription.slice(0, 80)}{selectedNugget.longDescription.length > 80 ? '…' : ''}</>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-2">
+        <label className="flex flex-col gap-1">
+          <span className="text-xs text-zinc-500">Name{isInfo && selectedNugget ? ' (from nugget)' : ''}</span>
+          <input value={name} onChange={e => setName(e.target.value)} className={INPUT}
+            disabled={isInfo && !!selectedNugget} />
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-xs text-zinc-500">Cost</span>
@@ -90,12 +227,6 @@ function CardForm({ initial, onSubmit, submitLabel, onCancel }: CardFormProps) {
           <span className="text-xs text-zinc-500">Color</span>
           <select value={color} onChange={e => setColor(e.target.value as ColorIdentity)} className={INPUT}>
             {COLORS.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-xs text-zinc-500">Supertype</span>
-          <select value={supertype} onChange={e => setSupertype(e.target.value as CardSupertype)} className={INPUT}>
-            {SUPERTYPES.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </label>
         <label className="flex flex-col gap-1">
@@ -146,15 +277,17 @@ function CardForm({ initial, onSubmit, submitLabel, onCancel }: CardFormProps) {
           placeholder="Short text shown on the card face" />
       </label>
       <label className="flex flex-col gap-1">
-        <span className="text-xs text-zinc-500">Long Description</span>
+        <span className="text-xs text-zinc-500">Long Description{isInfo && selectedNugget ? ' (from nugget)' : ''}</span>
         <textarea value={longDescription} onChange={e => setLongDescription(e.target.value)}
           className={`${INPUT} resize-y`} rows={2}
-          placeholder="Detailed description shown in Details view and hover tooltip" />
+          placeholder="Detailed description shown in Details view and hover tooltip"
+          disabled={isInfo && !!selectedNugget} />
       </label>
 
       <div className="flex gap-2">
         <button onClick={handleSubmit}
-          className={`${BTN} border-blue-500 text-blue-400 hover:bg-blue-900 flex-1`}>
+          className={`${BTN} border-blue-500 text-blue-400 hover:bg-blue-900 flex-1`}
+          disabled={isInfo && !nuggetId}>
           {submitLabel}
         </button>
         {onCancel && (
@@ -164,16 +297,20 @@ function CardForm({ initial, onSubmit, submitLabel, onCancel }: CardFormProps) {
           </button>
         )}
       </div>
+      {isInfo && !nuggetId && (
+        <div className="text-xs text-amber-400">Information cards must be linked to an info nugget.</div>
+      )}
     </div>
   );
 }
 
-function CardGalleryItem({ card, isBuiltIn, onEdit, onDelete, onAddToHand }: {
+function CardGalleryItem({ card, isBuiltIn, onEdit, onDelete, onAddToHand, nuggetName }: {
   card: CardDefinition;
   isBuiltIn: boolean;
   onEdit: () => void;
   onDelete?: () => void;
   onAddToHand?: () => void;
+  nuggetName?: string;
 }) {
   const badgeClass = COLOR_BADGE[card.color] ?? COLOR_BADGE.Colorless;
   const displayText = card.supertype === 'Skill'
@@ -192,6 +329,9 @@ function CardGalleryItem({ card, isBuiltIn, onEdit, onDelete, onAddToHand }: {
       <div className="flex gap-1 flex-wrap">
         <span className={`text-xs px-1 rounded border ${badgeClass}`}>{card.color}</span>
         <span className="text-xs px-1 rounded border border-zinc-600 text-zinc-400">{card.supertype}</span>
+        {card.nuggetId && (
+          <span className="text-xs px-1 rounded border border-amber-700 text-amber-400">{nuggetName ?? card.nuggetId}</span>
+        )}
         {card.keywords.map(kw => (
           <span key={kw} className="text-xs px-1 rounded border border-zinc-600 text-zinc-400">{kw}</span>
         ))}
@@ -213,7 +353,6 @@ function CardGalleryItem({ card, isBuiltIn, onEdit, onDelete, onAddToHand }: {
           <button onClick={onAddToHand} className="text-xs text-green-400 hover:text-green-300 ml-auto">+ Hand</button>
         )}
       </div>
-      {/* Long description tooltip on hover */}
       {card.longDescription && (
         <div className="absolute z-40 bottom-full left-0 mb-1 w-64 p-2 bg-zinc-800 border border-zinc-600 rounded-lg shadow-xl text-xs text-zinc-200 leading-relaxed pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
           {card.longDescription}
@@ -231,6 +370,7 @@ interface CardCollectionProps {
 
 export default function CardCollection({ dispatch }: CardCollectionProps) {
   const { addCard, updateCard, removeCard, getAllCards, loading, error, importFromLocalStorage } = useDevCardStore();
+  const { addNugget, setDefaultCardId, getNugget } = useNuggetStore();
   const [view, setView] = useState<View>('gallery');
   const [editingCard, setEditingCard] = useState<CardDefinition | null>(null);
   const [editingOriginalId, setEditingOriginalId] = useState<string | null>(null);
@@ -253,8 +393,14 @@ export default function CardCollection({ dispatch }: CardCollectionProps) {
         card.supertype.toLowerCase().includes(filter.toLowerCase()))
     : allCards;
 
-  const handleCreate = (card: CardDefinition) => {
-    addCard(card);
+  const handleCreate = (card: CardDefinition, nugget?: InfoNugget) => {
+    if (nugget) {
+      addNugget(nugget);
+      addCard(card);
+      setDefaultCardId(nugget.id, card.id);
+    } else {
+      addCard(card);
+    }
     flashSaved();
     setView('gallery');
   };
@@ -271,8 +417,16 @@ export default function CardCollection({ dispatch }: CardCollectionProps) {
     }
   };
 
-  const handleSaveEdit = (card: CardDefinition) => {
-    if (editingOriginalId) {
+  const handleSaveEdit = (card: CardDefinition, nugget?: InfoNugget) => {
+    if (nugget) {
+      addNugget(nugget);
+      if (editingOriginalId) {
+        updateCard(editingOriginalId, card);
+      } else {
+        addCard(card);
+      }
+      setDefaultCardId(nugget.id, card.id);
+    } else if (editingOriginalId) {
       updateCard(editingOriginalId, card);
     } else {
       addCard(card);
@@ -363,6 +517,7 @@ export default function CardCollection({ dispatch }: CardCollectionProps) {
             onEdit={() => handleEdit(card, builtIn)}
             onDelete={builtIn ? undefined : () => removeCard(card.id)}
             onAddToHand={dispatch ? () => dispatch({ type: 'DEV_ADD_CARD_TO_HAND', card }) : undefined}
+            nuggetName={card.nuggetId ? getNugget(card.nuggetId)?.name : undefined}
           />
         ))}
         {filtered.length === 0 && (
