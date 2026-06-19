@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { DeckDefinition, DeckCardEntry } from '../../combat/types';
+import { DeckDefinition } from '../../combat/types';
 import { useDeckStore } from '../../stores/deckStore';
 import { useDevCardStore } from '../../stores/collectionStore';
 

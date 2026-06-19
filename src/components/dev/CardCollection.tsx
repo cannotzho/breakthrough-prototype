@@ -89,7 +89,7 @@ interface CardFormProps {
 }
 
 function CardForm({ initial, onSubmit, submitLabel, onCancel }: CardFormProps) {
-  const { getAllNuggets, getCompleteNuggets } = useNuggetStore();
+  const { getAllNuggets } = useNuggetStore();
   const allNuggets = getAllNuggets();
 
   const [id, setId] = useState(initial?.id ?? `dev_custom_${Date.now()}`);
