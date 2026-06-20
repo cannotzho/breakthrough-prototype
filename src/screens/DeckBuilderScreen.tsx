@@ -20,7 +20,7 @@ export default function DeckBuilderScreen({ onBack }: Props) {
           Dev Deck Builder
         </h1>
       </header>
-      <main className="flex-1 overflow-y-auto p-6 max-w-2xl mx-auto w-full">
+      <main className="flex-1 overflow-y-auto p-6 max-w-5xl mx-auto w-full">
         <DeckBuilder />
       </main>
     </div>
