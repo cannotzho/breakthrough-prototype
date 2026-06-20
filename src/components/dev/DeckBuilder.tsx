@@ -12,7 +12,8 @@ function emptyDeck(): DeckDefinition {
 
 export default function DeckBuilder() {
   const { getAllDecks, addDeck, updateDeck, removeDeck, loading, error } = useDeckStore();
-  const { getAllCards } = useDevCardStore();
+  const cardMap = useDevCardStore((s) => s.cards);
+  const cardsLoading = useDevCardStore((s) => s.loading);
 
   const [editing, setEditing] = useState<DeckDefinition>(emptyDeck());
   const [loadedId, setLoadedId] = useState<string | null>(null);
@@ -21,8 +22,8 @@ export default function DeckBuilder() {
 
   const decks = getAllDecks();
   const skillCards = useMemo(
-    () => getAllCards().filter((c) => c.supertype === 'Skill').sort((a, b) => a.name.localeCompare(b.name)),
-    [getAllCards],
+    () => Object.values(cardMap).filter((c) => c.supertype === 'Skill').sort((a, b) => a.name.localeCompare(b.name)),
+    [cardMap],
   );
 
   const usedCardIds = new Set(editing.cards.map((e) => e.cardId));
@@ -101,17 +102,16 @@ export default function DeckBuilder() {
   };
 
   const resolveCardName = (cardId: string) => {
-    const card = skillCards.find((c) => c.id === cardId);
-    return card?.name ?? cardId;
+    return cardMap[cardId]?.name ?? cardId;
   };
 
   const totalCards = editing.cards.reduce((sum, c) => sum + c.quantity, 0);
 
-  if (loading) {
+  if (loading || cardsLoading) {
     return (
       <div className="flex items-center gap-2 text-xs text-zinc-400 py-1">
         <span className="inline-block w-3 h-3 border-2 border-zinc-500 border-t-blue-400 rounded-full animate-spin" />
-        Loading decks...
+        Loading {loading && cardsLoading ? 'decks & cards' : loading ? 'decks' : 'cards'}...
       </div>
     );
   }
