@@ -566,11 +566,11 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
   }, [state.phase]);
 
   useEffect(() => {
-    if (state.phase === 'EnemyPending') {
+    if (state.phase === 'EnemyPending' && !state.manualEnemyMode) {
       const t = setTimeout(() => dispatch({ type: 'TRIGGER_ENEMY_ACTION' }), 1100);
       return () => clearTimeout(t);
     }
-  }, [state.phase]);
+  }, [state.phase, state.manualEnemyMode]);
 
   useEffect(() => {
     if (state.phase === 'InterruptCheck') {

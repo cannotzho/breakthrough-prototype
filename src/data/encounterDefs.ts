@@ -80,6 +80,7 @@ export function buildInitialCombatState(config: EncounterConfig): CombatState {
     counterPending: null,
     pendingDiscovery: null,
     discoveredNuggetIds: [],
+    manualEnemyMode: false,
     actionLog: ['Encounter started.'],
   };
 }

@@ -204,6 +204,8 @@ export interface CombatState {
   pendingDiscovery: NuggetDiscoveryEvent | null;
   discoveredNuggetIds: string[];
 
+  manualEnemyMode: boolean;
+
   actionLog: string[];
 }
 
@@ -235,4 +237,6 @@ export type CombatAction =
   | { type: 'CONFIRM_PLACE_AS_SHIELD'; slotIdx: number }
   | { type: 'RESOLVE_INTERRUPT_CHECK' }
   | { type: 'CONFIRM_BOTM' }
-  | { type: 'DEV_RESET'; state: CombatState };
+  | { type: 'DEV_RESET'; state: CombatState }
+  | { type: 'DEV_SET_MANUAL_ENEMY'; enabled: boolean }
+  | { type: 'DEV_PICK_ENEMY_FROM_DECK'; instanceId: string };

@@ -50,9 +50,41 @@ function Slider({ label, value, min, max, onChange }: {
   );
 }
 
+function EnemyCardPicker({ state, dispatch }: { state: CombatState; dispatch: (a: CombatAction) => void }) {
+  if (state.phase !== 'EnemyPending' || state.enemyDeck.length === 0) return null;
+  return (
+    <div className="border border-red-700 rounded p-2 bg-red-950/30">
+      <div className="text-xs text-red-400 font-bold mb-2">
+        Pick enemy card ({state.enemyDeck.length} in deck)
+      </div>
+      <div className="flex flex-col gap-1 max-h-48 overflow-y-auto">
+        {state.enemyDeck.map((inst, i) => (
+          <button key={inst.instanceId}
+            onClick={() => dispatch({ type: 'DEV_PICK_ENEMY_FROM_DECK', instanceId: inst.instanceId })}
+            className="text-left text-xs px-2 py-1.5 rounded border border-zinc-700 text-zinc-200 hover:border-red-400 hover:text-red-300 hover:bg-red-950/50 transition-colors flex justify-between items-center"
+          >
+            <span>{i === 0 && <span className="text-zinc-500 mr-1">[top]</span>}{inst.definition.name}</span>
+            <span className="text-zinc-500 text-[10px]">{inst.definition.color}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function StateTab({ state, dispatch }: { state: CombatState; dispatch: (a: CombatAction) => void }) {
   return (
     <div className="flex flex-col gap-4">
+      <div className="flex items-center gap-3">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" checked={state.manualEnemyMode}
+            onChange={e => dispatch({ type: 'DEV_SET_MANUAL_ENEMY', enabled: e.target.checked })} />
+          <span className="text-xs text-red-400 font-bold">Manual Enemy</span>
+        </label>
+      </div>
+
+      {state.manualEnemyMode && <EnemyCardPicker state={state} dispatch={dispatch} />}
+
       <div className="flex gap-2 flex-wrap">
         <span className="text-xs text-zinc-500">Phase:</span>
         <select

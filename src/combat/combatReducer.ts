@@ -321,6 +321,7 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       } else {
         s = addLog(s, `Back of Mind: ${state.backOfMind.map(c => c.definition.name).join(', ')}`);
       }
+      if (s.manualEnemyMode) return s;
       return selectEnemyCard(s);
     }
 
@@ -572,6 +573,21 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
 
     case 'DEV_RESET':
       return action.state;
+
+    case 'DEV_SET_MANUAL_ENEMY':
+      return { ...state, manualEnemyMode: action.enabled };
+
+    case 'DEV_PICK_ENEMY_FROM_DECK': {
+      if (state.phase !== 'EnemyPending') return state;
+      const idx = state.enemyDeck.findIndex(c => c.instanceId === action.instanceId);
+      if (idx === -1) return state;
+      const card = state.enemyDeck[idx];
+      const rest = [...state.enemyDeck.slice(0, idx), ...state.enemyDeck.slice(idx + 1)];
+      return addLog(
+        { ...state, stagedEnemyCard: card, enemyDeck: rest, phase: 'InterruptCheck' },
+        `[Manual] Enemy plays ${card.definition.name}`
+      );
+    }
 
     default:
       return state;
