@@ -118,12 +118,22 @@ export function priorityRestore(state: CombatState): CombatState {
 }
 
 export function selectEnemyCard(state: CombatState): CombatState {
-  if (state.enemyDeck.length === 0) {
-    const restored = priorityRestore(state);
-    return { ...restored, phase: 'Check' };
+  let deck = state.enemyDeck;
+  let discard = state.enemyDiscard;
+  const log = [...state.actionLog];
+
+  if (deck.length === 0) {
+    if (discard.length === 0) {
+      const restored = priorityRestore(state);
+      return { ...restored, phase: 'Check' };
+    }
+    deck = shuffle([...discard]);
+    discard = [];
+    log.push('NPC deck recycled.');
   }
-  const [card, ...rest] = state.enemyDeck;
-  return { ...state, stagedEnemyCard: card, enemyDeck: rest, phase: 'InterruptCheck' };
+
+  const [card, ...rest] = deck;
+  return { ...state, stagedEnemyCard: card, enemyDeck: rest, enemyDiscard: discard, actionLog: log, phase: 'InterruptCheck' };
 }
 
 export function makeInstance(definition: CardInstance['definition']): CardInstance {

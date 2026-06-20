@@ -1,5 +1,5 @@
 import { CombatState, CombatAction, CardInstance, CardEffect, NuggetOverride, SHIELD_PLACEMENT_COST } from './types';
-import { applyEffect, priorityRestore, selectEnemyCard, makeInstance, clampPriority } from './effectHandlers';
+import { applyEffect, priorityRestore, selectEnemyCard, makeInstance, clampPriority, shuffle } from './effectHandlers';
 import { COMBINATIONS } from '../data/combinations';
 import { PONDER_DEFINITION } from '../data/devCards';
 
@@ -58,6 +58,12 @@ function checkState(state: CombatState): CombatState {
     return { ...state, phase: 'BotMSelect' };
   }
 
+  if (state.enemyDeck.length === 0 && state.enemyDiscard.length > 0) {
+    return addLog(
+      { ...state, phase: 'EnemyPending', enemyDeck: shuffle([...state.enemyDiscard]), enemyDiscard: [] },
+      'NPC deck recycled.'
+    );
+  }
   return { ...state, phase: 'EnemyPending' };
 }
 
@@ -320,6 +326,9 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
         s = addLog(s, 'Back of Mind: passed (no cards kept)');
       } else {
         s = addLog(s, `Back of Mind: ${state.backOfMind.map(c => c.definition.name).join(', ')}`);
+      }
+      if (s.enemyDeck.length === 0 && s.enemyDiscard.length > 0) {
+        s = addLog({ ...s, enemyDeck: shuffle([...s.enemyDiscard]), enemyDiscard: [] }, 'NPC deck recycled.');
       }
       if (s.manualEnemyMode) return s;
       return selectEnemyCard(s);

@@ -955,6 +955,10 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
                       ))}
                     </div>
                     <TraitZone traits={state.config.traits} compact />
+                    <div className="flex gap-3 text-[10px] lg:text-xs text-zinc-500">
+                      <span>Deck {state.enemyDeck.length}</span>
+                      <span>Discard {state.enemyDiscard.length}</span>
+                    </div>
                   </div>
                 )}
               </div>

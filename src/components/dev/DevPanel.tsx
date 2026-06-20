@@ -55,7 +55,7 @@ function EnemyCardPicker({ state, dispatch }: { state: CombatState; dispatch: (a
   return (
     <div className="border border-red-700 rounded p-2 bg-red-950/30">
       <div className="text-xs text-red-400 font-bold mb-2">
-        Pick enemy card ({state.enemyDeck.length} in deck)
+        Pick enemy card ({state.enemyDeck.length} in deck, {state.enemyDiscard.length} in discard)
       </div>
       <div className="flex flex-col gap-1 max-h-48 overflow-y-auto">
         {state.enemyDeck.map((inst, i) => (
