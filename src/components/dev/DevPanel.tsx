@@ -10,7 +10,16 @@ import EncounterEditor from './EncounterEditor';
 import CardCollection from './CardCollection';
 import DeckBuilder from './DeckBuilder';
 
-type Tab = 'State' | 'Log' | 'Config' | 'Cards' | 'NuggetOvr' | 'Encounters' | 'Collection' | 'Decks';
+type View = 'State' | 'Cards' | 'NuggetOvr' | 'Encounters' | 'Collection' | 'Decks';
+
+const VIEW_META: { id: View; label: string; icon: string }[] = [
+  { id: 'State',       label: 'State',       icon: '⚙' },
+  { id: 'Cards',       label: 'Cards',       icon: '🃏' },
+  { id: 'NuggetOvr',   label: 'Nuggets',     icon: '💎' },
+  { id: 'Encounters',  label: 'Encounters',  icon: '⚔' },
+  { id: 'Collection',  label: 'Collection',  icon: '📦' },
+  { id: 'Decks',       label: 'Decks',       icon: '📚' },
+];
 
 const PHASES: CombatPhase[] = [
   'Check', 'PlayerPending', 'PlayerPlay', 'RevealPending', 'PlayerShieldChoice',
@@ -55,7 +64,7 @@ function EnemyCardPicker({ state, dispatch }: { state: CombatState; dispatch: (a
   return (
     <div className="border border-red-700 rounded p-2 bg-red-950/30">
       <div className="text-xs text-red-400 font-bold mb-2">
-        Pick enemy card ({state.enemyDeck.length} in deck, {state.enemyDiscard.length} in discard)
+        Pick enemy card ({state.enemyDeck.length} in deck)
       </div>
       <div className="flex flex-col gap-1 max-h-48 overflow-y-auto">
         {state.enemyDeck.map((inst, i) => (
@@ -72,7 +81,7 @@ function EnemyCardPicker({ state, dispatch }: { state: CombatState; dispatch: (a
   );
 }
 
-function StateTab({ state, dispatch }: { state: CombatState; dispatch: (a: CombatAction) => void }) {
+function StateView({ state, dispatch }: { state: CombatState; dispatch: (a: CombatAction) => void }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
@@ -177,60 +186,7 @@ function StateTab({ state, dispatch }: { state: CombatState; dispatch: (a: Comba
   );
 }
 
-function LogTab({ log }: { log: string[] }) {
-  return (
-    <div className="flex flex-col gap-1 overflow-y-auto max-h-96">
-      {[...log].reverse().map((entry, i) => (
-        <div key={log.length - 1 - i} className="text-xs text-zinc-300 border-b border-zinc-800 pb-1">
-          {entry}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function ConfigTab({ state }: { state: CombatState }) {
-  const [copied, setCopied] = useState(false);
-
-  const encounterJson = JSON.stringify(state.config, null, 2);
-
-  const handleDownload = () => {
-    const blob = new Blob([encounterJson], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${state.config.id || 'encounter'}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(encounterJson);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <div className="flex flex-col gap-3 overflow-auto max-h-96">
-      <div className="flex gap-2">
-        <button onClick={handleDownload}
-          className="text-xs px-3 py-1.5 border border-blue-500 text-blue-400 hover:bg-blue-900 rounded transition-colors">
-          Download JSON
-        </button>
-        <button onClick={handleCopy}
-          className={`text-xs px-3 py-1.5 border rounded transition-colors
-            ${copied ? 'border-green-500 text-green-400' : 'border-zinc-500 text-zinc-400 hover:border-white hover:text-white'}`}>
-          {copied ? 'Copied!' : 'Copy to Clipboard'}
-        </button>
-      </div>
-      <pre className="text-xs text-zinc-300 whitespace-pre-wrap">
-        {JSON.stringify({ combatConfig: state.combatConfig, encounterConfig: state.config }, null, 2)}
-      </pre>
-    </div>
-  );
-}
-
-function CardCreatorTab({ dispatch }: { dispatch: (a: CombatAction) => void }) {
+function CardCreatorView({ dispatch }: { dispatch: (a: CombatAction) => void }) {
   const [name, setName] = useState('Test Card');
   const [cost, setCost] = useState(1);
   const [color, setColor] = useState<ColorIdentity>('Red');
@@ -260,7 +216,7 @@ function CardCreatorTab({ dispatch }: { dispatch: (a: CombatAction) => void }) {
   };
 
   return (
-    <div className="flex flex-col gap-3 overflow-y-auto max-h-96">
+    <div className="flex flex-col gap-3">
       <div className="grid grid-cols-2 gap-2">
         <label className="flex flex-col gap-1">
           <span className="text-xs text-zinc-500">Name</span>
@@ -346,7 +302,7 @@ function CardCreatorTab({ dispatch }: { dispatch: (a: CombatAction) => void }) {
   );
 }
 
-function NuggetOverrideCreatorTab({ dispatch }: { dispatch: (a: CombatAction) => void }) {
+function NuggetOverrideCreatorView({ dispatch }: { dispatch: (a: CombatAction) => void }) {
   const [nuggetId, setNuggetId] = useState('');
   const [effectText, setEffectText] = useState('');
   const [effectsJson, setEffectsJson] = useState('[{"type":"MODIFY_PATIENCE","value":-1}]');
@@ -378,7 +334,7 @@ function NuggetOverrideCreatorTab({ dispatch }: { dispatch: (a: CombatAction) =>
   };
 
   return (
-    <div className="flex flex-col gap-3 overflow-y-auto max-h-96">
+    <div className="flex flex-col gap-3">
       <label className="flex flex-col gap-1">
         <span className="text-xs text-zinc-500">Nugget ID</span>
         <input value={nuggetId} onChange={e => setNuggetId(e.target.value)}
@@ -403,10 +359,38 @@ function NuggetOverrideCreatorTab({ dispatch }: { dispatch: (a: CombatAction) =>
   );
 }
 
-export default function DevPanel({ open, onClose, state, dispatch, onLoadEncounter }: Props) {
-  const [tab, setTab] = useState<Tab>('State');
+function LogDrawer({ log, expanded, onToggle }: { log: string[]; expanded: boolean; onToggle: () => void }) {
+  return (
+    <div className="border-t border-zinc-700 bg-zinc-900 flex flex-col shrink-0">
+      <button
+        onClick={onToggle}
+        className="flex items-center justify-between px-3 py-1.5 hover:bg-zinc-800 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Log</span>
+          <span className="text-[10px] text-zinc-600">{log.length} entries</span>
+        </div>
+        <span className="text-xs text-zinc-500">{expanded ? '▼' : '▲'}</span>
+      </button>
+      {expanded && (
+        <div className="flex flex-col gap-0.5 overflow-y-auto max-h-52 px-3 pb-2">
+          {log.length === 0 && (
+            <div className="text-xs text-zinc-600 py-2">No log entries yet</div>
+          )}
+          {[...log].reverse().map((entry, i) => (
+            <div key={log.length - 1 - i} className="text-xs text-zinc-300 border-b border-zinc-800 pb-0.5">
+              {entry}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
-  const tabs: Tab[] = ['State', 'Log', 'Config', 'Cards', 'NuggetOvr', 'Encounters', 'Collection', 'Decks'];
+export default function DevPanel({ open, onClose, state, dispatch, onLoadEncounter }: Props) {
+  const [activeView, setActiveView] = useState<View>('State');
+  const [logExpanded, setLogExpanded] = useState(false);
 
   return (
     <AnimatePresence>
@@ -416,10 +400,11 @@ export default function DevPanel({ open, onClose, state, dispatch, onLoadEncount
           animate={{ x: 0 }}
           exit={{ x: '100%' }}
           transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-          className="fixed right-0 top-0 bottom-0 w-80 lg:w-96 xl:w-[28rem] 2xl:w-[32rem] bg-zinc-900 border-l border-zinc-700 z-40 flex flex-col shadow-2xl"
+          className="fixed right-0 top-0 bottom-0 w-[36rem] bg-zinc-900 border-l border-zinc-700 z-40 flex flex-col shadow-2xl"
         >
-          <div className="flex items-center justify-between px-3 lg:px-4 py-2 lg:py-3 border-b border-zinc-800">
-            <span className="text-xs lg:text-sm font-bold text-zinc-400 uppercase tracking-widest">Dev Panel</span>
+          {/* Title bar */}
+          <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-800 shrink-0">
+            <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Dev Panel</span>
             {onClose && (
               <button
                 onClick={onClose}
@@ -431,28 +416,51 @@ export default function DevPanel({ open, onClose, state, dispatch, onLoadEncount
             )}
           </div>
 
-          <div className="flex border-b border-zinc-800">
-            {tabs.map(t => (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={`flex-1 text-xs lg:text-sm py-2 lg:py-2.5 transition-colors
-                  ${tab === t ? 'text-white border-b-2 border-blue-400' : 'text-zinc-500 hover:text-zinc-300'}`}
-              >
-                {t === 'NuggetOvr' ? 'Ovr' : t === 'Encounters' ? 'Enc' : t === 'Collection' ? 'Col' : t === 'Decks' ? 'Deck' : t}
-              </button>
-            ))}
-          </div>
+          {/* Main body: sidebar + content */}
+          <div className="flex flex-1 min-h-0">
+            {/* Activity bar (VS Code-style sidebar) */}
+            <div className="w-11 shrink-0 border-r border-zinc-800 flex flex-col items-center py-2 gap-1 bg-zinc-950">
+              {VIEW_META.map(v => (
+                <button
+                  key={v.id}
+                  onClick={() => setActiveView(v.id)}
+                  title={v.label}
+                  className={`w-9 h-9 flex items-center justify-center rounded text-sm transition-colors
+                    ${activeView === v.id
+                      ? 'bg-zinc-800 text-white border-l-2 border-blue-400'
+                      : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50'}`}
+                >
+                  {v.icon}
+                </button>
+              ))}
+            </div>
 
-          <div className="flex-1 overflow-y-auto p-3 lg:p-4 xl:p-5 text-sm lg:text-base [&_*]:lg:text-sm [&_.text-xs]:lg:text-sm">
-            {tab === 'State' && <StateTab state={state} dispatch={dispatch} />}
-            {tab === 'Log' && <LogTab log={state.actionLog} />}
-            {tab === 'Config' && <ConfigTab state={state} />}
-            {tab === 'Cards' && <CardCreatorTab dispatch={dispatch} />}
-            {tab === 'NuggetOvr' && <NuggetOverrideCreatorTab dispatch={dispatch} />}
-            {tab === 'Encounters' && <EncounterEditor onLoadEncounter={onLoadEncounter} />}
-            {tab === 'Collection' && <CardCollection dispatch={dispatch} />}
-            {tab === 'Decks' && <DeckBuilder />}
+            {/* Content area */}
+            <div className="flex-1 flex flex-col min-h-0">
+              {/* View header */}
+              <div className="px-3 py-2 border-b border-zinc-800 shrink-0">
+                <span className="text-xs text-zinc-500 uppercase tracking-widest">
+                  {VIEW_META.find(v => v.id === activeView)?.label}
+                </span>
+              </div>
+
+              {/* Scrollable content */}
+              <div className="flex-1 overflow-y-auto p-3">
+                {activeView === 'State' && <StateView state={state} dispatch={dispatch} />}
+                {activeView === 'Cards' && <CardCreatorView dispatch={dispatch} />}
+                {activeView === 'NuggetOvr' && <NuggetOverrideCreatorView dispatch={dispatch} />}
+                {activeView === 'Encounters' && <EncounterEditor onLoadEncounter={onLoadEncounter} />}
+                {activeView === 'Collection' && <CardCollection dispatch={dispatch} />}
+                {activeView === 'Decks' && <DeckBuilder hideCardEditor />}
+              </div>
+
+              {/* Log drawer at bottom */}
+              <LogDrawer
+                log={state.actionLog}
+                expanded={logExpanded}
+                onToggle={() => setLogExpanded(e => !e)}
+              />
+            </div>
           </div>
         </motion.div>
       )}

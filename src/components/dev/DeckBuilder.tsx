@@ -9,7 +9,11 @@ function emptyDeck(): DeckDefinition {
   return { id: `deck_${Date.now()}`, name: '', description: '', cards: [] };
 }
 
-export default function DeckBuilder() {
+interface DeckBuilderProps {
+  hideCardEditor?: boolean;
+}
+
+export default function DeckBuilder({ hideCardEditor }: DeckBuilderProps = {}) {
   const { getAllDecks, addDeck, updateDeck, removeDeck, loading, error } = useDeckStore();
   const { addCard, updateCard, getAllCards } = useDevCardStore();
   const cardMap = useDevCardStore((s) => s.cards);
@@ -174,7 +178,7 @@ export default function DeckBuilder() {
   }
 
   return (
-    <div className="flex gap-6">
+    <div className={hideCardEditor ? "flex flex-col gap-4" : "flex gap-6"}>
       {/* Left column — Deck Builder */}
       <div className="flex flex-col gap-4 flex-1 min-w-0">
         {/* Deck selector */}
@@ -333,52 +337,53 @@ export default function DeckBuilder() {
         </div>
       </div>
 
-      {/* Right column — Card Creator */}
-      <div className="w-80 shrink-0 flex flex-col gap-3 border-l border-zinc-800 pl-6">
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-zinc-500 uppercase tracking-widest">
-            {editingCard ? 'Edit Card' : 'Create Card'}
-          </span>
-          <button
-            onClick={() => setCardEditorOpen(!cardEditorOpen)}
-            className="text-xs text-zinc-500 hover:text-white"
-          >
-            {cardEditorOpen ? 'Collapse' : 'Expand'}
-          </button>
-        </div>
-        {cardEditorOpen && (
-          <>
-            {cardSaved && <span className="text-xs text-green-400">Card saved!</span>}
-            {/* Quick list of custom cards for editing */}
-            {customCards.length > 0 && !editingCard && (
-              <div className="flex flex-col gap-1">
-                <span className="text-xs text-zinc-600">Custom cards ({customCards.length})</span>
-                <div className="max-h-32 overflow-y-auto flex flex-col gap-0.5">
-                  {customCards.map((c) => (
-                    <button
-                      key={c.id}
-                      onClick={() => handleCardEdit(c)}
-                      className="text-left text-xs text-zinc-400 hover:text-white truncate px-1 py-0.5 rounded hover:bg-zinc-800"
-                    >
-                      {c.name} <span className="text-zinc-600">({c.id})</span>
-                    </button>
-                  ))}
+      {/* Right column — Card Creator (hidden when embedded in DevPanel) */}
+      {!hideCardEditor && (
+        <div className="w-80 shrink-0 flex flex-col gap-3 border-l border-zinc-800 pl-6">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-zinc-500 uppercase tracking-widest">
+              {editingCard ? 'Edit Card' : 'Create Card'}
+            </span>
+            <button
+              onClick={() => setCardEditorOpen(!cardEditorOpen)}
+              className="text-xs text-zinc-500 hover:text-white"
+            >
+              {cardEditorOpen ? 'Collapse' : 'Expand'}
+            </button>
+          </div>
+          {cardEditorOpen && (
+            <>
+              {cardSaved && <span className="text-xs text-green-400">Card saved!</span>}
+              {customCards.length > 0 && !editingCard && (
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs text-zinc-600">Custom cards ({customCards.length})</span>
+                  <div className="max-h-32 overflow-y-auto flex flex-col gap-0.5">
+                    {customCards.map((c) => (
+                      <button
+                        key={c.id}
+                        onClick={() => handleCardEdit(c)}
+                        className="text-left text-xs text-zinc-400 hover:text-white truncate px-1 py-0.5 rounded hover:bg-zinc-800"
+                      >
+                        {c.name} <span className="text-zinc-600">({c.id})</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-            <CardForm
-              key={editingCard?.id ?? 'new'}
-              initial={editingCard ?? undefined}
-              onSubmit={editingCard ? handleCardSaveEdit : handleCardCreate}
-              submitLabel={editingCard ? 'Save Changes' : 'Create Card'}
-              onCancel={editingCard ? () => {
-                setEditingCard(null);
-                setEditingCardOriginalId(null);
-              } : undefined}
-            />
-          </>
-        )}
-      </div>
+              )}
+              <CardForm
+                key={editingCard?.id ?? 'new'}
+                initial={editingCard ?? undefined}
+                onSubmit={editingCard ? handleCardSaveEdit : handleCardCreate}
+                submitLabel={editingCard ? 'Save Changes' : 'Create Card'}
+                onCancel={editingCard ? () => {
+                  setEditingCard(null);
+                  setEditingCardOriginalId(null);
+                } : undefined}
+              />
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
