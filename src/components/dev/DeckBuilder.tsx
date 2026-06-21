@@ -3,7 +3,9 @@ import { CardDefinition, DeckDefinition, InfoNugget } from '../../combat/types';
 import { useDeckStore } from '../../stores/deckStore';
 import { useDevCardStore } from '../../stores/collectionStore';
 import { useNuggetStore } from '../../stores/nuggetStore';
+import { DEV_SKILL_CARDS } from '../../data/devCards';
 import CardForm, { INPUT, BTN } from './CardEditorForm';
+import CardGalleryGrid from './CardGalleryGrid';
 
 function emptyDeck(): DeckDefinition {
   return { id: `deck_${Date.now()}`, name: '', description: '', cards: [] };
@@ -24,6 +26,7 @@ export default function DeckBuilder({ hideCardEditor }: DeckBuilderProps = {}) {
   const [loadedId, setLoadedId] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [validationError, setValidationError] = useState('');
+  const [galleryFilter, setGalleryFilter] = useState('');
 
   const [cardEditorOpen, setCardEditorOpen] = useState(true);
   const [editingCard, setEditingCard] = useState<CardDefinition | null>(null);
@@ -32,13 +35,22 @@ export default function DeckBuilder({ hideCardEditor }: DeckBuilderProps = {}) {
 
   const decks = getAllDecks();
   const customCards = getAllCards();
-  const skillCards = useMemo(
-    () => Object.values(cardMap).filter((c) => c.supertype === 'Skill').sort((a, b) => a.name.localeCompare(b.name)),
-    [cardMap],
-  );
 
-  const usedCardIds = new Set(editing.cards.map((e) => e.cardId));
-  const availableCards = skillCards.filter((c) => !usedCardIds.has(c.id));
+  const allSkillCards = useMemo(() => {
+    const customSkills = Object.values(cardMap).filter((c) => c.supertype === 'Skill');
+    const builtInIds = new Set(DEV_SKILL_CARDS.map((c) => c.id));
+    const deduped = [
+      ...DEV_SKILL_CARDS,
+      ...customSkills.filter((c) => !builtInIds.has(c.id)),
+    ];
+    return deduped.sort((a, b) => a.name.localeCompare(b.name));
+  }, [cardMap]);
+
+  const deckCardQuantities = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const entry of editing.cards) map[entry.cardId] = entry.quantity;
+    return map;
+  }, [editing.cards]);
 
   const flashSaved = () => {
     setSaved(true);
@@ -118,7 +130,10 @@ export default function DeckBuilder({ hideCardEditor }: DeckBuilderProps = {}) {
   };
 
   const resolveCardName = (cardId: string) => {
-    return cardMap[cardId]?.name ?? cardId;
+    const fromStore = cardMap[cardId];
+    if (fromStore) return fromStore.name;
+    const builtIn = DEV_SKILL_CARDS.find((c) => c.id === cardId);
+    return builtIn?.name ?? cardId;
   };
 
   const handleCardCreate = (card: CardDefinition, nugget?: InfoNugget) => {
@@ -234,11 +249,11 @@ export default function DeckBuilder({ hideCardEditor }: DeckBuilderProps = {}) {
           />
         </label>
 
-        {/* Card list */}
+        {/* Current deck list */}
         <div>
           <div className="flex justify-between items-center mb-2">
             <span className="text-xs text-zinc-500">
-              Cards ({editing.cards.length} unique · {totalCards} total)
+              Deck Cards ({editing.cards.length} unique · {totalCards} total)
             </span>
           </div>
 
@@ -270,7 +285,6 @@ export default function DeckBuilder({ hideCardEditor }: DeckBuilderProps = {}) {
                   <button onClick={() => removeEntry(entry.cardId)} className="text-xs text-red-500 hover:text-red-400">
                     ✕
                   </button>
-                  {/* Edit card button */}
                   {cardMap[entry.cardId] && (
                     <button
                       onClick={() => handleCardEdit(cardMap[entry.cardId])}
@@ -283,33 +297,29 @@ export default function DeckBuilder({ hideCardEditor }: DeckBuilderProps = {}) {
               ))}
             </div>
           )}
+        </div>
 
-          {/* Add card dropdown */}
-          {availableCards.length > 0 ? (
-            <div className="flex gap-2 items-end">
-              <select
-                defaultValue=""
-                onChange={(e) => {
-                  if (e.target.value) {
-                    addCardEntry(e.target.value);
-                    e.target.value = '';
-                  }
-                }}
-                className={`${INPUT} flex-1`}
-              >
-                <option value="">+ Add a skill card...</option>
-                {availableCards.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.id})
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : (
-            <div className="text-xs text-zinc-500">
-              {skillCards.length === 0 ? 'No skill cards in the collection yet.' : 'All skill cards added.'}
-            </div>
-          )}
+        {/* Card gallery — click to add to deck */}
+        <div>
+          <span className="text-xs text-zinc-500 uppercase tracking-widest mb-2 block">
+            Click a card to add to deck
+          </span>
+          <CardGalleryGrid
+            cards={allSkillCards}
+            onCardClick={(card) => addCardEntry(card.id)}
+            filter={galleryFilter}
+            onFilterChange={setGalleryFilter}
+            filterPlaceholder="Filter skill cards..."
+            renderOverlay={(card) => {
+              const qty = deckCardQuantities[card.id];
+              return qty ? (
+                <span className="flex items-center justify-center w-5 h-5 rounded-full bg-green-600 text-white text-[10px] font-bold">
+                  {qty}
+                </span>
+              ) : null;
+            }}
+            emptyMessage="No skill cards available."
+          />
         </div>
 
         {/* Validation error */}
