@@ -1,12 +1,24 @@
 # Breakthrough — Game Design Document
 
-> **Status:** Draft v1.1 — Major combat system rework: interrupts removed, shield taxonomy (dummy/core), trap cards, trigger resolution ordering, alternative priority mode. See Changelog.
+> **Status:** Draft v1.2 — All v1.1 open questions resolved: priority mode naming, automatic shield targeting, Field zone, per-shield Patience cost, structured trap triggers, BotM rationale, nested trigger resolution, required encounter fields. See Changelog.
 
 ---
 
 ## Changelog
 
 Changes are listed in reverse chronological order. Each entry describes what changed in the design; the body of the document always reflects the current state of the design.
+
+### v1.2 — 2026-06-22
+
+- **Priority modes renamed.** "Standard Priority Mode" → **Frame Priority Mode** (variable priority restore based on shield breaks, inspired by fighting-game frame advantage). "Fixed Priority Mode" → **Classic Priority Mode** (full priority replenishment each turn, named for genre convention). Frame remains the default.
+- **Player Shield Choice is now fully automatic.** The leftmost eligible shield is always broken; the player's only lever is pre-arranging shield order via free resequencing. The `PlayerShieldChoice` blocking state is collapsed into a non-blocking resolution step within Enemy Play.
+- **"Trap Zone" renamed to "Field."** The Field is a shared persistent zone (modeled on MTG/Hearthstone battlefields) where both Trap cards and Impression cards reside while active. All references to "Trap Zone" replaced.
+- **Core Shield Patience cost is per-shield configurable.** Each Core Shield definition specifies its own `patienceCostOnBreak` value. Dummy Shields remain a flat 1 Patience on break.
+- **Trap trigger conditions use structured fields.** Trigger conditions are authored via fixed structured fields (type, target, comparator, value), not a freeform DSL. A DSL remains a possible future expansion.
+- **Traps are hand-only, mid-combat.** Trap cards can only be played from hand during combat; there is no pre-encounter placement option.
+- **BotM rationale updated.** BotM's purpose is now solely limited card retention across turns (since hands refresh each turn). The "Blue increases BotM capacity" mechanic remains relevant for strategic carry-over depth.
+- **Nested trigger resolution confirmed with depth guard.** When a trigger's resolution causes another trigger, it resolves immediately as a sub-step (genuinely nested/recursive, not flat queuing). A hard depth cap of 20 nested triggers is required as a safety guard.
+- **New encounter config fields are required.** `allowedCoreShields`, `playerDummyShieldSlots`, and `priorityMode` are required fields on encounter definitions — no backwards-compatibility shim, since there are no production-ready encounters.
 
 ### v1.1 — 2026-06-21
 
@@ -47,7 +59,7 @@ This game is keyword-driven. All mechanical terms should be used precisely and c
 | **Hint** | A special type of Opponent Shield. When broken, displays lore text but adds no cards to the player's deck. Hint text remains visible in the shield zone after breaking. |
 | **Skill Card** | A card type representing the Detective's learned abilities. Effects are always known. Kept in the Skill Deck. |
 | **Information Card** | A card type representing knowledge about the world. Effects are unknown until discovered and vary across encounters — the effect is defined per-encounter in the encounter's `relevantCards` config, not globally. Kept in the Collection. |
-| **Back of Mind (BotM)** | A card held over from the player's hand when Priority shifts to the NPC. |
+| **Back of Mind (BotM)** | A card retained from the player's hand across the turn transition when Priority shifts to the NPC. BotM is the mechanism that controls what carries over between turns, since hands refresh each turn. |
 | **Trap** | A card category. When played, Trap cards persist on the battlefield through the opponent's next turn. They trigger their effects only when a defined condition is met during that window. If not triggered, they expire to the discard pile when it is the player's turn again. |
 | **Lie** | A keyword on certain Black cards. When a card with Lie is played, the encounter's Lie Counter increases by 1. If the Lie Counter exceeds the encounter's `lieThreshold`, the encounter ends immediately as a loss. Some NPC Traits and cards interact with the Lie Counter to impose additional penalties. |
 | **Safety** | A keyword on certain cards. Has no effect when played normally. When a card with Safety is used as a Player Shield and that shield is broken, a more favourable break outcome resolves (Effective Break — NPC loses 0 Patience instead of 1). |
@@ -59,16 +71,16 @@ This game is keyword-driven. All mechanical terms should be used precisely and c
 | **Collection** | A database of all cards the player has obtained. Cards are divided into Skill Cards and Information Cards. The Collection is the source from which the player builds their Conversation Deck. |
 | **Skill Deck** | A 20-card deck built from Skill Cards chosen by the player. Combined with Information Cards to form the Conversation Deck. |
 | **Discovered** | The state of an Information Card whose effect has been revealed. Discovery persists across encounters. |
-| **Impression** | A card subtype native to Orange. When played, an Impression card is placed on the field rather than discarded, providing a persistent passive effect for the remainder of the encounter. |
+| **Impression** | A card subtype native to Orange. When played, an Impression card is placed on the Field rather than discarded, providing a persistent passive effect for the remainder of the encounter. |
 | **Priority Restore** | The event that occurs whenever Priority transitions from ≤ 0 to > 0. Always triggers a fresh hand draw and sets Priority to the encounter's default restore value. |
 | **Staged Card** | The NPC's currently loaded card, pending resolution. Exists between Enemy Pending and the end of Enemy Play. |
 | **Retryable** | An encounter property. If true, the player may restart the encounter after losing. |
 | **Persistent Break** | An opponent shield that remains broken when a retryable encounter is restarted. |
 | **Deck Recycle** | When the draw pile is empty, the discard pile is reshuffled to form a new draw pile. |
-| **Trap Zone** | The battlefield area where active (pending) Trap cards reside while awaiting their trigger condition during the opponent's turn. |
+| **Field** | The persistent battlefield zone where Trap cards and Impression cards reside while active. Modeled on the "permanents on a battlefield" concept from games like MTG and Hearthstone. Distinct from hand, deck, and discard pile. |
 | **Field Trigger Check** | The engine step that evaluates whether any Trap triggers or Shield Triggers should fire after a card resolves. Replaces the former interrupt-checking model. |
-| **Fixed Priority Mode** | An alternative game mode where Priority resets to 10 at the start of each player turn with no carry-over or overflow. |
-| **Standard Priority Mode** | The default game mode where Priority carries over between turns with overflow deducted from Patience. |
+| **Classic Priority Mode** | An alternative game mode where Priority resets to 10 at the start of each player turn (both player and enemy), with no carry-over or overflow. Named for the genre convention — most card games use full priority replenishment per turn. |
+| **Frame Priority Mode** | The default game mode where restored Priority is variable, determined by the shield break that caused the Priority Restore event. Named after the concept of "frame advantage" in fighting games, where the reward for a successful action determines how much initiative you recover. |
 
 ---
 
@@ -76,7 +88,7 @@ This game is keyword-driven. All mechanical terms should be used precisely and c
 
 ### Priority
 
-Priority is a signed integer. In Standard Priority Mode it is clamped to the range −10 to +10. It starts at a per-encounter value and changes as cards are played.
+Priority is a signed integer. In Frame Priority Mode it is clamped to the range −10 to +10. It starts at a per-encounter value and changes as cards are played.
 
 Playing a card costs the Priority value printed on the card. The player must explicitly click "End Turn" to pass initiative to the NPC — there is no automatic turn-ending even when Priority reaches zero or no valid moves remain.
 
@@ -88,13 +100,13 @@ Playing a card costs the Priority value printed on the card. The player must exp
 
 An encounter selects one of two priority modes via the `priorityMode` config field:
 
-**Standard Priority Mode** (default): Priority carries over between turns. Playing a card costs `min(cost, currentPriority)` from Priority, then `max(0, cost − currentPriority)` from NPC Patience (overflow). Priority is clamped to −10 to +10.
+**Frame Priority Mode** (default): Priority carries over between turns. Playing a card costs `min(cost, currentPriority)` from Priority, then `max(0, cost − currentPriority)` from NPC Patience (overflow). Priority is clamped to −10 to +10. The name reflects "frame advantage" from fighting games — the reward for a successful shield break determines how much initiative the player recovers, creating variable momentum.
 
-**Fixed Priority Mode**: Priority resets to 10 at the start of each player turn. There is no carry-over and no overflow — if a card's Priority cost exceeds the player's current Priority, the card simply cannot be played unless a specific card effect grants an exception. There is no Patience overflow mechanic in this mode.
+**Classic Priority Mode**: Priority resets to 10 at the start of each player turn (and each enemy turn). There is no carry-over and no overflow — if a card's Priority cost exceeds the player's current Priority, the card simply cannot be played unless a specific card effect grants an exception. There is no Patience overflow mechanic in this mode. Named for the genre convention — most card games follow this full-replenishment-per-turn pattern.
 
 ### Patience
 
-Patience is the NPC's tolerance for the conversation. It starts at a per-encounter value (default: 10). **There is no maximum Patience cap** — effects that restore or grant Patience can exceed the starting value without limit. If Patience reaches zero or below, the conversation ends immediately as a loss. Patience is modified by card effects, shield break outcomes, and Priority overflow (Standard Priority Mode only).
+Patience is the NPC's tolerance for the conversation. It starts at a per-encounter value (default: 10). **There is no maximum Patience cap** — effects that restore or grant Patience can exceed the starting value without limit. If Patience reaches zero or below, the conversation ends immediately as a loss. Patience is modified by card effects, shield break outcomes, and Priority overflow (Frame Priority Mode only).
 
 ### Opponent Shields
 
@@ -140,7 +152,7 @@ Two break outcomes exist for Dummy Shields:
 
 In both cases, Priority Restore fires and the player draws a fresh hand.
 
-Core Shield breaks always trigger Priority Restore. The Patience cost (if any) is determined by the Core Shield's own configuration or Shield Trigger effects.
+Core Shield breaks always trigger Priority Restore. Each Core Shield specifies its own `patienceCostOnBreak` value in the encounter configuration, allowing designers to set different Patience costs for different Core Shields (including 0). This cost is independent of any Shield Trigger effects the Core Shield may also carry.
 
 > **Safety keyword clarification:** The Safety keyword has no mechanical effect when a card bearing it is played normally (i.e. not placed as a shield). Its sole purpose is to upgrade the break outcome from Plain Break to Effective Break when the card is used as a Dummy Shield.
 
@@ -154,26 +166,28 @@ Shield Trigger effects do not trigger an intermediate Check State evaluation —
 
 ### Trap Cards
 
-Trap cards are a card category representing prepared responses that await specific conditions.
+Trap cards are a card category representing prepared responses that await specific conditions. Traps can only be played from hand during combat — there is no pre-encounter or Shield Selection phase placement option for Traps.
 
-**Playing a Trap:** When played from hand, a Trap card is placed in the **Trap Zone** on the battlefield rather than resolving its effects immediately. The Trap's Priority cost is paid normally. The Trap card remains in the Trap Zone through the opponent's entire next turn.
+**Playing a Trap:** When played from hand, a Trap card is placed on the **Field** rather than resolving its effects immediately. The Trap's Priority cost is paid normally. The Trap card remains on the Field through the opponent's entire next turn.
 
-**Trigger condition:** Each Trap card defines a specific trigger condition (e.g., "opponent plays a card that would break a shield," "opponent plays a card costing more than 3 Priority"). If the condition is met at any point during the opponent's turn, the Trap **triggers** — its effects resolve immediately at the point the condition was satisfied.
+**Trigger condition:** Each Trap card defines a specific trigger condition authored via structured fields — a fixed set of condition parameters (e.g., trigger type, target, comparator, value) rather than a freeform string or DSL. Example conditions: "opponent plays a card that would break a shield," "opponent plays a card costing more than 3 Priority." If the condition is met at any point during the opponent's turn, the Trap **triggers** — its effects resolve immediately at the point the condition was satisfied. This structured-field approach mirrors how card effects are already defined (typed fields, not arbitrary strings) and is a deliberate v1 scoping decision — a DSL-based approach remains a possible future expansion if trigger complexity grows beyond what structured fields can cleanly express.
 
 **Expiry:** If the opponent's turn ends without the Trap's condition being met, the Trap expires and moves to the player's discard pile untriggered when it becomes the player's turn again.
 
 **Post-trigger:** After a Trap triggers and its effects resolve, the Trap card moves to the player's discard pile.
 
-**Multiple Traps:** Multiple Trap cards may be in the Trap Zone simultaneously. If multiple Traps' conditions are satisfied by the same event, they trigger in **play order** (the Trap played earliest triggers first).
+**Multiple Traps:** Multiple Trap cards may be on the Field simultaneously. If multiple Traps' conditions are satisfied by the same event, they trigger in **play order** (the Trap played earliest triggers first).
 
 ### Field Trigger Check
 
 After any card resolves (player or NPC), the engine performs a **Field Trigger Check**. This replaces the former interrupt-checking model. The Field Trigger Check evaluates:
 
-1. Whether any Trap card's trigger condition has been met.
+1. Whether any Trap card on the Field has had its trigger condition met.
 2. Whether any Shield Trigger should fire (from shields broken during the resolving card's effects).
 
 If triggers are found, they resolve according to the trigger resolution ordering (see §4.5). No player input is required — triggers fire automatically based on game state.
+
+**Nested trigger resolution:** If a trigger's resolution (Trap or Shield Trigger) causes another trigger to fire (e.g., a Trap effect breaks a shield that has a Shield Trigger), the new trigger resolves **immediately as a sub-step** before returning to the outer resolution. This is genuinely nested/recursive resolution, not flat queuing — the inner trigger fully completes before the outer resolution continues. If the sub-step causes yet another trigger, it spawns another sub-step, and so on. A hard depth cap of **20 nested triggers** is enforced as a safety guard against malformed card combos causing infinite loops; this is not an expected gameplay limit but a fail-safe that halts resolution and logs an error if reached.
 
 ### Trigger Resolution Ordering
 
@@ -183,6 +197,8 @@ When a single card or event triggers multiple effects, they resolve in this fixe
 2. **Shield Triggers** — resolved in break order (the order in which their shields were broken during this resolution).
 
 This ordering is absolute: all pending Trap triggers resolve before any Shield Triggers, regardless of the chronological order in which conditions were met.
+
+If any trigger's resolution causes a new trigger to fire, the new trigger resolves immediately as a nested sub-step (see Field Trigger Check above). The Trap-before-Shield ordering applies within each nesting level independently.
 
 ### Skill Cards
 
@@ -217,7 +233,9 @@ The play-time Ponder conversion logic (Case 1) should be implemented as a single
 
 When the player explicitly ends their turn (clicking "End Turn"), they must discard their hand but may keep one card in the BotM zone. The BotM card persists through the NPC's turn. When Priority Restore fires, the BotM card returns to the player's hand.
 
-> **Note:** Unlike previous versions, BotM cards cannot be played during the NPC's turn (interrupts have been removed). BotM exists solely to preserve one card across the turn transition.
+BotM's purpose is **limited card retention across turns**. Since hands refresh on each Priority Restore, BotM is the only mechanism that allows a player to carry a specific card from one turn to the next. This makes BotM strategically important: the player must decide which single card (or more, if Blue's capacity-increasing effects are active) is worth preserving through the opponent's turn.
+
+> **Note:** Unlike previous versions, BotM cards cannot be played during the NPC's turn (interrupts have been removed). The "Blue increases BotM capacity" mechanic (see §8.4, Blue) remains relevant — it increases the number of cards the player may retain across the turn transition, deepening Blue's planning advantage.
 
 ### Deck Recycle
 
@@ -229,11 +247,11 @@ When the draw pile contains zero cards and the player would draw, the discard pi
 
 ### 4.1 Design Principles
 
-1. **No previous-state checks.** No state transition may ask "what was the previous state." All routing decisions are deterministic from current state flags alone (`stagedEnemyCard`, `pendingReveal`, `pendingShieldChoice`, `awaitingBotM`, `pendingTrapTriggers`).
+1. **No previous-state checks.** No state transition may ask "what was the previous state." All routing decisions are deterministic from current state flags alone (`stagedEnemyCard`, `pendingReveal`, `awaitingBotM`, `pendingTrapTriggers`).
 
-2. **Effect resolution is a sequential list.** Card effects resolve as an ordered list of atomic steps. The Priority cost is always deducted as step 0, before any effects run. Blocking sub-states (Reveal Pending, Player Shield Choice) suspend the list at the triggering step and resume from the next step after the block clears. This means no costs or earlier effects are ever repeated — they have already resolved before the suspension occurred.
+2. **Effect resolution is a sequential list.** Card effects resolve as an ordered list of atomic steps. The Priority cost is always deducted as step 0, before any effects run. Blocking sub-states (Reveal Pending) suspend the list at the triggering step and resume from the next step after the block clears. Player shield breaks resolve automatically as non-blocking steps within the sequence. This means no costs or earlier effects are ever repeated — they have already resolved before the suspension occurred.
 
-3. **No player input during opponent's turn.** The opponent's turn runs to completion without pausing for player decisions. Field Trigger Checks fire automatically. The only blocking state during the opponent's turn is Player Shield Choice (selecting which shield is sacrificed — though with the left-to-right auto-targeting, this may also become automatic; see Open Questions).
+3. **No player input during opponent's turn.** The opponent's turn runs to completion without pausing for player decisions. Field Trigger Checks fire automatically. Player shield breaks are resolved automatically (leftmost eligible shield is always targeted) — there is no blocking Player Shield Choice state during the opponent's turn.
 
 4. **The state machine is stable; edge cases are handled at design level.** New mechanics and card effects should be designed to work within the existing state machine rather than requiring changes to it. If a proposed card effect would require a structural state machine change to handle correctly, the card effect should be redesigned first. When a state machine change is genuinely unavoidable, it constitutes a **significant version change** to this document and must be logged as such.
 
@@ -247,13 +265,12 @@ When the draw pile contains zero cards and the player would draw, the discard pi
 | Player Pending | Yes | Waits for player action |
 | Player Play | No | Resolves the player's card, shield placement, or trap placement |
 | Reveal Pending | Yes | Player acknowledges a broken opponent shield's reveal |
-| Player Shield Choice | Yes | Player selects which own shield to sacrifice (legacy — see note below) |
 | BotM Select | Yes | Player chooses which card to keep in Back of Mind |
 | Enemy Pending | No | NPC selects and stages their next card |
 | Field Trigger Check | No | Evaluates and resolves any pending Trap or Shield Triggers |
 | Enemy Play | No | Resolves the NPC's staged card |
 
-> **Note on Player Shield Choice:** With the introduction of left-to-right automatic shield targeting and the dummy/core ordering, Player Shield Choice may become purely automatic (the leftmost eligible shield is always broken). If so, this state can be collapsed into Enemy Play as a non-blocking resolution step. This is flagged as an open question.
+> **Note on Player Shield Choice (removed):** Player Shield Choice was a blocking state in which the player selected which shield to sacrifice. With left-to-right automatic shield targeting and the dummy-before-core constraint, this is now fully automatic — the leftmost eligible shield is always broken. The former Player Shield Choice state has been collapsed into Enemy Play as a non-blocking resolution step.
 
 ---
 
@@ -283,14 +300,14 @@ The routing hub. Never blocks. Transitions evaluated top to bottom; first match 
 Waits for player input. Available actions:
 
 - **Play a card** → load card → **Player Play**
-- **Play a Trap card** → load card as trap placement → **Player Play** (card moves to Trap Zone instead of resolving effects)
+- **Play a Trap card** → load card as trap placement → **Player Play** (card moves to Field instead of resolving effects)
 - **Place a shield** (any hand card; costs 2 Priority) → load card as shield placement → **Player Play**
 - **Resequence shields** → reorder shield row (no state transition; UI-only action that updates shield ordering in state)
 - **End Turn** (sets Priority to 0) → **Check**
 
 The player must always explicitly choose "End Turn" to end their turn. There is no automatic turn-ending — even if Priority is at zero and no valid moves remain, the player retains control until they click End Turn.
 
-> Shield Placement is a distinct Player action. Any hand card may be placed as a shield. The fixed cost of 2 Priority is deducted (with Patience overflow in Standard Priority Mode). The card's printed effects do NOT resolve — only the placement itself happens (card moves from hand to the leftmost empty Dummy Shield slot). This is resolved as a unique effect sequence in Player Play State, separate from the card's own effect list.
+> Shield Placement is a distinct Player action. Any hand card may be placed as a shield. The fixed cost of 2 Priority is deducted (with Patience overflow in Frame Priority Mode). The card's printed effects do NOT resolve — only the placement itself happens (card moves from hand to the leftmost empty Dummy Shield slot). This is resolved as a unique effect sequence in Player Play State, separate from the card's own effect list.
 
 ---
 
@@ -299,13 +316,13 @@ The player must always explicitly choose "End Turn" to end their turn. There is 
 Effect resolution sequence:
 
 1. Deduct the card's Priority cost:
-   - **Standard Priority Mode:** Pay `min(cost, currentPriority)` from Priority, then pay `max(0, cost − currentPriority)` from NPC Patience. Both deductions are atomic and this step is never repeated. If NPC Patience reaches ≤ 0 after this deduction, the game proceeds to Check State after all effects resolve.
-   - **Fixed Priority Mode:** Deduct full cost from Priority. (Cards with cost > currentPriority cannot be played in this mode unless a specific effect grants an exception — this is validated before entering Player Play.)
+   - **Frame Priority Mode:** Pay `min(cost, currentPriority)` from Priority, then pay `max(0, cost − currentPriority)` from NPC Patience. Both deductions are atomic and this step is never repeated. If NPC Patience reaches ≤ 0 after this deduction, the game proceeds to Check State after all effects resolve.
+   - **Classic Priority Mode:** Deduct full cost from Priority. (Cards with cost > currentPriority cannot be played in this mode unless a specific effect grants an exception — this is validated before entering Player Play.)
 2. For each effect in the card's effect list, in order:
    a. Resolve the effect.
    b. If the effect breaks an **opponent shield** → suspend here → **Reveal Pending**. After acknowledgement, resume from step 2c.
    c. *(next effect)*
-3. Move the card to its destination zone (discard, field, consumed, shield slot, or Trap Zone).
+3. Move the card to its destination zone (discard, Field, consumed, or shield slot).
 4. Perform **Field Trigger Check** (evaluate any triggers caused by this card's resolution).
 5. → **Check**
 
@@ -321,22 +338,22 @@ The combat state is fully frozen during Reveal Pending. No Priority animation, B
 
 ---
 
-#### Player Shield Choice State *(blocking)*
+#### Player Shield Break Resolution *(non-blocking — formerly "Player Shield Choice")*
 
-Triggered when the NPC's card effect breaks a player shield. This state suspends Enemy Play's effect resolution sequence.
+Triggered when the NPC's card effect breaks a player shield. This is a non-blocking resolution step within Enemy Play — it does not suspend the effect sequence for player input.
 
-With the new shield targeting rules (leftmost eligible shield is always broken), this state may be simplified to an automatic resolution. If manual choice is retained:
+Shield targeting is fully automatic: the leftmost eligible shield is always broken. The player's only influence on break order is pre-arranging their shield row via free resequencing during their own turn.
 
 Sequence:
 1. The leftmost eligible shield is targeted (leftmost Dummy Shield if any remain; otherwise leftmost Core Shield).
-2. If the targeted shield has the **Shield Trigger** keyword: its printed effects resolve as a sub-sequence. If a Shield Trigger effect breaks an opponent shield, Reveal Pending fires and suspends this sequence until acknowledged.
+2. If the targeted shield has the **Shield Trigger** keyword: its printed effects resolve as a sub-sequence. If a Shield Trigger effect breaks an opponent shield, Reveal Pending fires and suspends the parent sequence until acknowledged. If the Shield Trigger's resolution causes another trigger to fire, it resolves immediately as a nested sub-step (depth cap: 20).
 3. Resolve break outcome:
    - For Dummy Shields:
      - **Effective Break** *(Safety keyword present)*: shield owner loses 0 Patience. Priority Restore fires.
      - **Plain Break** *(all others)*: shield owner loses 1 Patience. Priority Restore fires.
-   - For Core Shields: Priority Restore fires. Additional Patience effects are determined by the Core Shield's Shield Trigger (if any).
+   - For Core Shields: Priority Restore fires. The shield's configured `patienceCostOnBreak` is deducted from the shield owner's Patience.
 4. Remove shield from player's shield zone.
-5. Resume the suspended Enemy Play effect sequence from the step after the break.
+5. Resume the Enemy Play effect sequence from the step after the break.
 
 ---
 
@@ -366,8 +383,8 @@ NPC selects their next card. Immediate.
 Immediate (non-blocking). Evaluates whether any field triggers should fire based on the current game event.
 
 Evaluation order (fixed — this is the canonical trigger resolution ordering):
-1. **Trap triggers:** Check each Trap in the Trap Zone (in play order, oldest first) for whether its trigger condition is met. If met, resolve the Trap's effects, then move it to the player's discard pile.
-2. **Shield Triggers:** Check for any Shield Trigger effects pending from shields broken during this resolution. If pending, resolve them in break order (the order in which their shields were broken).
+1. **Trap triggers:** Check each Trap on the Field (in play order, oldest first) for whether its trigger condition is met. If met, resolve the Trap's effects, then move it to the player's discard pile. If the Trap's resolution causes another trigger, resolve it immediately as a nested sub-step (depth cap: 20).
+2. **Shield Triggers:** Check for any Shield Trigger effects pending from shields broken during this resolution. If pending, resolve them in break order (the order in which their shields were broken). If a Shield Trigger's resolution causes another trigger, resolve it immediately as a nested sub-step (depth cap: 20).
 
 After all triggers resolve:
 - If entered from Enemy Pending (pre-play trigger check) → **Enemy Play**
@@ -428,11 +445,10 @@ stateDiagram-v2
 
     FieldTriggerCheck --> EnemyPlay : pre-play triggers resolved
 
-    EnemyPlay --> PlayerShieldChoice : player shield broken
     EnemyPlay --> RevealPending : opp shield broken\n(suspend effects)
     EnemyPlay --> FieldTriggerCheck : all effects resolved\n(post-play trigger check)
 
-    PlayerShieldChoice --> EnemyPlay : resolved\n(resume effects)
+    note right of EnemyPlay : Player shield breaks resolve\nautomatically (leftmost eligible)\nas a non-blocking step within\nEnemy Play — no separate state.
 ```
 
 ---
@@ -443,7 +459,7 @@ stateDiagram-v2
 
 2. **BotM Select and Reveal Pending are mutually exclusive.** If an effect simultaneously drains Priority to ≤ 0 and breaks an opponent shield, Reveal Pending takes precedence. BotM Select fires only after acknowledgement re-enters Check State.
 
-3. **Player Shield Choice is a hard gate on player shield breaks.** Enemy Play's effect sequence does not continue until the shield break is resolved (whether manually or automatically via left-to-right targeting).
+3. **Player shield breaks resolve automatically within Enemy Play.** The leftmost eligible shield is always targeted. Shield Trigger effects (if any) resolve as a sub-sequence before the break outcome fires; nested triggers resolve as immediate sub-steps (depth cap: 20). The effect sequence continues without player input.
 
 4. **Win is checked before loss.** All opponent shields broken (rule 1) is evaluated before player shields broken (rule 2) and patience (rule 3).
 
@@ -451,11 +467,11 @@ stateDiagram-v2
 
 6. **Enemy Play is entered from:** Field Trigger Check (pre-play path from Enemy Pending) or Check State (rule 6, staged card persists). No other state transitions to Enemy Play.
 
-7. **No player input during opponent's turn.** The opponent's turn runs without interruption. Field Trigger Checks fire automatically. The only potential blocking state is Player Shield Choice (if manual shield selection is retained).
+7. **No player input during opponent's turn.** The opponent's turn runs without interruption. Field Trigger Checks fire automatically. Player shield breaks resolve automatically (leftmost eligible shield). There are no blocking states during the opponent's turn.
 
-8. **Effect resolution sequences are never restarted.** Blocking sub-states (Reveal Pending, Player Shield Choice) suspend and resume a sequence; they do not restart it. Priority costs are always the first step and are never repeated.
+8. **Effect resolution sequences are never restarted.** Blocking sub-states (Reveal Pending) suspend and resume a sequence; they do not restart it. Player shield breaks resolve automatically within the sequence without suspension. Priority costs are always the first step and are never repeated.
 
-9. **Patience overflow is deducted in step 0 of Player Play (Standard Priority Mode only), not checked mid-resolution.** If paying Patience overflow brings NPC Patience to ≤ 0, the loss condition is not evaluated until Check State after all effects resolve. The win-before-loss invariant (rule 4) still applies.
+9. **Patience overflow is deducted in step 0 of Player Play (Frame Priority Mode only), not checked mid-resolution.** If paying Patience overflow brings NPC Patience to ≤ 0, the loss condition is not evaluated until Check State after all effects resolve. The win-before-loss invariant (rule 4) still applies.
 
 10. **Shield Trigger effects do not trigger a Check State evaluation mid-sequence.** Shield Trigger effects resolve as a sub-sequence within the shield break resolution. No Check State evaluation occurs between the conclusion of Shield Trigger effects and the resumption of the parent effect sequence. Consequently:
     - Win and loss conditions altered by Shield Trigger effects (e.g. opponent shields broken, Patience reduced) are evaluated in Check State only after the parent play state completes fully.
@@ -466,9 +482,11 @@ stateDiagram-v2
 
 12. **Trigger resolution ordering is absolute.** When multiple triggers fire from a single event: Traps resolve first (in play order), then Shield Triggers (in break order). This ordering cannot be overridden by card effects.
 
-13. **Trap expiry occurs at turn transition.** Untriggered Traps are moved to discard only when Priority Restore fires (transitioning back to the player's turn), not mid-sequence.
+13. **Trap expiry occurs at turn transition.** Untriggered Traps are moved from the Field to discard only when Priority Restore fires (transitioning back to the player's turn), not mid-sequence.
 
 14. **Shield resequencing is free during player's turn.** Resequencing does not consume Priority, does not trigger state transitions, and does not interact with any trigger evaluation. It only affects the physical ordering of shields for future break-targeting.
+
+15. **Nested trigger resolution with hard depth cap.** When a trigger's resolution (Trap or Shield Trigger) causes another trigger to fire, the new trigger resolves immediately as a sub-step — genuinely nested/recursive, not flat queuing. The engine enforces a hard nesting depth cap of **20**. If the cap is reached, resolution halts at that depth and logs an error. This is a safety guard against malformed card combos, not an expected gameplay limit. The Trap-before-Shield ordering (invariant 12) applies independently within each nesting level.
 
 ---
 
@@ -482,12 +500,12 @@ Each encounter corresponds to a specific NPC. The encounter config and NPC defin
 | `displayName` | string | NPC's display name |
 | `startingPriority` | number | Initial Priority value (positive = player goes first) |
 | `defaultRestorePriority` | number | Priority value set on every Priority Restore event |
-| `priorityMode` | `"standard"` \| `"fixed"` | Which priority model this encounter uses (default: `"standard"`) |
+| `priorityMode` | `"frame"` \| `"classic"` | **Required.** Which priority model this encounter uses. `"frame"` = variable restore based on shield breaks (default gameplay); `"classic"` = full replenishment each turn. |
 | `opponentPatience` | number | NPC's starting Patience (no maximum cap) |
 | `opponentShields` | ShieldSlot[] | Ordered list of NPC shield definitions (see below) |
 | `shieldBreakOrder` | number[] | Indices into `opponentShields` defining break sequence |
-| `playerDummyShieldSlots` | number | Number of Dummy Shield slots available to the player |
-| `allowedCoreShields` | string[] | Card IDs that may serve as Core Shields for this encounter. If the player's Collection contains these cards, they are automatically placed. |
+| `playerDummyShieldSlots` | number | **Required.** Number of Dummy Shield slots available to the player. |
+| `allowedCoreShields` | CoreShieldDef[] | **Required.** Core Shield definitions for this encounter (see CoreShieldDef below). If the player's Collection contains the specified cards, they are automatically placed. Empty array if no Core Shields. |
 | `unbreakablePlayerShields` | boolean | If true, NPC effects cannot break player shields |
 | `relevantCards` | RelevantCard[] | Information Cards this NPC recognises (see below) |
 | `traits` | Trait[] | Passive combat modifiers applied throughout the encounter |
@@ -506,6 +524,17 @@ Each encounter corresponds to a specific NPC. The encounter config and NPC defin
   isHint: boolean      // If true, this shield is a Hint (see §3, Hints)
 }
 ```
+
+### CoreShieldDef
+
+```
+{
+  cardId: string              // Must match a card ID in the player's Collection
+  patienceCostOnBreak: number // Patience deducted from shield owner when this Core Shield is broken (may be 0)
+}
+```
+
+Each Core Shield specifies its own Patience cost on break, allowing per-shield tuning. This is independent of any Shield Trigger effects the card may carry. Dummy Shields always cost a flat 1 Patience on break (or 0 for Effective Break via the Safety keyword).
 
 ### RelevantCard
 
@@ -607,9 +636,9 @@ Every card belongs to exactly one supertype.
 
 Subtypes are supplemental classifications within a supertype.
 
-**Impression** (subtype of Skill): When played, an Impression card is placed on the field rather than being discarded. It provides a persistent passive effect for the remainder of the encounter. Impressions are removed from the field when the encounter ends. Impressions are native to Orange.
+**Impression** (subtype of Skill): When played, an Impression card is placed on the Field rather than being discarded. It provides a persistent passive effect for the remainder of the encounter. Impressions are removed from the Field when the encounter ends. Impressions are native to Orange.
 
-**Trap** (subtype of Skill): When played, a Trap card is placed in the Trap Zone rather than resolving its effects immediately. Traps persist through the opponent's next turn and trigger only when their defined condition is met. If untriggered, they expire to the player's discard pile at the start of the player's next turn. See §3 (Trap Cards) for full rules.
+**Trap** (subtype of Skill): When played from hand during combat, a Trap card is placed on the Field rather than resolving its effects immediately. Traps persist through the opponent's next turn and trigger only when their defined condition is met. If untriggered, they expire to the player's discard pile at the start of the player's next turn. Traps cannot be placed during pre-encounter phases. See §3 (Trap Cards) for full rules.
 
 Additional subtypes will be defined as the card vocabulary expands.
 
@@ -635,7 +664,7 @@ Keywords are mechanical terms that appear on card text. All keywords expose thei
 | **Assemble** | Skill / Information | This card may participate in a combination with another Assemble card. |
 | **Shield Trigger** | Skill (Player Shield) | When a shield with Shield Trigger is broken, its printed effects resolve as a sub-sequence before the break outcome fires. Shield Trigger effects do not trigger an intermediate Check State evaluation — see Invariant 10. |
 | **Lie** | Skill (Black) | Playing this card increments the encounter's Lie Counter by 1. If the counter exceeds the encounter's `lieThreshold`, the encounter ends as a loss. |
-| **Trap** | Skill | This card is placed in the Trap Zone when played. It persists through the opponent's next turn and triggers only when its defined condition is met. |
+| **Trap** | Skill | This card is placed on the Field when played from hand during combat. It persists through the opponent's next turn and triggers only when its defined condition is met. Cannot be placed during pre-encounter phases. |
 
 > **Removed keyword:** The **Interrupt** keyword has been removed from the game. Cards formerly bearing Interrupt no longer have special play-during-opponent-turn capability. The interrupt-checking model has been replaced by the Field Trigger Check system. Implementation note: the `isInstant`/`isInterrupt` field naming in the codebase will need cleanup during implementation.
 
@@ -689,7 +718,7 @@ Mechanically, Black houses some of the strongest individual card effects in the 
 
 Orange represents a person who appeals to authority, leverages their associations, and cultivates a specific image of themselves in the world. At their best they command an imposing presence; at their worst they are followers incapable of original thought.
 
-Mechanically, Orange is built around **Impressions** — a card subtype that remains on the field when played, providing persistent passive effects (see §8.2). The Orange playstyle requires setup time and is context-dependent: the player performs Overworld quests to acquire Impression cards tailored to specific NPCs, building an advantageous image before the encounter begins. Orange also has powerful Skill cards that strip away enemy Traits, and is effective at detecting and countering Lie cards.
+Mechanically, Orange is built around **Impressions** — a card subtype that remains on the Field when played, providing persistent passive effects (see §8.2). The Orange playstyle requires setup time and is context-dependent: the player performs Overworld quests to acquire Impression cards tailored to specific NPCs, building an advantageous image before the encounter begins. Orange also has powerful Skill cards that strip away enemy Traits, and is effective at detecting and countering Lie cards.
 
 ---
 
@@ -785,7 +814,7 @@ Quantities that always require animated feedback include, but are not limited to
 - **Priority costs** — the deduction shown at the moment a card is played
 - **Trait discovery** — transition from `?` icon to proper trait icon
 - **Keyword interactions** — when a keyword modifies or nullifies an effect
-- **Trap placement** — card moving to Trap Zone
+- **Trap placement** — card moving to Field
 - **Trap trigger** — Trap activating and resolving its effect
 - **Trap expiry** — untriggered Trap moving to discard
 - **Shield resequencing** — shields sliding to new positions
@@ -800,7 +829,7 @@ The player should never have to guess what a mechanic does. All mechanical terms
 - **Keyword tooltips:** Keywords appearing in card text and UI copy are rendered as interactive rich text. Hovering or tapping a keyword displays its definition inline.
 - **Trait tooltips:** Discovered trait icons display a description of their passive effect on hover or tap.
 - **Shield contents:** Player shields are always visible face-up to the player.
-- **Trap conditions:** Active Traps in the Trap Zone display their trigger condition on hover.
+- **Trap conditions:** Active Traps on the Field display their trigger condition on hover.
 
 Information should be reachable in at most one interaction from wherever the player currently is.
 
@@ -833,12 +862,12 @@ Every card movement between zones must have an accompanying Framer Motion animat
 | Deck → Hand (draw) | Card slides in from deck position, fanning into hand |
 | Hand → Play zone (play) | Card lifts off hand, moves to center play zone, shrinks and dissolves |
 | Hand → Shield slot (place as shield) | Card floats to shield slot, clicks into place |
-| Hand → Trap Zone (play trap) | Card slides to Trap Zone, glows to indicate pending state |
+| Hand → Field (play trap) | Card slides to Field, glows to indicate pending state |
 | Hand → Back of Mind | Card slides to BotM zone |
 | BotM → Hand (restore) | Card slides back into hand |
 | Play zone → Discard | Card slides from play zone to discard pile |
-| Trap Zone → Play zone (trigger) | Trap card flashes, moves to play zone, resolves, then to discard |
-| Trap Zone → Discard (expire) | Trap card fades out and slides to discard |
+| Field → Play zone (trap trigger) | Trap card flashes, moves to play zone, resolves, then to discard |
+| Field → Discard (trap expire) | Trap card fades out and slides to discard |
 | Enemy card → Enemy play zone (stage) | Card slides in from enemy side |
 | Enemy play zone → Enemy discard | Card slides to enemy discard |
 | Deck → Deck (reshuffle) | Discard pile cards animate into a stack, stack flips to become deck |
@@ -849,65 +878,54 @@ Animations within a single turn must be sequential, never concurrent (see §11.1
 
 ---
 
-## 12. Implementation Impact / Open Questions
+## 12. Implementation Impact
 
-This section summarizes what parts of the existing combat engine architecture will require reworking when the v1.1 changes are implemented, and flags genuinely open questions that require design decisions before implementation begins.
+This section summarizes what parts of the existing combat engine architecture will require reworking when the v1.1/v1.2 changes are implemented. All design questions from the v1.1 draft have been resolved — there are no open questions remaining.
 
 ### Architecture Impact
 
 1. **Interrupt system removal.** The `Interrupt Check`, `Interrupt`, and `Interrupt Play` states must be removed from the combat phase state machine. All references to the `Interrupt` keyword in card definitions, the `isInstant`/`isInterrupt` fields in the type system, and the interrupt-checking logic in the reducer must be removed or repurposed. The BotM card can no longer be played during the opponent's turn.
 
 2. **Field Trigger Check system.** A new state/step must be added to the state machine that evaluates Trap triggers and Shield Triggers after each card resolves. This requires:
-   - A trigger evaluation function that checks all active Traps against their conditions
+   - A trigger evaluation function that checks all active Traps on the Field against their trigger conditions (authored as structured fields — see §3, Trap Cards)
    - A queue system for pending Shield Triggers (ordered by break sequence)
    - Integration points after Player Play and Enemy Play resolution
+   - **Nested trigger resolution with depth guard.** The trigger evaluation must support genuinely recursive/nested resolution: when a trigger's effects cause another trigger, the new trigger resolves immediately as a sub-step. A hard depth cap of 20 nested triggers must be enforced — halt and log an error if reached. This is a safety guard against malformed card combos, not an expected gameplay limit.
 
 3. **Shield zone composition (Dummy vs Core).** New state is needed for:
    - Per-shield metadata: type (dummy/core), current sequence position, Shield Trigger status, broken/intact flag
-   - Encounter config: `allowedCoreShields` field, `playerDummyShieldSlots` count
+   - Encounter config: `allowedCoreShields` (array of `CoreShieldDef` — each specifying `cardId` and `patienceCostOnBreak`), `playerDummyShieldSlots` count
    - Auto-placement logic for Core Shields based on player Collection
-   - Left-to-right targeting logic replacing manual Player Shield Choice
+   - Left-to-right automatic targeting replacing the former manual Player Shield Choice (the `PlayerShieldChoice` blocking state is removed — shield breaks are a non-blocking resolution step within Enemy Play)
 
-4. **Trap Zone state.** New persistent battlefield state for:
-   - Active Traps with their trigger conditions, play-order timestamp, and owning player
-   - Expiry tracking tied to turn transitions (expire when Priority Restore fires)
+4. **Field state.** The Field is the persistent battlefield zone for both Traps and Impressions. New state needed:
+   - Active Traps with their structured trigger conditions, play-order timestamp, and owning player
+   - Active Impressions with their persistent passive effects
+   - Expiry tracking for Traps tied to turn transitions (expire when Priority Restore fires)
    - Trigger condition evaluation integrated into Field Trigger Check
 
 5. **Priority mode selection.** New game-mode state:
-   - `priorityMode` field on encounter config (`"standard"` | `"fixed"`)
-   - Conditional logic in Priority deduction (no overflow in Fixed mode)
-   - Card playability validation (cannot play if cost > current Priority in Fixed mode, unless an exception effect is active)
-   - Priority reset to 10 at start of each player turn in Fixed mode
+   - `priorityMode` field on encounter config (`"frame"` | `"classic"`) — **required field**
+   - Conditional logic in Priority deduction (no overflow in Classic mode)
+   - Card playability validation (cannot play if cost > current Priority in Classic mode, unless an exception effect is active)
+   - Priority reset to 10 at start of each player turn in Classic mode
 
 6. **Turn-ending change.** Remove any auto-end-turn logic. The player must always explicitly trigger end turn regardless of Priority value or available moves.
 
 7. **Multi-trigger resolution queue.** When a single card causes multiple triggers:
    - Build a resolution queue ordered by: Traps (play order) → Shield Triggers (break order)
-   - Process queue sequentially
-   - Handle nested triggers (a trigger's effects may cause further triggers — these are queued and processed after the current trigger completes)
+   - Process queue with nested/recursive sub-step resolution (not flat queuing)
+   - Enforce depth cap of 20 nested triggers as a safety guard
 
 8. **Shield resequencing.** UI-only action during Player Pending that updates the ordering of the shield array in state without consuming Priority or triggering transitions.
 
-### Open Questions (Require Design Decision)
+9. **Encounter config schema (breaking change).** The following fields are **required** on all encounter definitions — no backwards-compatibility shim or optional fallback is needed, since there are no production-ready encounters:
+   - `allowedCoreShields: CoreShieldDef[]` — Core Shield definitions (empty array if none)
+   - `playerDummyShieldSlots: number` — Dummy Shield slot count
+   - `priorityMode: "frame" | "classic"` — priority model selection
 
-1. **What should the alternative priority mode be named?** This document uses "Fixed Priority Mode" and "Standard Priority Mode" as working names. Are these acceptable, or should they have more thematic names?
-
-2. **Is Player Shield Choice still manual?** With left-to-right auto-targeting and the dummy-before-core constraint, the player no longer chooses which shield to sacrifice — it's always the leftmost eligible one. Should Player Shield Choice become fully automatic (removing a blocking state), or is there a reason to retain manual selection?
-
-3. **What zone name should be used for pending Traps?** This document uses "Trap Zone." Is this acceptable, or should it have a more thematic name (e.g., "Prepared Responses," "Set Traps," "Pending Field")?
-
-4. **Core Shield Patience cost on break:** When a Core Shield is broken, what is the Patience cost? Dummy Shields cost 1 Patience on break. Do Core Shields cost 0 (since they're meant to be powerful and have Shield Triggers), or do they also cost 1, or is it configurable per-shield?
-
-5. **Trap trigger condition language:** How are Trap trigger conditions defined in data? Is it a structured condition object (e.g., `{ type: "opponentPlaysCard", filter: { costGreaterThan: 3 } }`), a string-based DSL, or per-card hardcoded logic? This affects both the `CardDefinition` type and the Field Trigger Check implementation.
-
-6. **Can Traps be placed during the pre-encounter Shield Selection phase?** Or are they exclusively played from hand during combat?
-
-7. **BotM capacity under the new system:** Previously, BotM held one card that could be played via Interrupt. Now that Interrupts are gone and BotM cards cannot be played during the opponent's turn, does the "Blue increases BotM capacity" mechanic still make sense? Should BotM capacity remain at 1, or should it be revisited?
-
-8. **Nested triggers:** If a Trap trigger's effects break a shield that has a Shield Trigger, does the Shield Trigger queue behind remaining Traps, or does it resolve immediately as a sub-sequence of the Trap's resolution? (This document assumes sub-sequence resolution per Invariant 10, but this should be confirmed.)
-
-9. **`encounterDefs.ts` schema:** The new fields (`allowedCoreShields`, `playerDummyShieldSlots`, `priorityMode`) need to be added to the encounter definition type. Should this be done as a breaking schema change or with backwards-compatible optional fields?
+10. **Trap trigger condition data model.** Trap trigger conditions are authored as structured fields (not a DSL or hardcoded logic). The data shape should mirror the existing card effect field conventions — typed fields with a fixed vocabulary of trigger types, targets, comparators, and values. Exact field names are an implementation detail, but the authoring philosophy is: structured, validatable, and extensible without engine changes. A DSL-based approach is a possible future expansion if trigger complexity outgrows structured fields.
 
 ---
 
-*End of document — v1.1*
+*End of document — v1.2*
