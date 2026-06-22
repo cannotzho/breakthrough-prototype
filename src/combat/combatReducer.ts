@@ -1,5 +1,5 @@
 import { CombatState, CombatAction, CardInstance, CardEffect, NuggetOverride, SHIELD_PLACEMENT_COST } from './types';
-import { applyEffect, selectEnemyCard, makeInstance, clampPriority, shuffle, resolveFieldTriggerCheck, classicTurnStart, npcTurnStart } from './effectHandlers';
+import { applyEffect, selectEnemyCard, makeInstance, clampPriority, shuffle, resolveFieldTriggerCheck, classicTurnStart, npcTurnStart, addLog } from './effectHandlers';
 import { COMBINATIONS } from '../data/combinations';
 import { PONDER_DEFINITION } from '../data/devCards';
 
@@ -10,10 +10,6 @@ function computeCost(cost: number, priority: number, isFrame: boolean) {
     return { priorityCovered, patienceCost };
   }
   return { priorityCovered: cost, patienceCost: 0 };
-}
-
-function addLog(state: CombatState, msg: string): CombatState {
-  return { ...state, actionLog: [...state.actionLog.slice(-49), msg] };
 }
 
 function checkState(state: CombatState): CombatState {

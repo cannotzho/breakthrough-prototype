@@ -341,6 +341,6 @@ export function resolveFieldTriggerCheck(state: CombatState): CombatState {
   return s;
 }
 
-function addLog(state: CombatState, msg: string): CombatState {
+export function addLog(state: CombatState, msg: string): CombatState {
   return { ...state, actionLog: [...state.actionLog.slice(-49), msg] };
 }
