@@ -1,6 +1,6 @@
 # Breakthrough Prototype
 
-A detective card game prototype — 2D top-down overworld plus card-based conversation combat.
+A detective card game prototype where you crack cases through card-based conversation combat.
 
 **[Live Demo](https://cannotzho.github.io/breakthrough-prototype/)**
 
@@ -8,17 +8,23 @@ A detective card game prototype — 2D top-down overworld plus card-based conver
 
 ## Overview
 
-Breakthrough is a detective game where you explore a top-down world and engage NPCs in conversation combat. Instead of swords and spells, you wield arguments, observations, and psychological pressure. Each encounter is a card-based dialogue battle where reading the opponent and managing your deck determines whether you crack the case.
+Breakthrough is a detective game where every interrogation is a card battle. Instead of swords and spells, you wield arguments, observations, and psychological pressure. Each encounter is a tactical dialogue where reading the opponent, managing your deck, and breaking through their defenses determines whether you crack the case.
 
-The current prototype includes two NPCs with distinct personalities, dispositions, and card sets — enough to experience the full overworld → pre-combat setup → combat loop.
+The prototype is a fully playable combat sandbox with a dev tool suite for authoring cards, encounters, and decks — all persisted to a Supabase backend.
 
 ---
 
 ## Tech Stack
 
-- **React + Vite + TypeScript** — UI and game logic
-- **Tailwind CSS** — styling
-- **GitHub Actions + GitHub Pages** — CI/CD and hosting
+| Layer | Technology |
+|-------|------------|
+| Framework | React 19 + TypeScript 5.6 |
+| Build | Vite 6 |
+| Styling | Tailwind CSS 3.4 |
+| Animations | Framer Motion 12 |
+| State | Zustand 5 (stores) + `useReducer` (combat engine) |
+| Database | Supabase (PostgreSQL) |
+| Deployment | GitHub Actions + GitHub Pages |
 
 ---
 
@@ -27,128 +33,194 @@ The current prototype includes two NPCs with distinct personalities, disposition
 **Prerequisites:** Node.js 20+
 
 ```bash
-cd BreakthroughPrototype
 npm install
 npm run dev        # http://localhost:5173
-npm run build      # production build
+npm run build      # tsc -b + vite build
+npm run lint       # eslint
+npm run preview    # serve dist/ locally
 ```
 
+> **Known issue:** Supabase credentials are currently hardcoded in `src/lib/supabaseClient.ts`. This is fine for the public prototype (anon key only), but should be moved to environment variables before any production use.
+
 ---
 
-## How to Play
+## App Flow
 
-### Overworld
+`App.tsx` is a flat screen router over five screens:
 
-- Move with **WASD** / arrow keys, or the on-screen joystick on mobile
-- Walk up to an NPC and interact to trigger the pre-combat flow
-- Interacting with objects in the world adds cards to your **Compendium** (see below)
+| Screen | Component | Purpose |
+|--------|-----------|---------|
+| `title` | `TitleScreen` | Main menu with Playtest button and dev tool navigation |
+| `combat` | `CombatScreen` | Full combat encounter |
+| `cardCollection` | `CardCollectionScreen` | Browse and author cards |
+| `encounterGallery` | `EncounterGalleryScreen` | Create, edit, and playtest encounters |
+| `deckBuilder` | `DeckBuilderScreen` | Build curated decks from the card pool |
 
-### Pre-Combat Flow
+From the title screen, "Playtest" launches combat with the default test encounter. The three dev tool screens (Card Collection, Encounter Gallery, Deck Builder) each wrap a corresponding component from `src/components/dev/`.
 
-Before every fight, three screens appear in sequence:
+---
 
-1. **Deck Builder** — choose which world-deck cards (drawn from your Compendium) to bring into this encounter. Personal cards are always included automatically.
-2. **Deck Preview** — a read-only preview of your full personal deck so you can plan before the cards are shuffled.
-3. **Shield Selector** — place your starting shields. Shields are the defensive responses that block incoming pressure; choose their positions before combat begins.
+## Combat System
 
-### Combat (Conversation Phase)
+### Core Loop
 
-Each turn represents a round of dialogue. The goal is to drain the opponent's **Patience** (their resolve) to zero.
+The goal is to drain the opponent's **Patience** (their resolve) to zero by playing cards. The opponent plays from their own deck and can break your shields in return.
+
+### Key Concepts
 
 | Term | Meaning |
-|---|---|
-| **Priority** | Your resource — cards cost Priority to play. You spend it, then regain it on your next turn. |
-| **Patience** | The opponent's resolve. Drain it to zero to win. |
-| **Personal cards** | Cards unique to your detective, always in your deck. |
-| **World cards** | Cards drawn from the deck you assembled in the Deck Builder. |
-| **Shields** | Defensive responses that block incoming pressure. Breaking an opponent's shield deals bonus damage and restores Priority. |
-| **Disposition** | The NPC's emotional state — shifts based on the conversation and affects card effects. |
+|------|---------|
+| **Priority** | Your action resource. Cards cost Priority to play. How it works depends on the Priority Mode (see below). |
+| **Patience** | The opponent's resolve meter. Drain it to zero to win the encounter. |
+| **Shields** | Defensive slots on both sides. Breaking an opponent shield reveals lore and can trigger effects. Losing a player shield costs Patience. |
+| **Back of Mind (BotM)** | When you lose priority, you keep a limited number of cards (default 1). The rest are discarded. BotM cards can still be played during the opponent's turn. |
+| **Lie Counter** | Cards with the **Lie** keyword increment a counter. Exceed the encounter's lie threshold and you lose. |
+| **Traits** | Hidden NPC properties (e.g. "Nervous") that modify combat behavior. Traits are revealed when their trigger condition fires. |
+| **Info Nuggets** | Discoverable lore pieces tied to opponent shields. Breaking a shield can reveal a nugget, which is tracked in the nugget discovery store. |
+| **Field Traps** | Cards with the **Trap** keyword are placed on the field instead of being discarded. They trigger automatically when a configured condition is met (e.g. opponent plays a card, shield breaks, patience/priority changes). |
 
-NPCs play from their own decks and trigger dialogue based on how the conversation unfolds.
+### Priority Modes
 
-### Back of Mind
+The combat engine supports two distinct priority systems, configured per encounter:
 
-When you **lose Priority** (the opponent seizes the floor), you must choose up to 3 cards from your hand to keep — the rest are discarded. During the opponent's turn you can still play **Instant** cards from your kept hand. When you **regain Priority** you draw 3 fresh cards. (`BackOfMindPicker.tsx` handles the selection UI.)
+**Frame Mode** (`priorityMode: 'frame'`):
+- Single shared priority meter ranging from -10 to +10
+- Priority > 0 = player's turn; priority <= 0 = opponent's turn
+- Card costs deduct from priority; opponent plays increase it (self-limiting)
+- When priority drops to 0 or below, a priority restore fires: resets to the encounter's `defaultRestorePriority`, merges BotM back, draws cards, and expires field traps
 
-### Card Combinations
+**Classic Mode** (`priorityMode: 'classic'`):
+- Separate priority meters for player and NPC, each starting at `startingPriority`
+- Explicit turn alternation via `activeTurn` flag (`'player'` | `'npc'`)
+- Each play deducts from the active player's meter; can't play if cost exceeds remaining priority
+- Turn switches when the active player's priority hits 0 or below
 
-**Right-click a card in hand** to combine it with another card, producing a more powerful combined card. For example, in Mary-Ann's encounter two insight cards can be combined into `promiseCard`. The combination UI is handled in `HandArea.tsx` via `CardInspectModal.tsx`.
+### Shields
+
+- **Dummy Shields**: Basic shields. Cost 1 Patience when broken (0 if the card has the Safety keyword).
+- **Core Shields**: Configurable shields with a custom `patienceCostOnBreak` value, defined in the encounter's `allowedCoreShields`.
+- **Shield Triggers**: Cards with the `Shield Trigger` keyword queue for automatic effect resolution when their shield is broken.
+
+### Keywords
+
+| Keyword | Effect |
+|---------|--------|
+| **Safety** | Dummy shield costs 0 Patience when broken |
+| **Assemble** | Can be combined with another Assemble card via the combination system |
+| **Shield Trigger** | Effects fire automatically when this card's shield is broken |
+| **Lie** | Increments the lie counter when played |
+| **Trap** | Placed on the field; triggers when its condition is met |
+
+### Card Effects
+
+Cards can have one or more effects: `BREAK_OPPONENT_SHIELD`, `BREAK_PLAYER_SHIELD`, `MODIFY_PRIORITY`, `MODIFY_PATIENCE`, `DRAW_CARDS`, `PLACE_AS_SHIELD`, `INCREMENT_LIE_COUNTER`, `PLACE_IMPRESSION`.
 
 ---
 
-## Card Compendium
+## Persistence
 
-Cards are discovered by interacting with objects and locations in the overworld. Each discovery adds the card to your **Compendium** — a persistent collection that persists across sessions. The Compendium is the pool from which you build your world deck in the Deck Builder before each fight. Starter cards are defined in `STARTER_COMPENDIUM` in `src/data/cards.ts`.
+### Supabase (primary)
+
+All dev-authored content is persisted to Supabase via Zustand stores:
+
+| Table | Store | Content |
+|-------|-------|---------|
+| `cards` | `useDevCardStore` | Card definitions (JSONB) |
+| `encounters` | `useDevEncounterStore` | Encounter configs (JSONB) |
+| `info_nuggets` | `useNuggetStore` | Discoverable lore pieces |
+| `decks` | `useDeckStore` | Curated card decks |
+| `encounter_relevant_cards` | `useEncounterRelevantCardStore` | Nugget-to-card override mappings per encounter |
+| `nugget_discovery` | `useNuggetDiscoveryStore` | Runtime nugget discovery tracking |
+
+Schema is in `supabase/schema.sql`. All tables use permissive RLS (anon key access).
+
+### Local-only
+
+`useSaveStore` uses Zustand's `persist` middleware with `localStorage` (key: `breakthrough-saves`) for per-encounter save state. Not yet wired into the main game loop.
+
+### Legacy localStorage migration
+
+`collectionStore` and `encounterStore` expose `importFromLocalStorage()` for migrating from the old `btdev-cards` / `btdev-encounters` localStorage keys.
 
 ---
 
 ## Project Structure
 
 ```
-BreakthroughPrototype/
-├── src/
+src/
+├── App.tsx                          # Screen router
+├── main.tsx                         # React entry point
+├── index.css                        # Tailwind + custom animations
+│
+├── combat/
+│   ├── types.ts                     # CombatState, CardDefinition, EncounterConfig, etc.
+│   ├── combatReducer.ts             # Pure reducer (CombatState, CombatAction) → CombatState
+│   └── effectHandlers.ts            # shuffle, drawCards, applyEffect, breakPlayerShield, etc.
+│
+├── screens/
+│   ├── TitleScreen.tsx              # Main menu
+│   ├── CombatScreen.tsx             # Combat orchestrator (~1370 lines)
+│   ├── CardCollectionScreen.tsx     # Card browser wrapper
+│   ├── EncounterGalleryScreen.tsx   # Encounter editor wrapper
+│   └── DeckBuilderScreen.tsx        # Deck builder wrapper
+│
+├── components/
 │   ├── combat/
-│   │   ├── combatEngine.ts      # Pure engine — no React imports; all turn/state logic
-│   │   ├── effects.ts           # Card effect resolvers, deck helpers
-│   │   ├── types.ts             # CombatState, EncounterConfig, CombatConfig, CardDef, etc.
-│   │   └── Combat.ts            # useCombat hook — bridges engine ↔ React
-│   ├── components/
-│   │   ├── Overworld.tsx        # Top-down world, NPC interaction, compendium triggers
-│   │   ├── DeckBuilder.tsx      # Pre-combat world-deck selection
-│   │   ├── DeckPreviewScreen.tsx # Read-only personal deck preview before combat
-│   │   ├── ShieldSelector.tsx   # Pre-combat shield placement
-│   │   ├── CombatScreen.tsx     # Main combat HUD orchestrator
-│   │   ├── Battlefield.tsx      # Card play area and NPC display
-│   │   ├── CombatHUD.tsx        # Priority/Patience bars, turn indicator
-│   │   ├── HandArea.tsx         # Player hand, card combining (right-click)
-│   │   ├── BackOfMindPicker.tsx # UI for keeping cards on priority loss
-│   │   ├── CardInspectModal.tsx # Card detail / combine confirmation modal
-│   │   ├── CardComponent.tsx    # Shared card rendering
-│   │   └── DevTools.tsx         # In-game authoring panel (see /dev)
-│   ├── hooks/
-│   │   └── useCombatTimers.ts   # Animation and timing hooks for combat
-│   └── data/
-│       ├── cards.ts             # Card definitions, DETECTIVE_PERSONAL_DECK, STARTER_COMPENDIUM
-│       └── encounters.ts        # EncounterConfig definitions for each NPC fight
+│   │   ├── PriorityBar.tsx          # Priority meter visualization
+│   │   └── PatienceDisplay.tsx      # Opponent patience bar
+│   └── dev/
+│       ├── DevPanel.tsx             # Tabbed dev overlay (slides in during combat)
+│       ├── CardEditorForm.tsx       # Card creation/editing form
+│       ├── CardGalleryGrid.tsx      # Paginated card grid with filtering
+│       ├── CardCollection.tsx       # Card CRUD manager
+│       ├── DeckBuilder.tsx          # Deck composition tool
+│       ├── EncounterEditor.tsx      # Encounter CRUD + shield/trait/nugget editors
+│       ├── SupabaseStatus.tsx       # Connection status + localStorage import
+│       └── IssueSubmitButton.tsx    # Floating GitHub issue reporter
+│
+├── data/
+│   ├── devCards.ts                  # DEV_SKILL_CARDS, DEV_ENEMY_CARDS, PONDER_DEFINITION
+│   ├── encounterDefs.ts            # TEST_ENCOUNTER, CLASSIC_TEST_ENCOUNTER, buildInitialCombatState()
+│   └── combinations.ts             # COMBINATIONS[] (card merge recipes, currently empty)
+│
+├── stores/
+│   ├── collectionStore.ts           # useDevCardStore — card CRUD + Supabase sync
+│   ├── encounterStore.ts            # useDevEncounterStore — encounter CRUD + Supabase sync
+│   ├── nuggetStore.ts               # useNuggetStore — info nugget CRUD + Supabase sync
+│   ├── deckStore.ts                 # useDeckStore — deck CRUD + Supabase sync
+│   ├── nuggetDiscoveryStore.ts      # useNuggetDiscoveryStore — discovery tracking
+│   ├── encounterRelevantCardStore.ts # useEncounterRelevantCardStore — nugget overrides
+│   └── saveStore.ts                 # useSaveStore — localStorage-only encounter saves
+│
+└── lib/
+    └── supabaseClient.ts            # Supabase client singleton
 ```
 
-### `combatEngine.ts` — React-free engine module
+### Combat Engine
 
-`src/combat/combatEngine.ts` contains all turn resolution, deck management, priority, shield, and end-condition logic with **zero React imports**. It is a pure state machine (`(CombatState, CombatAction) → CombatState`) that can be imported by a future non-React game engine adapter without modification. The `DEFAULT_COMBAT_CONFIG` object exported from this file controls all tunable balance parameters.
+The combat engine is intentionally framework-agnostic — `combatReducer.ts` and `effectHandlers.ts` have zero React imports. The reducer is a pure function `(CombatState, CombatAction) → CombatState` that can be ported to any runtime.
 
-### Encounter-scoped Personal Deck (`EncounterConfig.personalDeck`)
-
-`EncounterConfig` has an optional `personalDeck?: string[]` field. Cards listed there are added to the player's personal deck **for that encounter only**, on top of `DETECTIVE_PERSONAL_DECK`. This is used, for example, to give the player Mary-Ann-specific insight cards that only appear in her fight.
+`CombatScreen.tsx` wires the reducer into React via `useReducer`, owns phase-transition timers (via `useEffect`), and handles all drag-and-drop card interactions.
 
 ---
 
-## `/dev` Authoring Tool
+## Dev Panel
 
-In development mode, navigating to `/dev` (e.g. `http://localhost:5173/dev`) opens the **DevTools** panel — an in-game authoring environment for designing and playtesting content without touching source files. It is not available in production builds.
+During combat, pressing the dev toggle opens a slide-in panel with six tabs:
 
-### Tabs
+| Tab | Purpose |
+|-----|---------|
+| **State** | Combat state manipulation: encounter preset switcher (Frame/Classic), manual enemy mode, phase selector, priority/patience/lie sliders, shield break buttons, quick-add cards to hand, set staged enemy card |
+| **Cards** | Inline card creator (name, cost, color, keywords, effects) |
+| **Nuggets** | Info nugget override creator |
+| **Encounters** | Full encounter editor with shield/trait/nugget-override sub-editors, JSON import/export, playtest launcher |
+| **Collection** | Card gallery with create/edit/duplicate, filtering, Supabase status |
+| **Decks** | Deck selector with card list management |
 
-| Tab | What it does |
-|---|---|
-| **Card Creator** | Build a new `CardDef` — set name, cost, effects, supertype, flavour text. Generates copy-pasteable JSON for `cards.ts`. |
-| **Encounter Creator** | Compose an `EncounterConfig` — NPC stats, opponent deck, world deck pool, personal deck overrides, disposition. Generates JSON for `encounters.ts`. |
-| **Playtest** | Run a full combat session against any encounter directly in the browser. Includes **Dev Settings** sliders (see below). |
-| **Notes** | Two sub-editors: **Objective Override** (sets the objective text shown to the player in-game, persisted to `localStorage`) and **Notes Panel Editor** (edits the player's Case Notes panel at runtime, also `localStorage`-persisted). |
-
-### Dev Settings Sliders (Playtest tab)
-
-These sliders control live combat parameters for the current playtest session, all mapped to `CombatConfig`:
-
-| Slider | Default | Meaning |
-|---|---|---|
-| Starting hand | 4 | Cards in opening hand |
-| Cards drawn per play | 1 | Auto-draw after playing a card (0 = no auto-draw) |
-| Priority on shield break | 1 | Priority restored when a shield is broken (valuable shields add 4 more) |
-| Max shields | 0 | Cap on player shields (0 = no cap) |
-| Draw on priority | 3 | Cards drawn when regaining priority |
+The dev panel also has a collapsible log drawer showing the combat action log.
 
 ---
 
 ## Deployment
 
-Pushes to `main` auto-deploy to GitHub Pages via GitHub Actions. No manual steps required.
+Pushes to `main` auto-deploy to GitHub Pages via `.github/workflows/deploy.yml`.
