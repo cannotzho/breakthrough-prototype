@@ -27,6 +27,31 @@ export const TEST_ENCOUNTER: EncounterConfig = {
   enemyDeckCardIds: ['dev_enemy_dismiss', 'dev_enemy_deflect', 'dev_enemy_deflect'],
 };
 
+export const CLASSIC_TEST_ENCOUNTER: EncounterConfig = {
+  id: 'classic_test_encounter',
+  displayName: 'The Informant (Classic)',
+  startingPriority: 5,
+  defaultRestorePriority: 5,
+  priorityMode: 'classic',
+  opponentPatience: 10,
+  opponentShields: [
+    { cardId: 'shield_a', isHint: false, broken: false, loreDescription: 'They looked away when you mentioned the warehouse.' },
+    { cardId: 'shield_b', isHint: true, broken: false, hintText: 'They seem nervous about something.', loreDescription: 'A hint: your subject is hiding something personal, not professional.' },
+    { cardId: 'shield_c', isHint: false, broken: false, loreDescription: 'The real secret: they witnessed the incident but are afraid to speak.' },
+  ],
+  shieldBreakOrder: [0, 1, 2],
+  playerDummyShieldSlots: 3,
+  allowedCoreShields: [],
+  unbreakablePlayerShields: false,
+  nuggetOverrides: [],
+  traits: [
+    { id: 'trait_nervous', name: 'Nervous', description: 'Cards with Intimidate have no effect.', discovered: false },
+  ],
+  retryable: true,
+  lieThreshold: 3,
+  enemyDeckCardIds: ['dev_enemy_dismiss', 'dev_enemy_deflect', 'dev_enemy_deflect'],
+};
+
 export function buildInitialCombatState(config: EncounterConfig): CombatState {
   const allEnemyDefs = [...DEV_ENEMY_CARDS];
 
@@ -82,6 +107,7 @@ export function buildInitialCombatState(config: EncounterConfig): CombatState {
     triggerDepth: 0,
     pendingDiscovery: null,
     discoveredNuggetIds: [],
+    activeTurn: 'player',
     manualEnemyMode: false,
     actionLog: ['Encounter started.'],
   };

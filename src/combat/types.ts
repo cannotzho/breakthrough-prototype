@@ -240,6 +240,8 @@ export interface CombatState {
   pendingDiscovery: NuggetDiscoveryEvent | null;
   discoveredNuggetIds: string[];
 
+  activeTurn: 'player' | 'npc';
+
   manualEnemyMode: boolean;
 
   actionLog: string[];

@@ -53,6 +53,38 @@ export function priorityRestore(state: CombatState): CombatState {
   return s;
 }
 
+export function classicTurnStart(state: CombatState): CombatState {
+  let s: CombatState = {
+    ...state,
+    activeTurn: 'player',
+    priority: state.config.startingPriority,
+    npcPriority: 0,
+  };
+  if (s.stagedEnemyCard) {
+    s = addLog(
+      { ...s, enemyDiscard: [...s.enemyDiscard, s.stagedEnemyCard], stagedEnemyCard: null },
+      'Staged enemy card cancelled → NPC discard (Classic turn start)'
+    );
+  }
+  if (s.backOfMind.length > 0) {
+    s = { ...s, playerHand: [...s.playerHand, ...s.backOfMind], backOfMind: [] };
+  }
+  const toDraw = Math.max(0, s.combatConfig.handLimit - s.playerHand.length);
+  s = drawCards(s, toDraw);
+  s = expireTraps(s);
+  return addLog(s, 'Classic Turn Start — player\'s turn begins');
+}
+
+export function npcTurnStart(state: CombatState): CombatState {
+  const s: CombatState = {
+    ...state,
+    activeTurn: 'npc',
+    priority: 0,
+    npcPriority: state.config.startingPriority,
+  };
+  return addLog(s, 'NPC Turn Start — opponent\'s turn begins');
+}
+
 export function expireTraps(state: CombatState): CombatState {
   if (state.fieldTraps.length === 0) return state;
   const expired = state.fieldTraps;
@@ -150,6 +182,7 @@ export function applyEffect(state: CombatState, effect: CardEffect): CombatState
         }
         return s;
       } else {
+        // Classic mode: modify the player's priority meter; does NOT flip activeTurn
         return { ...state, priority: Math.max(0, state.priority + (effect.value ?? 0)) };
       }
     }
@@ -224,7 +257,7 @@ export function selectEnemyCard(state: CombatState): CombatState {
         const restored = priorityRestore(state);
         return { ...restored, phase: 'Check' };
       } else {
-        return { ...state, phase: 'Check', actionLog: [...log, 'NPC has no cards — turn ends.'] };
+        return { ...state, npcPriority: 0, phase: 'Check', actionLog: [...log, 'NPC deck empty — NPC priority zeroed.'] };
       }
     }
     deck = shuffle([...discard]);

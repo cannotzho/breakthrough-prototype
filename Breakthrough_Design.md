@@ -22,6 +22,7 @@ Changes are listed in reverse chronological order. Each entry describes what cha
 - **Priority Restore decoupled from shield breaks.** Breaking a player shield (Dummy or Core) no longer triggers Priority Restore. Shield breaks now resolve only their Patience cost and Shield Trigger effects. Priority Restore still fires from other causes (NPC deck exhaustion, card effects that push Priority above 0).
 - **Priority meter structure differs by mode.** Frame Priority Mode uses a single shared Priority meter (positive = player's turn, ≤ 0 = NPC's turn). Classic Priority Mode gives player and NPC each their own independent Priority meter with full reset per turn.
 - **Frame mode initiative recovery resolved (Open Question #3).** Card costs are sign-directional: NPC card costs push the shared Priority meter toward positive (player territory), self-limiting the NPC's turn. No separate restore mechanic is needed — the NPC's own spending is the mechanism that returns initiative to the player.
+- **Classic Priority Mode fully implemented (Open Questions #1–#2 resolved).** Classic mode is no longer a stub — it uses an `activeTurn` flag (`'player' | 'npc'`) for explicit turn ownership. Check State routes by `activeTurn` instead of shared-meter sign. Each side's Priority fully resets at their turn start (no carry-over). NPC card costs deduct from `npcPriority`; when it hits 0, Classic Turn Start fires: player Priority resets, BotM returns to hand, fresh draw up to hand limit, Field traps expire. The player cannot be auto-ended at 0 Priority — they must click End Turn. MODIFY_PRIORITY effects during the NPC's turn write to the player meter but do not flip `activeTurn` (intentional asymmetry). NPC deck exhaustion in Classic mode zeros `npcPriority` and routes to Check (triggering Classic Turn Start).
 
 ### v1.1 — 2026-06-21
 
@@ -287,20 +288,35 @@ When the draw pile contains zero cards and the player would draw, the discard pi
 
 The routing hub. Never blocks. Transitions evaluated top to bottom; first match wins.
 
-The rules below describe **Frame Priority Mode** routing (shared meter). Classic Priority Mode uses alternating turns with separate meters — see Open Questions for the remaining specification needed.
+Rules 1–4 are mode-independent (win/loss conditions). Rules 5–8 differ by Priority mode.
 
 1. All opponent shields broken → **WIN**
 2. All player shields broken *(unless `unbreakablePlayerShields` is set)* → **LOSE**
 3. NPC Patience ≤ 0 → **LOSE**
 4. Lie Counter > encounter's `lieThreshold` → **LOSE**
+
+**Frame Priority Mode** (rules 5–8, shared meter):
+
 5. Priority > 0 → move any staged enemy card to NPC discard → **Player Pending**
 6. Priority ≤ 0 AND staged enemy card exists → **Enemy Play**
 7. Priority ≤ 0 AND no staged card AND hand not empty → **BotM Select**
 8. Priority ≤ 0 AND no staged card AND hand empty → **Enemy Pending**
 
+**Classic Priority Mode** (rules 5c–8c, alternating turns via `activeTurn` flag):
+
+5c. `activeTurn === 'player'` → move any staged enemy card to NPC discard → **Player Pending** (always, regardless of current Priority value — no auto-end even at 0 Priority)
+6c. `activeTurn === 'npc'` AND staged enemy card exists → **Enemy Play**
+7c. `activeTurn === 'npc'` AND no staged card AND player hand not empty → **BotM Select**
+8c. `activeTurn === 'npc'` AND no staged card AND `npcPriority > 0` → **Enemy Pending**
+9c. `activeTurn === 'npc'` AND no staged card AND `npcPriority ≤ 0` → Classic Turn Start → **Player Pending**
+
 > **Win before loss:** Rule 1 is checked before rules 2–4 so that simultaneously breaking the last opponent shield and draining Patience to zero resolves as a win.
 >
 > **Staged card on Priority Restore (rule 5, Frame mode):** When the shared Priority meter transitions to > 0, the NPC's staged card is cancelled. It is moved to the NPC's discard pile — not removed from the encounter.
+>
+> **Classic Turn Start (rule 9c):** Set `activeTurn = 'player'`; reset player Priority to `startingPriority`; set `npcPriority = 0`; cancel any staged enemy card to NPC discard; return BotM cards to hand; draw cards up to `handLimit`; expire all Field traps to player discard.
+>
+> **NPC Turn Start (triggered by player's End Turn action in Classic mode):** Set `activeTurn = 'npc'`; set player Priority to 0; reset `npcPriority` to `startingPriority`; then route to Check (which evaluates rules 6c–9c).
 
 ---
 
@@ -942,11 +958,10 @@ This section summarizes what parts of the existing combat engine architecture wi
 
 ### Open Questions (v1.2)
 
-The following new questions emerged from the Priority restructuring and are smaller in scope than the v1.1 questions. They need design decisions before Classic Priority Mode can be implemented; Frame Priority Mode is fully specified.
+All v1.2 open questions have been resolved:
 
-1. **Classic Priority Mode: Check State routing.** The current Check State routing (§4.3) is defined entirely in terms of a single shared Priority meter (rules 5–8). With Classic mode's separate meters and alternating turns, how does Check State route? Does it use an explicit `currentTurn` flag? Does "End Turn" pass control to the NPC directly, or does some condition on the NPC's meter determine when control returns to the player? The win/loss rules (1–4) are mode-independent, but the turn-routing rules need a Classic-specific definition.
-
-2. **Classic Priority Mode: turn transition mechanics.** In Classic mode, what happens at each turn transition? Does the player draw a fresh hand at the start of each of their turns (analogous to Priority Restore's hand draw in Frame mode)? Does BotM work the same way? Is there a staged-card cancellation equivalent?
+1. ~~**Classic Priority Mode: Check State routing.**~~ Resolved — uses `activeTurn: 'player' | 'npc'` flag. See changelog entry above.
+2. ~~**Classic Priority Mode: turn transition mechanics.**~~ Resolved — Classic Turn Start resets player Priority, returns BotM to hand, draws to hand limit, expires Field traps. NPC Turn Start resets NPC Priority. See changelog entry above.
 
 ---
 

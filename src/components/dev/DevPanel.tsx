@@ -6,9 +6,15 @@ import {
   NuggetOverride, CardEffect,
 } from '../../combat/types';
 import { DEV_SKILL_CARDS, DEV_ENEMY_CARDS } from '../../data/devCards';
+import { TEST_ENCOUNTER, CLASSIC_TEST_ENCOUNTER } from '../../data/encounterDefs';
 import EncounterEditor from './EncounterEditor';
 import CardCollection from './CardCollection';
 import DeckBuilder from './DeckBuilder';
+
+const ENCOUNTER_PRESETS = [
+  { label: 'Frame (default)', config: TEST_ENCOUNTER },
+  { label: 'Classic', config: CLASSIC_TEST_ENCOUNTER },
+] as const;
 
 type View = 'State' | 'Cards' | 'NuggetOvr' | 'Encounters' | 'Collection' | 'Decks';
 
@@ -81,9 +87,29 @@ function EnemyCardPicker({ state, dispatch }: { state: CombatState; dispatch: (a
   );
 }
 
-function StateView({ state, dispatch }: { state: CombatState; dispatch: (a: CombatAction) => void }) {
+function StateView({ state, dispatch, onLoadEncounter }: { state: CombatState; dispatch: (a: CombatAction) => void; onLoadEncounter?: (config: import('../../combat/types').EncounterConfig) => void }) {
   return (
     <div className="flex flex-col gap-4">
+      <div>
+        <div className="text-xs text-zinc-500 mb-2">Encounter Preset</div>
+        <div className="flex gap-2">
+          {ENCOUNTER_PRESETS.map(p => {
+            const isActive = state.config.priorityMode === p.config.priorityMode && state.config.id === p.config.id;
+            return (
+              <button key={p.config.id}
+                onClick={() => onLoadEncounter?.(p.config)}
+                className={`text-xs px-3 py-1.5 rounded border transition-colors ${isActive ? 'border-blue-400 text-blue-300 bg-blue-950/40' : 'border-zinc-600 text-zinc-300 hover:border-white hover:text-white'}`}
+              >
+                {p.label}
+              </button>
+            );
+          })}
+        </div>
+        <div className="text-[10px] text-zinc-600 mt-1">
+          Mode: <span className="text-zinc-400 font-bold">{state.config.priorityMode}</span>
+          {state.config.priorityMode === 'classic' && <> · activeTurn: <span className="text-zinc-400 font-bold">{state.activeTurn}</span> · npcPriority: <span className="text-zinc-400 font-bold">{state.npcPriority}</span></>}
+        </div>
+      </div>
       <div className="flex items-center gap-3">
         <label className="flex items-center gap-2 cursor-pointer">
           <input type="checkbox" checked={state.manualEnemyMode}
@@ -446,7 +472,7 @@ export default function DevPanel({ open, onClose, state, dispatch, onLoadEncount
 
               {/* Scrollable content */}
               <div className="flex-1 overflow-y-auto p-3">
-                {activeView === 'State' && <StateView state={state} dispatch={dispatch} />}
+                {activeView === 'State' && <StateView state={state} dispatch={dispatch} onLoadEncounter={onLoadEncounter} />}
                 {activeView === 'Cards' && <CardCreatorView dispatch={dispatch} />}
                 {activeView === 'NuggetOvr' && <NuggetOverrideCreatorView dispatch={dispatch} />}
                 {activeView === 'Encounters' && <EncounterEditor onLoadEncounter={onLoadEncounter} />}

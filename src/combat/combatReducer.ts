@@ -1,5 +1,5 @@
 import { CombatState, CombatAction, CardInstance, CardEffect, NuggetOverride, SHIELD_PLACEMENT_COST } from './types';
-import { applyEffect, selectEnemyCard, makeInstance, clampPriority, shuffle, resolveFieldTriggerCheck } from './effectHandlers';
+import { applyEffect, selectEnemyCard, makeInstance, clampPriority, shuffle, resolveFieldTriggerCheck, classicTurnStart, npcTurnStart } from './effectHandlers';
 import { COMBINATIONS } from '../data/combinations';
 import { PONDER_DEFINITION } from '../data/devCards';
 
@@ -77,12 +77,8 @@ function checkState(state: CombatState): CombatState {
     }
     return { ...state, phase: 'EnemyPending' };
   } else {
-    // Classic Priority Mode — alternating turns
-    // NOTE: Classic mode routing is flagged as an open design question.
-    // Implementing a basic alternating-turn model:
-    // If player has priority > 0, it's the player's turn.
-    // If player priority = 0, it's the NPC's turn — route to enemy.
-    if (state.priority > 0) {
+    // Classic Priority Mode — alternating turns with activeTurn flag
+    if (state.activeTurn === 'player') {
       let s = state;
       if (s.stagedEnemyCard) {
         s = addLog(
@@ -93,21 +89,27 @@ function checkState(state: CombatState): CombatState {
       return { ...s, phase: 'PlayerPending' };
     }
 
+    // activeTurn === 'npc'
     if (state.stagedEnemyCard) {
       return { ...state, phase: 'EnemyPlay' };
     }
 
-    if (state.playerHand.length > 0 && state.npcPriority > 0) {
+    if (state.playerHand.length > 0) {
       return { ...state, phase: 'BotMSelect' };
     }
 
-    if (state.enemyDeck.length === 0 && state.enemyDiscard.length > 0) {
-      return addLog(
-        { ...state, phase: 'EnemyPending', enemyDeck: shuffle([...state.enemyDiscard]), enemyDiscard: [] },
-        'NPC deck recycled.'
-      );
+    if (state.npcPriority > 0) {
+      if (state.enemyDeck.length === 0 && state.enemyDiscard.length > 0) {
+        return addLog(
+          { ...state, phase: 'EnemyPending', enemyDeck: shuffle([...state.enemyDiscard]), enemyDiscard: [] },
+          'NPC deck recycled.'
+        );
+      }
+      return { ...state, phase: 'EnemyPending' };
     }
-    return { ...state, phase: 'EnemyPending' };
+
+    // npcPriority <= 0 and no staged card — Classic Turn Start
+    return checkState(classicTurnStart(state));
   }
 }
 
@@ -354,12 +356,7 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       if (isFrame) {
         return checkState(addLog({ ...state, priority: 0 }, 'Player ended turn'));
       } else {
-        // Classic mode: player turn ends, NPC gets full priority
-        return checkState(addLog({
-          ...state,
-          priority: 0,
-          npcPriority: state.config.startingPriority,
-        }, 'Player ended turn'));
+        return checkState(npcTurnStart(state));
       }
     }
 
@@ -524,11 +521,20 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       const card = state.stagedEnemyCard;
       let s: CombatState = addLog(state, `NPC played ${card.definition.name}`);
 
-      // Frame mode: enemy card cost pushes priority toward positive (self-limiting)
-      if (s.config.priorityMode === 'frame' && card.definition.cost > 0) {
-        const newPriority = clampPriority(s.priority + card.definition.cost);
-        s = addLog({ ...s, priority: newPriority },
-          `NPC spent ${card.definition.cost} initiative (priority ${s.priority} → ${newPriority})`);
+      if (s.config.priorityMode === 'frame') {
+        // Frame mode: enemy card cost pushes priority toward positive (self-limiting)
+        if (card.definition.cost > 0) {
+          const newPriority = clampPriority(s.priority + card.definition.cost);
+          s = addLog({ ...s, priority: newPriority },
+            `NPC spent ${card.definition.cost} initiative (priority ${s.priority} → ${newPriority})`);
+        }
+      } else {
+        // Classic mode: deduct cost from npcPriority
+        if (card.definition.cost > 0) {
+          const newNpcPriority = Math.max(0, s.npcPriority - card.definition.cost);
+          s = addLog({ ...s, npcPriority: newNpcPriority },
+            `NPC spent ${card.definition.cost} priority (npcPriority ${s.npcPriority} → ${newNpcPriority})`);
+        }
       }
 
       return resolveEffectList(s, card.definition.effects, card, (resolved) => {
