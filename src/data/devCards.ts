@@ -50,16 +50,16 @@ export const DEV_SKILL_CARDS: CardDefinition[] = [
     longDescription: 'Brace yourself defensively. When placed as a shield, the Safety keyword prevents the NPC from draining Patience on break.',
   },
   {
-    id: 'dev_interrupt_test',
+    id: 'dev_quick_retort',
     name: 'Quick Retort',
     cost: 0,
-    keywords: ['Interrupt'],
+    keywords: [],
     effects: [{ type: 'MODIFY_PRIORITY', value: 2 }],
     color: 'Red',
     supertype: 'Skill',
     subtype: null,
     effectText: '+2 Priority.',
-    longDescription: 'A sharp comeback that can be interjected during the NPC\'s turn, seizing back momentum in the conversation.',
+    longDescription: 'A sharp comeback that seizes back momentum in the conversation.',
   },
 ];
 

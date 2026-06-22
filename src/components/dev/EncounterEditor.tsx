@@ -18,12 +18,14 @@ function defaultEncounter(): EncounterConfig {
     displayName: 'New Encounter',
     startingPriority: 5,
     defaultRestorePriority: 5,
+    priorityMode: 'frame',
     opponentPatience: 10,
     opponentShields: [
       { cardId: 'shield_1', isHint: false, broken: false, loreDescription: '' },
     ],
     shieldBreakOrder: [0],
-    playerShields: [],
+    playerDummyShieldSlots: 3,
+    allowedCoreShields: [],
     unbreakablePlayerShields: false,
     nuggetOverrides: [],
     traits: [],
@@ -422,12 +424,23 @@ export default function EncounterEditor({ onLoadEncounter, onStartPlaytest }: En
           className={INPUT} />
       </label>
 
-      <label className="flex flex-col gap-1">
-        <span className={LABEL}>Player Shield Card IDs (comma-separated)</span>
-        <input value={(config.playerShields ?? []).join(', ')}
-          onChange={e => patch({ playerShields: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
-          className={INPUT} />
-      </label>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="flex flex-col gap-1">
+          <span className={LABEL}>Player Dummy Shield Slots</span>
+          <input type="number" value={config.playerDummyShieldSlots ?? 3}
+            onChange={e => patch({ playerDummyShieldSlots: Number(e.target.value) })}
+            className={INPUT} />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className={LABEL}>Priority Mode</span>
+          <select value={config.priorityMode ?? 'frame'}
+            onChange={e => patch({ priorityMode: e.target.value as 'frame' | 'classic' })}
+            className={INPUT}>
+            <option value="frame">Frame</option>
+            <option value="classic">Classic</option>
+          </select>
+        </label>
+      </div>
 
       <ShieldEditor shields={config.opponentShields}
         onChange={opponentShields => patch({

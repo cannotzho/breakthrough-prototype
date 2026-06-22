@@ -1,36 +1,45 @@
 import { CombatState, CombatAction, CardInstance, CardEffect, NuggetOverride, SHIELD_PLACEMENT_COST } from './types';
-import { applyEffect, priorityRestore, selectEnemyCard, makeInstance, clampPriority, shuffle } from './effectHandlers';
+import { applyEffect, selectEnemyCard, makeInstance, clampPriority, shuffle, resolveFieldTriggerCheck } from './effectHandlers';
 import { COMBINATIONS } from '../data/combinations';
 import { PONDER_DEFINITION } from '../data/devCards';
 
-function computeCost(cost: number, priority: number) {
-  const priorityCovered = Math.min(cost, priority);
-  const patienceCost = Math.max(0, cost - priority);
-  return { priorityCovered, patienceCost };
+function computeCost(cost: number, priority: number, isFrame: boolean) {
+  if (isFrame) {
+    const priorityCovered = Math.min(cost, priority);
+    const patienceCost = Math.max(0, cost - priority);
+    return { priorityCovered, patienceCost };
+  }
+  return { priorityCovered: cost, patienceCost: 0 };
 }
 
 function addLog(state: CombatState, msg: string): CombatState {
   return { ...state, actionLog: [...state.actionLog.slice(-49), msg] };
 }
 
-// §4.3 Check State — conditions evaluated top-to-bottom, first match wins
 function checkState(state: CombatState): CombatState {
+  const isFrame = state.config.priorityMode === 'frame';
+
+  // §4.3 Rule 1: Win — all opponent shields broken
   if (state.opponentShields.every(s => s.broken)) {
     return addLog({ ...state, phase: 'WIN' }, 'All opponent shields broken — WIN');
   }
 
+  // §4.3 Rule 2: Lose — all player shields broken (only after at least one was placed)
+  const hasAnyShield = state.playerShields.some(s => s !== null);
   if (
     !state.config.unbreakablePlayerShields &&
-    state.shieldEverOccupied &&
-    state.playerShields.every(s => s === null)
+    state.shieldsEverPlaced > 0 &&
+    !hasAnyShield
   ) {
     return addLog({ ...state, phase: 'LOSE' }, 'All player shields broken — LOSE');
   }
 
+  // §4.3 Rule 3: Lose — Patience ≤ 0
   if (state.patience <= 0) {
     return addLog({ ...state, phase: 'LOSE' }, 'Patience reached 0 — LOSE');
   }
 
+  // §4.3 Rule 4: Lose — Lie counter exceeded
   if (
     state.config.lieThreshold != null &&
     state.config.lieThreshold > 0 &&
@@ -39,32 +48,67 @@ function checkState(state: CombatState): CombatState {
     return addLog({ ...state, phase: 'LOSE' }, 'Lie counter exceeded — LOSE');
   }
 
-  if (state.priority > 0) {
-    let s = state;
-    if (s.stagedEnemyCard) {
-      s = addLog(
-        { ...s, enemyDiscard: [...s.enemyDiscard, s.stagedEnemyCard], stagedEnemyCard: null },
-        'Staged enemy card cancelled → NPC discard'
+  if (isFrame) {
+    // Frame Priority Mode routing (§4.3 rules 5–8)
+    if (state.priority > 0) {
+      let s = state;
+      if (s.stagedEnemyCard) {
+        s = addLog(
+          { ...s, enemyDiscard: [...s.enemyDiscard, s.stagedEnemyCard], stagedEnemyCard: null },
+          'Staged enemy card cancelled → NPC discard'
+        );
+      }
+      return { ...s, phase: 'PlayerPending' };
+    }
+
+    if (state.stagedEnemyCard) {
+      return { ...state, phase: 'EnemyPlay' };
+    }
+
+    if (state.playerHand.length > 0) {
+      return { ...state, phase: 'BotMSelect' };
+    }
+
+    if (state.enemyDeck.length === 0 && state.enemyDiscard.length > 0) {
+      return addLog(
+        { ...state, phase: 'EnemyPending', enemyDeck: shuffle([...state.enemyDiscard]), enemyDiscard: [] },
+        'NPC deck recycled.'
       );
     }
-    return { ...s, phase: 'PlayerPending' };
-  }
+    return { ...state, phase: 'EnemyPending' };
+  } else {
+    // Classic Priority Mode — alternating turns
+    // NOTE: Classic mode routing is flagged as an open design question.
+    // Implementing a basic alternating-turn model:
+    // If player has priority > 0, it's the player's turn.
+    // If player priority = 0, it's the NPC's turn — route to enemy.
+    if (state.priority > 0) {
+      let s = state;
+      if (s.stagedEnemyCard) {
+        s = addLog(
+          { ...s, enemyDiscard: [...s.enemyDiscard, s.stagedEnemyCard], stagedEnemyCard: null },
+          'Staged enemy card cancelled → NPC discard'
+        );
+      }
+      return { ...s, phase: 'PlayerPending' };
+    }
 
-  if (state.stagedEnemyCard) {
-    return { ...state, phase: 'EnemyPlay' };
-  }
+    if (state.stagedEnemyCard) {
+      return { ...state, phase: 'EnemyPlay' };
+    }
 
-  if (state.playerHand.length > 0) {
-    return { ...state, phase: 'BotMSelect' };
-  }
+    if (state.playerHand.length > 0 && state.npcPriority > 0) {
+      return { ...state, phase: 'BotMSelect' };
+    }
 
-  if (state.enemyDeck.length === 0 && state.enemyDiscard.length > 0) {
-    return addLog(
-      { ...state, phase: 'EnemyPending', enemyDeck: shuffle([...state.enemyDiscard]), enemyDiscard: [] },
-      'NPC deck recycled.'
-    );
+    if (state.enemyDeck.length === 0 && state.enemyDiscard.length > 0) {
+      return addLog(
+        { ...state, phase: 'EnemyPending', enemyDeck: shuffle([...state.enemyDiscard]), enemyDiscard: [] },
+        'NPC deck recycled.'
+      );
+    }
+    return { ...state, phase: 'EnemyPending' };
   }
-  return { ...state, phase: 'EnemyPending' };
 }
 
 function resolveEffectList(
@@ -76,10 +120,10 @@ function resolveEffectList(
   let s = state;
   for (let i = 0; i < effects.length; i++) {
     const effect = effects[i];
-    const before = { pendingReveal: s.pendingReveal, pendingShieldChoiceSlotIdx: s.pendingShieldChoiceSlotIdx };
+    const beforeReveal = s.pendingReveal;
     s = applyEffect(s, effect);
 
-    if (s.pendingReveal && s.pendingReveal !== before.pendingReveal) {
+    if (s.pendingReveal && s.pendingReveal !== beforeReveal) {
       return {
         ...s,
         phase: 'RevealPending',
@@ -87,48 +131,8 @@ function resolveEffectList(
         pendingEffectCard: card,
       };
     }
-    if (s.pendingShieldChoiceSlotIdx === -1 && before.pendingShieldChoiceSlotIdx !== -1) {
-      return {
-        ...s,
-        phase: 'PlayerShieldChoice',
-        pendingEffects: effects.slice(i + 1),
-        pendingEffectCard: card,
-      };
-    }
   }
   return onComplete(s);
-}
-
-function completeShieldBreak(state: CombatState): CombatState {
-  const cp = state.counterPending;
-  if (!cp) return checkState({ ...state, phase: 'Check' });
-
-  let s = state;
-  if (cp.hasSafety) {
-    s = addLog(s, 'Counter resolved (Safety) — NPC loses 0 Patience, Priority Restore');
-  } else {
-    s = addLog(s, 'Counter resolved — NPC loses 1 Patience, Priority Restore');
-    s = { ...s, patience: s.patience - 1 };
-  }
-  s = priorityRestore(s);
-  s = { ...s, counterPending: null };
-
-  const remaining = cp.savedEffects;
-  const card = cp.savedEffectCard;
-  if (!card || remaining.length === 0) {
-    let final: CombatState = { ...s, phase: 'Check', pendingEffects: [], pendingEffectCard: null };
-    if (final.stagedEnemyCard && card && final.stagedEnemyCard.instanceId === card.instanceId) {
-      final = { ...final, enemyDiscard: [...final.enemyDiscard, final.stagedEnemyCard], stagedEnemyCard: null };
-    }
-    return checkState(final);
-  }
-  return resolveEffectList(s, remaining, card, (resolved) => {
-    let final: CombatState = { ...resolved, phase: 'Check', pendingEffects: [], pendingEffectCard: null };
-    if (final.stagedEnemyCard && card && final.stagedEnemyCard.instanceId === card.instanceId) {
-      final = { ...final, enemyDiscard: [...final.enemyDiscard, final.stagedEnemyCard], stagedEnemyCard: null };
-    }
-    return checkState(final);
-  });
 }
 
 const PONDER_EFFECTS: CardEffect[] = PONDER_DEFINITION.effects;
@@ -142,6 +146,59 @@ function isDefaultNuggetVariant(card: CardInstance, nuggetOverrides: NuggetOverr
   return true;
 }
 
+function completePlayerPlay(state: CombatState, card: CardInstance, isPonderConversion: boolean): CombatState {
+  let s = state;
+  if (s.pendingPlaceAsShield) {
+    return addLog(
+      { ...s, pendingEffectCard: card, pendingEffects: [], phase: 'PlayerPending' },
+      `${card.definition.name}: choose a shield slot to place it in`
+    );
+  }
+
+  const isTrap = card.definition.subtype === 'Trap';
+  const isImpression = card.definition.subtype === 'Impression';
+  const isCombined = !!card.combinedFrom;
+
+  if (isTrap && card.definition.trapTrigger) {
+    const trap = {
+      card,
+      triggerCondition: card.definition.trapTrigger,
+      playOrder: s.trapPlayCounter,
+    };
+    s = {
+      ...s,
+      fieldTraps: [...s.fieldTraps, trap],
+      trapPlayCounter: s.trapPlayCounter + 1,
+    };
+    s = addLog(s, `${card.definition.name} placed on the Field as Trap`);
+  } else {
+    const discardCard: CardInstance = isPonderConversion
+      ? { ...card, definition: PONDER_DEFINITION }
+      : card;
+    let discardAdditions: CardInstance[];
+    if (isCombined) {
+      discardAdditions = card.combinedFrom!;
+    } else {
+      discardAdditions = isImpression ? [] : [discardCard];
+    }
+    s = {
+      ...s,
+      playerDiscard: [...s.playerDiscard, ...discardAdditions],
+      fieldImpressions: isImpression ? [...s.fieldImpressions, card] : s.fieldImpressions,
+    };
+  }
+
+  // Field Trigger Check after Player Play
+  s = resolveFieldTriggerCheck(s);
+
+  return checkState({
+    ...s,
+    pendingEffects: [],
+    pendingEffectCard: null,
+    phase: 'Check',
+  });
+}
+
 export function combatReducer(state: CombatState, action: CombatAction): CombatState {
   switch (action.type) {
 
@@ -152,6 +209,8 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       if (state.phase !== 'PlayerPending') return state;
       const card = state.playerHand.find(c => c.instanceId === action.cardInstanceId);
       if (!card) return state;
+
+      const isFrame = state.config.priorityMode === 'frame';
 
       let effectiveCost = card.definition.cost;
       let effectiveEffects = card.definition.effects;
@@ -182,12 +241,17 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
         }
       }
 
+      // Classic mode: cannot play if cost > current priority
+      if (!isFrame && effectiveCost > state.priority) {
+        return addLog(state, `Cannot play ${card.definition.name} — cost ${effectiveCost} exceeds priority ${state.priority}`);
+      }
+
       const cost = effectiveCost;
-      const { priorityCovered, patienceCost } = computeCost(cost, state.priority);
+      const { priorityCovered, patienceCost } = computeCost(cost, state.priority, isFrame);
 
       let s: CombatState = {
         ...state,
-        priority: clampPriority(state.priority - priorityCovered),
+        priority: isFrame ? clampPriority(state.priority - priorityCovered) : Math.max(0, state.priority - priorityCovered),
         patience: state.patience - patienceCost,
         playerHand: state.playerHand.filter(c => c.instanceId !== action.cardInstanceId),
         pendingEffects: [],
@@ -218,33 +282,13 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
         s = { ...s, lieCounter: s.lieCounter + 1 };
       }
 
-      const discardCard: CardInstance = isPonderConversion
-        ? { ...card, definition: PONDER_DEFINITION }
-        : card;
+      // Trap cards: skip effect resolution, go straight to field placement
+      if (card.definition.subtype === 'Trap') {
+        return completePlayerPlay(s, card, isPonderConversion);
+      }
 
       return resolveEffectList(s, effectiveEffects, card, (resolved) => {
-        if (resolved.pendingPlaceAsShield) {
-          return addLog(
-            { ...resolved, pendingEffectCard: card, pendingEffects: [], phase: 'PlayerPending' },
-            `${card.definition.name}: choose a shield slot to place it in`
-          );
-        }
-        const isImpression = card.definition.subtype === 'Impression';
-        const isCombined = !!card.combinedFrom;
-        let discardAdditions: CardInstance[];
-        if (isCombined) {
-          discardAdditions = card.combinedFrom!;
-        } else {
-          discardAdditions = isImpression ? [] : [discardCard];
-        }
-        return checkState({
-          ...resolved,
-          playerDiscard: [...resolved.playerDiscard, ...discardAdditions],
-          fieldImpressions: isImpression ? [...resolved.fieldImpressions, card] : resolved.fieldImpressions,
-          pendingEffects: [],
-          pendingEffectCard: null,
-          phase: 'Check',
-        });
+        return completePlayerPlay(resolved, card, isPonderConversion);
       });
     }
 
@@ -253,14 +297,14 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       const card = state.pendingEffectCard;
       if (action.slotIdx >= state.playerShields.length || state.playerShields[action.slotIdx] !== null) return state;
       const newShields = [...state.playerShields];
-      newShields[action.slotIdx] = { card };
+      newShields[action.slotIdx] = { card, shieldType: 'dummy', patienceCostOnBreak: 1 };
       let s: CombatState = {
         ...state,
         playerShields: newShields,
+        shieldsEverPlaced: state.shieldsEverPlaced + 1,
         pendingPlaceAsShield: false,
         pendingEffectCard: null,
         pendingEffects: [],
-        shieldEverOccupied: true,
       };
       s = addLog(s, `${card.definition.name} placed as shield in slot ${action.slotIdx} (via effect)`);
       return checkState({ ...s, phase: 'Check' });
@@ -272,26 +316,51 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       if (!card || action.slotIdx >= state.playerShields.length) return state;
       if (state.playerShields[action.slotIdx] !== null) return state;
 
-      const { priorityCovered, patienceCost } = computeCost(SHIELD_PLACEMENT_COST, state.priority);
+      const isFrame = state.config.priorityMode === 'frame';
+
+      // Classic mode: cannot place if cost > current priority
+      if (!isFrame && SHIELD_PLACEMENT_COST > state.priority) {
+        return addLog(state, `Cannot place shield — cost ${SHIELD_PLACEMENT_COST} exceeds priority ${state.priority}`);
+      }
+
+      const { priorityCovered, patienceCost } = computeCost(SHIELD_PLACEMENT_COST, state.priority, isFrame);
 
       const newShields = [...state.playerShields];
-      newShields[action.slotIdx] = { card };
+      newShields[action.slotIdx] = { card, shieldType: 'dummy', patienceCostOnBreak: 1 };
 
       let s: CombatState = {
         ...state,
-        priority: clampPriority(state.priority - priorityCovered),
+        priority: isFrame ? clampPriority(state.priority - priorityCovered) : Math.max(0, state.priority - priorityCovered),
         patience: state.patience - patienceCost,
         playerHand: state.playerHand.filter(c => c.instanceId !== action.cardInstanceId),
         playerShields: newShields,
-        shieldEverOccupied: true,
+        shieldsEverPlaced: state.shieldsEverPlaced + 1,
       };
       s = addLog(s, `${card.definition.name} placed as shield in slot ${action.slotIdx} (cost ${SHIELD_PLACEMENT_COST} priority)`);
       return checkState({ ...s, phase: 'Check' });
     }
 
+    case 'RESEQUENCE_SHIELDS': {
+      if (state.phase !== 'PlayerPending') return state;
+      const { newOrder } = action;
+      if (newOrder.length !== state.playerShields.length) return state;
+      const reordered = newOrder.map(i => state.playerShields[i]);
+      return { ...state, playerShields: reordered };
+    }
+
     case 'END_TURN': {
       if (state.phase !== 'PlayerPending') return state;
-      return checkState(addLog({ ...state, priority: 0 }, 'Player ended turn'));
+      const isFrame = state.config.priorityMode === 'frame';
+      if (isFrame) {
+        return checkState(addLog({ ...state, priority: 0 }, 'Player ended turn'));
+      } else {
+        // Classic mode: player turn ends, NPC gets full priority
+        return checkState(addLog({
+          ...state,
+          priority: 0,
+          npcPriority: state.config.startingPriority,
+        }, 'Player ended turn'));
+      }
     }
 
     case 'SELECT_BOTM': {
@@ -340,20 +409,12 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       const remainingEffects = state.pendingEffects;
       const card = state.pendingEffectCard;
 
-      if (state.counterPending) {
-        if (!card || remainingEffects.length === 0) {
-          return completeShieldBreak(addLog(s, 'Reveal dismissed'));
-        }
-        return resolveEffectList(s, remainingEffects, card, (resolved) => {
-          return completeShieldBreak(resolved);
-        });
-      }
-
       if (!card || remainingEffects.length === 0) {
         let final: CombatState = { ...s, phase: 'Check', pendingEffects: [], pendingEffectCard: null };
         if (final.stagedEnemyCard && card && final.stagedEnemyCard.instanceId === card.instanceId) {
           final = { ...final, enemyDiscard: [...final.enemyDiscard, final.stagedEnemyCard], stagedEnemyCard: null };
         }
+        final = resolveFieldTriggerCheck(final);
         return checkState(addLog(final, 'Reveal dismissed'));
       }
       return resolveEffectList(s, remainingEffects, card, (resolved) => {
@@ -361,68 +422,7 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
         if (final.stagedEnemyCard && card && final.stagedEnemyCard.instanceId === card.instanceId) {
           final = { ...final, enemyDiscard: [...final.enemyDiscard, final.stagedEnemyCard], stagedEnemyCard: null };
         }
-        return checkState(final);
-      });
-    }
-
-    case 'SELECT_SHIELD_SACRIFICE': {
-      if (state.phase !== 'PlayerShieldChoice') return state;
-      if (state.playerShields[action.slotIdx] === null) return state;
-      return { ...state, pendingShieldChoiceSlotIdx: action.slotIdx };
-    }
-
-    case 'CONFIRM_SHIELD_SACRIFICE': {
-      if (state.phase !== 'PlayerShieldChoice') return state;
-      const idx = state.pendingShieldChoiceSlotIdx;
-      if (idx === null || idx === -1 || !state.playerShields[idx]) return state;
-      const sacrificed = state.playerShields[idx]!.card;
-      const hasSafety = sacrificed.definition.keywords.includes('Safety');
-      const hasCounter = sacrificed.definition.keywords.includes('Counter');
-
-      let s: CombatState = {
-        ...state,
-        playerShields: state.playerShields.map((slot, i) => i === idx ? null : slot),
-        pendingShieldChoiceSlotIdx: null,
-      };
-
-      if (hasCounter) {
-        s = {
-          ...s,
-          counterPending: {
-            hasSafety,
-            savedEffects: state.pendingEffects,
-            savedEffectCard: state.pendingEffectCard,
-          },
-        };
-        s = addLog(s, `Counter triggered: resolving ${sacrificed.definition.name}'s effects`);
-        return resolveEffectList(s, sacrificed.definition.effects, sacrificed, (resolved) => {
-          return completeShieldBreak(resolved);
-        });
-      }
-
-      if (hasSafety) {
-        s = addLog(s, `${sacrificed.definition.name} broken (Safety) — NPC loses 0 Patience, Priority Restore`);
-      } else {
-        s = addLog(s, `${sacrificed.definition.name} broken — NPC loses 1 Patience, Priority Restore`);
-        s = { ...s, patience: s.patience - 1 };
-      }
-
-      s = priorityRestore(s);
-
-      const remaining = s.pendingEffects;
-      const card = s.pendingEffectCard;
-      if (!card || remaining.length === 0) {
-        let final: CombatState = { ...s, phase: 'Check', pendingEffects: [], pendingEffectCard: null };
-        if (final.stagedEnemyCard && card && final.stagedEnemyCard.instanceId === card.instanceId) {
-          final = { ...final, enemyDiscard: [...final.enemyDiscard, final.stagedEnemyCard], stagedEnemyCard: null };
-        }
-        return checkState(final);
-      }
-      return resolveEffectList(s, remaining, card, (resolved) => {
-        let final: CombatState = { ...resolved, phase: 'Check', pendingEffects: [], pendingEffectCard: null };
-        if (final.stagedEnemyCard && card && final.stagedEnemyCard.instanceId === card.instanceId) {
-          final = { ...final, enemyDiscard: [...final.enemyDiscard, final.stagedEnemyCard], stagedEnemyCard: null };
-        }
+        final = resolveFieldTriggerCheck(final);
         return checkState(final);
       });
     }
@@ -432,49 +432,13 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       return selectEnemyCard(state);
     }
 
-    case 'PLAY_INTERRUPT': {
-      if (state.phase !== 'Interrupt') return state;
-      const card =
-        state.backOfMind.find(c => c.instanceId === action.cardInstanceId) ??
-        state.playerHand.find(c => c.instanceId === action.cardInstanceId);
-      if (!card || !card.definition.keywords.includes('Interrupt')) return state;
-
-      let s: CombatState = {
-        ...state,
-        backOfMind: state.backOfMind.filter(c => c.instanceId !== action.cardInstanceId),
-        playerHand: state.playerHand.filter(c => c.instanceId !== action.cardInstanceId),
-        pendingEffects: [],
-        pendingEffectCard: null,
-        phase: 'InterruptPlay',
-      };
-      s = addLog(s, `Interrupt played: ${card.definition.name}`);
-
-      return resolveEffectList(s, card.definition.effects, card, (resolved) => {
-        const finalState: CombatState = {
-          ...resolved,
-          playerDiscard: [...resolved.playerDiscard, card],
-          phase: 'Check',
-          pendingEffects: [],
-          pendingEffectCard: null,
-        };
-        return checkState(finalState);
-      });
-    }
-
-    case 'PASS_INTERRUPT': {
-      if (state.phase !== 'Interrupt') return state;
-      return addLog({ ...state, phase: 'EnemyPlay' }, 'Player passed interrupt');
-    }
-
-    case 'RESOLVE_INTERRUPT_CHECK': {
-      if (state.phase !== 'InterruptCheck') return state;
-      const hasInterrupt =
-        state.backOfMind.some(c => c.definition.keywords.includes('Interrupt')) ||
-        state.playerHand.some(c => c.definition.keywords.includes('Interrupt'));
-      return addLog(
-        { ...state, phase: hasInterrupt ? 'Interrupt' : 'EnemyPlay' },
-        hasInterrupt ? 'Interrupt available' : 'No interrupts — Enemy Play'
-      );
+    case 'RESOLVE_FIELD_TRIGGERS': {
+      if (state.phase !== 'FieldTriggerCheck') return state;
+      let s = resolveFieldTriggerCheck(state);
+      if (s.stagedEnemyCard) {
+        return { ...s, phase: 'EnemyPlay' };
+      }
+      return checkState({ ...s, phase: 'Check' });
     }
 
     case 'COMBINE': {
@@ -560,14 +524,18 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       const card = state.stagedEnemyCard;
       let s: CombatState = addLog(state, `NPC played ${card.definition.name}`);
       return resolveEffectList(s, card.definition.effects, card, (resolved) => {
-        return checkState({
+        let final: CombatState = {
           ...resolved,
           stagedEnemyCard: null,
           enemyDiscard: [...resolved.enemyDiscard, card],
-          phase: 'Check',
           pendingEffects: [],
           pendingEffectCard: null,
-        });
+        };
+        // Field Trigger Check after Enemy Play
+        final = resolveFieldTriggerCheck(final);
+        // Trap expiry check: if no more NPC cards staged (initiative returning to player)
+        // Traps expire when initiative returns to the player, handled by priorityRestore/checkState
+        return checkState({ ...final, phase: 'Check' });
       });
     }
 
@@ -593,7 +561,7 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       const card = state.enemyDeck[idx];
       const rest = [...state.enemyDeck.slice(0, idx), ...state.enemyDeck.slice(idx + 1)];
       return addLog(
-        { ...state, stagedEnemyCard: card, enemyDeck: rest, phase: 'InterruptCheck' },
+        { ...state, stagedEnemyCard: card, enemyDeck: rest, phase: 'FieldTriggerCheck' },
         `[Manual] Enemy plays ${card.definition.name}`
       );
     }

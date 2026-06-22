@@ -38,11 +38,11 @@ const COLOR_BG: Record<string, string> = {
 const SHIELD_BREAK_SHAKE = [0, -8, 8, -6, 4, 0];
 
 const KEYWORD_DEFINITIONS: Record<Keyword, string> = {
-  Interrupt: 'May be played during the NPC\'s turn before the staged card resolves. No Priority cost.',
-  Safety: 'No effect when played normally. When this card is used as a shield and that shield is broken, the NPC loses 0 Patience instead of 1.',
+  Safety: 'No effect when played normally. When this card is used as a Dummy Shield and that shield is broken, the shield owner loses 0 Patience instead of 1.',
   Assemble: 'This card may be combined with another Assemble card.',
-  Counter: 'When broken as a shield, its printed effects resolve before the break outcome fires.',
+  'Shield Trigger': 'When broken as a shield, its printed effects resolve before the break outcome fires.',
   Lie: 'Playing this card increments the Lie Counter. Exceeding the threshold loses the encounter.',
+  Trap: 'When played from hand, this card is placed on the Field. It triggers when its condition is met during the opponent\'s turn.',
 };
 
 function KeywordBadge({ keyword }: { keyword: Keyword }) {
@@ -322,8 +322,8 @@ function PlayerShieldSlot({ slot, idx, selectable, selected, onSelect, isDropTar
             {slot.card.definition.keywords.includes('Safety') && (
               <span className="text-[11px] bg-green-900/60 text-green-400 px-1.5 py-0.5 rounded shrink-0">Safety</span>
             )}
-            {slot.card.definition.keywords.includes('Counter') && (
-              <span className="text-[11px] bg-blue-900/60 text-blue-400 px-1.5 py-0.5 rounded shrink-0">Counter</span>
+            {slot.card.definition.keywords.includes('Shield Trigger') && (
+              <span className="text-[11px] bg-blue-900/60 text-blue-400 px-1.5 py-0.5 rounded shrink-0">Shield Trigger</span>
             )}
           </motion.div>
         ) : (
@@ -405,7 +405,7 @@ const PHASE_DISPLAY: Record<string, string> = {
 
 function PhaseBar({ phase }: { phase: string }) {
   const isPlayer = ['PlayerPending', 'PlayerPlay', 'BotMSelect'].includes(phase);
-  const isEnemy = ['EnemyPending', 'EnemyPlay', 'InterruptCheck', 'Interrupt'].includes(phase);
+  const isEnemy = ['EnemyPending', 'EnemyPlay', 'FieldTriggerCheck'].includes(phase);
 
   return (
     <div className={`px-6 py-2 rounded-lg text-sm font-bold uppercase tracking-widest
@@ -573,10 +573,10 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
   }, [state.phase, state.manualEnemyMode]);
 
   useEffect(() => {
-    if (state.phase === 'InterruptCheck') {
+    if (state.phase === 'FieldTriggerCheck') {
       const t = setTimeout(() => {
-        dispatch({ type: 'RESOLVE_INTERRUPT_CHECK' });
-      }, 800);
+        dispatch({ type: 'RESOLVE_FIELD_TRIGGERS' });
+      }, 400);
       return () => clearTimeout(t);
     }
   }, [state.phase]);
@@ -639,11 +639,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
   const handleCardDragEnd = useCallback((instanceId: string, event: MouseEvent | TouchEvent | PointerEvent) => {
     if (isOverZone(event)) {
       capturePlayedCard(instanceId);
-      if (state.phase === 'Interrupt') {
-        dispatch({ type: 'PLAY_INTERRUPT', cardInstanceId: instanceId });
-      } else {
-        dispatch({ type: 'PLAY_CARD', cardInstanceId: instanceId });
-      }
+      dispatch({ type: 'PLAY_CARD', cardInstanceId: instanceId });
     } else if (state.phase === 'PlayerPending') {
       const { clientX, clientY } = getClientPos(event);
       for (let i = 0; i < shieldSlotRefs.current.length; i++) {
@@ -677,18 +673,15 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
   }, []);
 
   const { phase, priority, patience, playerHand, playerShields,
-    opponentShields, stagedEnemyCard, backOfMind, pendingReveal,
-    pendingShieldChoiceSlotIdx } = state;
+    opponentShields, stagedEnemyCard, backOfMind, pendingReveal } = state;
 
   const isPlayerTurn = phase === 'PlayerPending';
   const isBotMSelect = phase === 'BotMSelect';
   const isReveal = phase === 'RevealPending';
-  const isShieldChoice = phase === 'PlayerShieldChoice';
-  const isInterrupt = phase === 'Interrupt';
   const isTerminal = phase === 'WIN' || phase === 'LOSE';
 
   const hasEmptyShieldSlot = playerShields.some(s => s === null);
-  const showPlayZone = isPlayerTurn || isInterrupt;
+  const showPlayZone = isPlayerTurn;
   const isDragging = draggingCardId !== null;
 
   return (
@@ -762,25 +755,6 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
                 Play
               </button>
             )}
-
-            {/* Play Interrupt */}
-            {isInterrupt && (() => {
-              const ctxCard = contextMenu.source === 'botm'
-                ? backOfMind.find(c => c.instanceId === contextMenu.cardId)
-                : playerHand.find(c => c.instanceId === contextMenu.cardId);
-              return ctxCard?.definition.keywords.includes('Interrupt') ? (
-                <button
-                  className="w-full text-left px-5 py-3 text-base text-zinc-200 hover:bg-zinc-700 transition-colors"
-                  onClick={() => {
-                    capturePlayedCard(contextMenu.cardId);
-                    dispatch({ type: 'PLAY_INTERRUPT', cardInstanceId: contextMenu.cardId });
-                    setContextMenu(null);
-                  }}
-                >
-                  Play Interrupt
-                </button>
-              ) : null;
-            })()}
 
             {/* Place as Shield — available for ALL cards during PlayerPending */}
             {isPlayerTurn && hasEmptyShieldSlot && (
@@ -905,12 +879,15 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
               </AnimatePresence>
             </div>
 
-            {/* Field impressions */}
-            {state.fieldImpressions.length > 0 && (
+            {/* Field — Impressions and Traps */}
+            {(state.fieldImpressions.length > 0 || state.fieldTraps.length > 0) && (
               <div className="flex justify-center gap-4 relative z-10">
                 <AnimatePresence>
                   {state.fieldImpressions.map(c => (
-                    <CardView key={c.instanceId} card={c} label="Field" />
+                    <CardView key={c.instanceId} card={c} label="Impression" />
+                  ))}
+                  {state.fieldTraps.map(t => (
+                    <CardView key={t.card.instanceId} card={t.card} label="Trap" />
                   ))}
                 </AnimatePresence>
               </div>
@@ -1020,8 +997,6 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
                             onSelect={() => {
                               if (state.pendingPlaceAsShield && slot === null) {
                                 dispatch({ type: 'CONFIRM_PLACE_AS_SHIELD', slotIdx: i });
-                              } else if (isShieldChoice && slot !== null) {
-                                dispatch({ type: 'SELECT_SHIELD_SACRIFICE', slotIdx: i });
                               } else if (slot !== null) {
                                 setDetailCard(slot.card);
                               }
@@ -1050,53 +1025,35 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
               </div>
             </div>
 
-            {/* Retained cards (shown during non-BotM, non-Interrupt phases when BotM has cards) */}
-            {backOfMind.length > 0 && !isBotMSelect && !isInterrupt && (
+            {/* Retained cards (shown during non-BotM phases when BotM has cards) */}
+            {backOfMind.length > 0 && !isBotMSelect && (
               <div className="flex justify-center gap-4 items-center px-6 py-3 bg-zinc-950/60">
                 <AnimatePresence>
-                  {backOfMind.map(card => {
-                    const isInterruptCard = card.definition.keywords.includes('Interrupt');
-                    const canDragInterrupt = isInterrupt && isInterruptCard;
-                    return (
-                      <CardView
-                        key={card.instanceId}
-                        card={card}
-                        onClick={(e: React.MouseEvent) => {
-                          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                          openContextMenu(card.instanceId, rect.left + rect.width / 2, rect.top, 'botm');
-                        }}
-                        onRightClick={isInterrupt && isInterruptCard
-                          ? (x, y) => openContextMenu(card.instanceId, x, y, 'botm')
-                          : undefined}
-                        isDraggable={canDragInterrupt}
-                        onCardDragStart={canDragInterrupt ? () => handleCardDragStart(card.instanceId) : undefined}
-                        onCardDrag={canDragInterrupt ? (e) => handleCardDrag(e) : undefined}
-                        onCardDragEnd={canDragInterrupt ? (e) => handleCardDragEnd(card.instanceId, e) : undefined}
-                        dimmed={isInterrupt && !isInterruptCard}
-                      />
-                    );
-                  })}
+                  {backOfMind.map(card => (
+                    <CardView
+                      key={card.instanceId}
+                      card={card}
+                      onClick={(e: React.MouseEvent) => {
+                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                        openContextMenu(card.instanceId, rect.left + rect.width / 2, rect.top, 'botm');
+                      }}
+                    />
+                  ))}
                 </AnimatePresence>
               </div>
             )}
 
             {/* Hand Area — sits partially below viewport, cards pop up on hover */}
             <div data-testid="hand-area" className={`px-4 lg:px-6 pt-2 lg:pt-3 ${
-              isBotMSelect || isInterrupt ? 'animate-indigo-pulse' : 'bg-zinc-950/60'
+              isBotMSelect ? 'animate-indigo-pulse' : 'bg-zinc-950/60'
             }`}>
               <div className="flex items-end gap-4">
                 {/* Hand cards — clipped at bottom, individual cards pop up on hover */}
                 <div className="flex-1 min-w-0 h-[140px] lg:h-[160px] overflow-visible relative">
                   <div ref={handContainerRef} className="flex gap-2 lg:gap-4 flex-wrap justify-center absolute bottom-0 left-0 right-0 translate-y-[40%] lg:translate-y-[35%]">
                     <AnimatePresence mode="popLayout">
-                      {/* During interrupt, merge BotM interrupt cards into hand display */}
-                      {(isInterrupt
-                        ? [...playerHand, ...backOfMind.filter(c => c.definition.keywords.includes('Interrupt'))]
-                        : playerHand
-                      ).map(card => {
-                        const isInterruptCard = card.definition.keywords.includes('Interrupt');
-                        const isBotMCard = backOfMind.some(c => c.instanceId === card.instanceId);
-                        const canDrag = isPlayerTurn || (isInterrupt && isInterruptCard);
+                      {playerHand.map(card => {
+                        const canDrag = isPlayerTurn;
                         const isBotMSelected = isBotMSelect && backOfMind.some(c => c.instanceId === card.instanceId);
                         return (
                           <HandCard
@@ -1105,9 +1062,6 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
                             onClick={(e: React.MouseEvent) => {
                               if (isBotMSelect) {
                                 dispatch({ type: 'SELECT_BOTM', cardInstanceId: card.instanceId });
-                              } else if (isInterrupt && isInterruptCard) {
-                                capturePlayedCard(card.instanceId);
-                                dispatch({ type: 'PLAY_INTERRUPT', cardInstanceId: card.instanceId });
                               } else if (isPlayerTurn) {
                                 const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                                 const x = rect.left + rect.width / 2;
@@ -1115,14 +1069,11 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
                                 openContextMenu(card.instanceId, x, y, 'hand');
                               }
                             }}
-                            onRightClick={(isPlayerTurn || isBotMSelect || (isInterrupt && isInterruptCard))
-                              ? (x, y) => openContextMenu(card.instanceId, x, y, isBotMCard ? 'botm' : 'hand')
+                            onRightClick={(isPlayerTurn || isBotMSelect)
+                              ? (x, y) => openContextMenu(card.instanceId, x, y, 'hand')
                               : undefined}
                             selected={isBotMSelected}
-                            dimmed={
-                              (!isBotMSelect && !isPlayerTurn && !isInterrupt) ||
-                              (isInterrupt && !isInterruptCard)
-                            }
+                            dimmed={!isBotMSelect && !isPlayerTurn}
                             isDraggable={canDrag}
                             isAnyDragging={isDragging}
                             onCardDragStart={canDrag ? () => handleCardDragStart(card.instanceId) : undefined}
@@ -1144,14 +1095,6 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
                       className="px-6 py-3 border border-zinc-600 text-zinc-300 hover:text-white hover:border-white text-base rounded-lg transition-colors whitespace-nowrap"
                     >
                       End Turn
-                    </button>
-                  )}
-                  {isInterrupt && (
-                    <button
-                      onClick={() => dispatch({ type: 'PASS_INTERRUPT' })}
-                      className="px-6 py-3 border border-zinc-600 text-zinc-300 hover:text-white text-base rounded-lg transition-colors whitespace-nowrap"
-                    >
-                      Pass
                     </button>
                   )}
                   {isBotMSelect && (
@@ -1255,56 +1198,6 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
               >
                 Continue
               </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Shield choice modal */}
-      <AnimatePresence>
-        {isShieldChoice && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
-          >
-            <motion.div
-              initial={{ scale: 0.85, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="bg-zinc-900 border border-zinc-600 rounded-xl p-10 max-w-lg w-full mx-4 text-center"
-            >
-              <div className="text-sm uppercase tracking-widest text-zinc-500 mb-6">
-                NPC breaks a shield — choose which to sacrifice
-              </div>
-              <div className="flex justify-center gap-4 mb-8">
-                {playerShields.map((slot, i) => slot && (
-                  <div
-                    key={i}
-                    onClick={() => dispatch({ type: 'SELECT_SHIELD_SACRIFICE', slotIdx: i })}
-                    className={`w-44 h-60 rounded-xl border-2 cursor-pointer flex flex-col items-center justify-center p-4 transition-colors
-                      ${pendingShieldChoiceSlotIdx === i
-                        ? 'border-yellow-400 bg-yellow-950'
-                        : 'border-blue-500 bg-blue-950 hover:border-yellow-400'}`}
-                  >
-                    <span className="text-white text-sm font-semibold text-center">{slot.card.definition.name}</span>
-                    {slot.card.definition.keywords.includes('Safety') && (
-                      <span className="text-sm text-green-400 mt-2">Safety</span>
-                    )}
-                    {slot.card.definition.keywords.includes('Counter') && (
-                      <span className="text-sm text-blue-400 mt-2">Counter</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-              {pendingShieldChoiceSlotIdx !== null && pendingShieldChoiceSlotIdx !== -1 && (
-                <button
-                  onClick={() => dispatch({ type: 'CONFIRM_SHIELD_SACRIFICE' })}
-                  className="px-10 py-3 border border-red-500 text-red-400 hover:bg-red-900 text-base uppercase tracking-widest rounded-lg transition-colors"
-                >
-                  Sacrifice
-                </button>
-              )}
             </motion.div>
           </motion.div>
         )}

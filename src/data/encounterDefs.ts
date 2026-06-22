@@ -1,4 +1,4 @@
-import { EncounterConfig, CombatState, DEFAULT_COMBAT_CONFIG } from '../combat/types';
+import { EncounterConfig, CombatState, DEFAULT_COMBAT_CONFIG, PlayerShieldSlot } from '../combat/types';
 import { makeInstance, shuffle } from '../combat/effectHandlers';
 import { DEV_SKILL_CARDS, DEV_ENEMY_CARDS } from './devCards';
 
@@ -7,6 +7,7 @@ export const TEST_ENCOUNTER: EncounterConfig = {
   displayName: 'The Informant',
   startingPriority: 5,
   defaultRestorePriority: 5,
+  priorityMode: 'frame',
   opponentPatience: 10,
   opponentShields: [
     { cardId: 'shield_a', isHint: false, broken: false, loreDescription: 'They looked away when you mentioned the warehouse.' },
@@ -14,7 +15,8 @@ export const TEST_ENCOUNTER: EncounterConfig = {
     { cardId: 'shield_c', isHint: false, broken: false, loreDescription: 'The real secret: they witnessed the incident but are afraid to speak.' },
   ],
   shieldBreakOrder: [0, 1, 2],
-  playerShields: [],
+  playerDummyShieldSlots: 3,
+  allowedCoreShields: [],
   unbreakablePlayerShields: false,
   nuggetOverrides: [],
   traits: [
@@ -32,30 +34,28 @@ export function buildInitialCombatState(config: EncounterConfig): CombatState {
   const shuffledPlayer = shuffle([...playerDeckDefs]);
   const playerInstances = shuffledPlayer.map(def => makeInstance(def));
   const initialHand = playerInstances.slice(0, DEFAULT_COMBAT_CONFIG.handLimit);
-  let initialDeck = playerInstances.slice(DEFAULT_COMBAT_CONFIG.handLimit);
+  const initialDeck = playerInstances.slice(DEFAULT_COMBAT_CONFIG.handLimit);
 
   const enemyInstances = config.enemyDeckCardIds.map(id => {
     const def = allEnemyDefs.find(c => c.id === id) ?? allEnemyDefs[0];
     return makeInstance(def);
   });
 
-  const shieldSlots: (CombatState['playerShields'][0])[] = Array(DEFAULT_COMBAT_CONFIG.maxPlayerShields).fill(null);
-  let shieldEverOccupied = false;
-  if (config.playerShields && config.playerShields.length > 0) {
-    for (let i = 0; i < config.playerShields.length && i < shieldSlots.length; i++) {
-      const cardId = config.playerShields[i];
-      const cardIdx = initialDeck.findIndex(c => c.definition.id === cardId);
-      if (cardIdx !== -1) {
-        shieldSlots[i] = { card: initialDeck[cardIdx] };
-        initialDeck = [...initialDeck.slice(0, cardIdx), ...initialDeck.slice(cardIdx + 1)];
-        shieldEverOccupied = true;
-      }
-    }
-  }
+  // Build shield slots: dummy slots first, then core shields
+  const dummySlots: (PlayerShieldSlot | null)[] = Array(config.playerDummyShieldSlots).fill(null);
+
+  // Core shields are auto-placed if the player's collection contains the required cards
+  // For now, since there's no collection system, core shields from allowedCoreShields
+  // would be auto-placed if matching cards exist in the deck
+  const coreSlots: (PlayerShieldSlot | null)[] = [];
+  // (Core shield auto-placement will be implemented when the collection system is ready)
+
+  const shieldSlots = [...dummySlots, ...coreSlots];
 
   return {
     phase: 'Check',
     priority: config.startingPriority,
+    npcPriority: config.priorityMode === 'classic' ? config.startingPriority : 0,
     patience: config.opponentPatience,
     lieCounter: 0,
     playerHand: initialHand,
@@ -63,21 +63,23 @@ export function buildInitialCombatState(config: EncounterConfig): CombatState {
     playerDiscard: [],
     backOfMind: [],
     playerShields: shieldSlots,
-    pendingShieldChoiceSlotIdx: null,
-    shieldEverOccupied,
+    shieldsEverPlaced: 0,
     opponentShields: config.opponentShields.map(s => ({ ...s })),
     pendingReveal: null,
     enemyDeck: enemyInstances,
     enemyDiscard: [],
     stagedEnemyCard: null,
     fieldImpressions: [],
+    fieldTraps: [],
+    trapPlayCounter: 0,
     playedNonRelevantCards: [],
     config,
     combatConfig: DEFAULT_COMBAT_CONFIG,
     pendingEffects: [],
     pendingEffectCard: null,
     pendingPlaceAsShield: false,
-    counterPending: null,
+    pendingShieldTriggers: [],
+    triggerDepth: 0,
     pendingDiscovery: null,
     discoveredNuggetIds: [],
     manualEnemyMode: false,
