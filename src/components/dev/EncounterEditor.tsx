@@ -1,16 +1,16 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
-  EncounterConfig, OpponentShieldSlot, Trait,
+  EncounterConfig, OpponentShieldSlot, Trait, CardDefinition, InfoNugget,
 } from '../../combat/types';
 import { useDevEncounterStore } from '../../stores/encounterStore';
 import { useNuggetStore } from '../../stores/nuggetStore';
 import { useDevCardStore } from '../../stores/collectionStore';
 import { useEncounterRelevantCardStore } from '../../stores/encounterRelevantCardStore';
 import SupabaseStatus from './SupabaseStatus';
+import CardGalleryGrid from './CardGalleryGrid';
+import CardForm, { INPUT, BTN } from './CardEditorForm';
 
-const INPUT = 'text-xs bg-zinc-800 border border-zinc-600 rounded px-2 py-1 text-white w-full';
 const LABEL = 'text-xs text-zinc-500';
-const BTN = 'text-xs px-3 py-1.5 rounded border transition-colors';
 
 function defaultEncounter(): EncounterConfig {
   return {
@@ -109,98 +109,97 @@ function TraitEditor({ traits, onChange }: {
   );
 }
 
-function NuggetOverrideEditor({ encounterId }: { encounterId: string }) {
-  const { getCompleteNuggets, getNugget } = useNuggetStore();
+function RelevantCardGallery({ encounterId }: { encounterId: string }) {
+  const { getNugget } = useNuggetStore();
   const { getCardsByNugget } = useDevCardStore();
+  const cardMap = useDevCardStore(s => s.cards);
   const { getByEncounter, addRow, removeRow, updateRow } = useEncounterRelevantCardStore();
 
   const overrides = getByEncounter(encounterId);
-  const completeNuggets = getCompleteNuggets();
 
-  const usedNuggetIds = new Set(overrides.map(o => o.nuggetId));
-  const availableNuggets = completeNuggets.filter(n => !usedNuggetIds.has(n.id));
+  const [galleryFilter, setGalleryFilter] = useState('');
 
-  const [selectedNuggetId, setSelectedNuggetId] = useState('');
-  const [selectedCardId, setSelectedCardId] = useState('');
+  const allInfoCards = useMemo(() => {
+    return Object.values(cardMap)
+      .filter((c) => c.supertype === 'Information')
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [cardMap]);
 
-  const selectedNugget = completeNuggets.find(n => n.id === selectedNuggetId);
-  const variantCards = selectedNugget
-    ? getCardsByNugget(selectedNugget.id).filter(c => c.id !== selectedNugget.defaultCardId)
-    : [];
+  const overridesByNuggetId = useMemo(() => {
+    const map: Record<string, typeof overrides[number]> = {};
+    for (const o of overrides) map[o.nuggetId] = o;
+    return map;
+  }, [overrides]);
 
-  const handleAdd = async () => {
-    if (!selectedNuggetId || !selectedCardId) return;
-    await addRow(encounterId, selectedNuggetId, selectedCardId);
-    setSelectedNuggetId('');
-    setSelectedCardId('');
+  const handleCardClick = async (card: CardDefinition) => {
+    if (!card.nuggetId) return;
+    const existing = overrides.find(o => o.nuggetId === card.nuggetId);
+    if (existing) {
+      if (existing.cardId === card.id) {
+        removeRow(existing.id);
+      } else {
+        updateRow(existing.id, card.id);
+      }
+    } else {
+      await addRow(encounterId, card.nuggetId, card.id);
+    }
   };
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex justify-between items-center">
-        <span className={LABEL}>Nugget Overrides ({overrides.length})</span>
-      </div>
+      <span className={LABEL}>Relevant Cards ({overrides.length})</span>
 
-      {overrides.map(o => {
-        const nugget = getNugget(o.nuggetId);
-        const cards = getCardsByNugget(o.nuggetId).filter(c => c.id !== nugget?.defaultCardId);
-        return (
-          <div key={o.id} className="border border-amber-700/50 rounded p-2 flex flex-col gap-1 bg-amber-950/10">
-            <div className="flex justify-between items-center">
-              <span className="text-xs text-amber-400">{nugget?.name ?? o.nuggetId}</span>
-              <button onClick={() => removeRow(o.id)} className="text-xs text-red-500 hover:text-red-400">✕</button>
-            </div>
-            <select value={o.cardId} onChange={e => updateRow(o.id, e.target.value)} className={INPUT}>
-              {cards.map(c => (
-                <option key={c.id} value={c.id}>{c.name} — {c.effectText ?? c.id}</option>
-              ))}
-              {!cards.find(c => c.id === o.cardId) && (
-                <option value={o.cardId}>{o.cardId} (missing)</option>
-              )}
-            </select>
-          </div>
-        );
-      })}
-
-      {availableNuggets.length > 0 && (
-        <div className="border border-zinc-700 rounded p-2 flex flex-col gap-1 border-dashed">
-          <span className="text-xs text-zinc-600">Add Override</span>
-          <select value={selectedNuggetId} onChange={e => {
-            setSelectedNuggetId(e.target.value);
-            setSelectedCardId('');
-          }} className={INPUT}>
-            <option value="">— Select Nugget —</option>
-            {availableNuggets.map(n => (
-              <option key={n.id} value={n.id}>{n.name}</option>
-            ))}
-          </select>
-
-          {selectedNugget && (
-            <>
-              <select value={selectedCardId} onChange={e => setSelectedCardId(e.target.value)} className={INPUT}>
-                <option value="">— Select Override Card —</option>
-                {variantCards.map(c => (
-                  <option key={c.id} value={c.id}>{c.name} — {c.effectText ?? c.id}</option>
-                ))}
-              </select>
-              {variantCards.length === 0 && (
-                <span className="text-xs text-amber-400">No non-default card variants for this nugget. Create one in Card Collection first.</span>
-              )}
-            </>
-          )}
-
-          {selectedNuggetId && selectedCardId && (
-            <button onClick={handleAdd}
-              className={`${BTN} border-amber-500 text-amber-400 hover:bg-amber-900`}>
-              Add Override
-            </button>
-          )}
+      {overrides.length > 0 && (
+        <div className="flex flex-col gap-1 mb-2">
+          {overrides.map(o => {
+            const nugget = getNugget(o.nuggetId);
+            const cards = getCardsByNugget(o.nuggetId).filter(c => c.id !== nugget?.defaultCardId);
+            return (
+              <div key={o.id} className="border border-amber-700/50 rounded p-2 flex flex-col gap-1 bg-amber-950/10">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-amber-400">{nugget?.name ?? o.nuggetId}</span>
+                  <button onClick={() => removeRow(o.id)} className="text-xs text-red-500 hover:text-red-400">✕</button>
+                </div>
+                {cards.length > 1 && (
+                  <select value={o.cardId} onChange={e => updateRow(o.id, e.target.value)} className={INPUT}>
+                    {cards.map(c => (
+                      <option key={c.id} value={c.id}>{c.name} — {c.effectText ?? c.id}</option>
+                    ))}
+                    {!cards.find(c => c.id === o.cardId) && (
+                      <option value={o.cardId}>{o.cardId} (missing)</option>
+                    )}
+                  </select>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {completeNuggets.length === 0 && (
-        <span className="text-xs text-zinc-500">No info nuggets created yet. Create one via Card Collection → New Card → Information.</span>
-      )}
+      <span className="text-xs text-zinc-500 uppercase tracking-widest mb-1">
+        Click an info card to add/remove from encounter
+      </span>
+      <CardGalleryGrid
+        cards={allInfoCards}
+        onCardClick={handleCardClick}
+        filter={galleryFilter}
+        onFilterChange={setGalleryFilter}
+        filterPlaceholder="Filter information cards..."
+        renderOverlay={(card) => {
+          if (!card.nuggetId) return null;
+          const override = overridesByNuggetId[card.nuggetId];
+          if (!override) return null;
+          const isThisVariant = override.cardId === card.id;
+          return (
+            <span className={`flex items-center justify-center w-5 h-5 rounded-full text-white text-[10px] font-bold ${
+              isThisVariant ? 'bg-amber-500' : 'bg-amber-800'
+            }`}>
+              {isThisVariant ? '★' : '◆'}
+            </span>
+          );
+        }}
+        emptyMessage="No information cards available. Create one using the card creator."
+      />
     </div>
   );
 }
@@ -208,12 +207,14 @@ function NuggetOverrideEditor({ encounterId }: { encounterId: string }) {
 interface EncounterEditorProps {
   onLoadEncounter?: (config: EncounterConfig) => void;
   onStartPlaytest?: (config: EncounterConfig) => void;
+  hideCardEditor?: boolean;
 }
 
-export default function EncounterEditor({ onLoadEncounter, onStartPlaytest }: EncounterEditorProps) {
+export default function EncounterEditor({ onLoadEncounter, onStartPlaytest, hideCardEditor }: EncounterEditorProps) {
   const { addEncounter, updateEncounter, removeEncounter, getAllEncounters, loading, error, importFromLocalStorage } = useDevEncounterStore();
   const { getByEncounter } = useEncounterRelevantCardStore();
-  const { getCard } = useDevCardStore();
+  const { getCard, addCard, updateCard, getAllCards } = useDevCardStore();
+  const { addNugget, setDefaultCardId } = useNuggetStore();
 
   const [config, setConfig] = useState<EncounterConfig>(defaultEncounter);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -221,9 +222,20 @@ export default function EncounterEditor({ onLoadEncounter, onStartPlaytest }: En
   const [copied, setCopied] = useState(false);
   const [showList, setShowList] = useState(true);
 
+  const [cardEditorOpen, setCardEditorOpen] = useState(true);
+  const [editingCard, setEditingCard] = useState<CardDefinition | null>(null);
+  const [editingCardOriginalId, setEditingCardOriginalId] = useState<string | null>(null);
+  const [cardSaved, setCardSaved] = useState(false);
+
   const savedEncounters = getAllEncounters();
+  const customCards = getAllCards();
 
   const patch = (partial: Partial<EncounterConfig>) => setConfig(c => ({ ...c, ...partial }));
+
+  const flashCardSaved = () => {
+    setCardSaved(true);
+    setTimeout(() => setCardSaved(false), 2000);
+  };
 
   const resolveNuggetOverrides = (encId: string): EncounterConfig['nuggetOverrides'] => {
     const rows = getByEncounter(encId);
@@ -312,6 +324,43 @@ export default function EncounterEditor({ onLoadEncounter, onStartPlaytest }: En
     input.click();
   };
 
+  const handleCardCreate = (card: CardDefinition, nugget?: InfoNugget) => {
+    if (nugget) {
+      addNugget(nugget);
+      addCard(card);
+      setDefaultCardId(nugget.id, card.id);
+    } else {
+      addCard(card);
+    }
+    flashCardSaved();
+    setEditingCard(null);
+    setEditingCardOriginalId(null);
+  };
+
+  const handleCardEdit = (card: CardDefinition) => {
+    setEditingCard({ ...card });
+    setEditingCardOriginalId(card.id);
+  };
+
+  const handleCardSaveEdit = (card: CardDefinition, nugget?: InfoNugget) => {
+    if (nugget) {
+      addNugget(nugget);
+      if (editingCardOriginalId) {
+        updateCard(editingCardOriginalId, card);
+      } else {
+        addCard(card);
+      }
+      setDefaultCardId(nugget.id, card.id);
+    } else if (editingCardOriginalId) {
+      updateCard(editingCardOriginalId, card);
+    } else {
+      addCard(card);
+    }
+    flashCardSaved();
+    setEditingCard(null);
+    setEditingCardOriginalId(null);
+  };
+
   if (showList && (savedEncounters.length > 0 || loading)) {
     return (
       <div className="flex flex-col gap-3">
@@ -353,134 +402,185 @@ export default function EncounterEditor({ onLoadEncounter, onStartPlaytest }: En
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <SupabaseStatus
-        loading={loading}
-        error={error}
-        table="encounters"
-        importFromLocalStorage={importFromLocalStorage}
-      />
-      {savedEncounters.length > 0 && (
-        <button onClick={() => setShowList(true)}
-          className="text-xs text-zinc-400 hover:text-white self-start">
-          &larr; Back to list
-        </button>
-      )}
+    <div className={hideCardEditor ? "flex flex-col gap-3" : "flex gap-6"}>
+      {/* Left column — Encounter Editor */}
+      <div className="flex flex-col gap-3 flex-1 min-w-0">
+        <SupabaseStatus
+          loading={loading}
+          error={error}
+          table="encounters"
+          importFromLocalStorage={importFromLocalStorage}
+        />
+        {savedEncounters.length > 0 && (
+          <button onClick={() => setShowList(true)}
+            className="text-xs text-zinc-400 hover:text-white self-start">
+            &larr; Back to list
+          </button>
+        )}
 
-      <div className="grid grid-cols-2 gap-2">
-        <label className="flex flex-col gap-1">
-          <span className={LABEL}>ID</span>
-          <input value={config.id} onChange={e => patch({ id: e.target.value })} className={INPUT} />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className={LABEL}>Display Name</span>
-          <input value={config.displayName} onChange={e => patch({ displayName: e.target.value })} className={INPUT} />
-        </label>
-      </div>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="flex flex-col gap-1">
+            <span className={LABEL}>ID</span>
+            <input value={config.id} onChange={e => patch({ id: e.target.value })} className={INPUT} />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className={LABEL}>Display Name</span>
+            <input value={config.displayName} onChange={e => patch({ displayName: e.target.value })} className={INPUT} />
+          </label>
+        </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <label className="flex flex-col gap-1">
-          <span className={LABEL}>Starting Priority</span>
-          <input type="number" value={config.startingPriority}
-            onChange={e => patch({ startingPriority: Number(e.target.value) })} className={INPUT} />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className={LABEL}>Restore Priority</span>
-          <input type="number" value={config.defaultRestorePriority}
-            onChange={e => patch({ defaultRestorePriority: Number(e.target.value) })} className={INPUT} />
-        </label>
-      </div>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="flex flex-col gap-1">
+            <span className={LABEL}>Starting Priority</span>
+            <input type="number" value={config.startingPriority}
+              onChange={e => patch({ startingPriority: Number(e.target.value) })} className={INPUT} />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className={LABEL}>Restore Priority</span>
+            <input type="number" value={config.defaultRestorePriority}
+              onChange={e => patch({ defaultRestorePriority: Number(e.target.value) })} className={INPUT} />
+          </label>
+        </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <label className="flex flex-col gap-1">
-          <span className={LABEL}>Patience</span>
-          <input type="number" value={config.opponentPatience}
-            onChange={e => patch({ opponentPatience: Number(e.target.value) })} className={INPUT} />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className={LABEL}>Lie Threshold</span>
-          <input type="number" value={config.lieThreshold ?? 3}
-            onChange={e => patch({ lieThreshold: Number(e.target.value) })} className={INPUT} />
-        </label>
-      </div>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="flex flex-col gap-1">
+            <span className={LABEL}>Patience</span>
+            <input type="number" value={config.opponentPatience}
+              onChange={e => patch({ opponentPatience: Number(e.target.value) })} className={INPUT} />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className={LABEL}>Lie Threshold</span>
+            <input type="number" value={config.lieThreshold ?? 3}
+              onChange={e => patch({ lieThreshold: Number(e.target.value) })} className={INPUT} />
+          </label>
+        </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <label className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer">
-          <input type="checkbox" checked={config.retryable}
-            onChange={e => patch({ retryable: e.target.checked })} />
-          Retryable
-        </label>
-        <label className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer">
-          <input type="checkbox" checked={config.unbreakablePlayerShields ?? false}
-            onChange={e => patch({ unbreakablePlayerShields: e.target.checked })} />
-          Unbreakable Player Shields
-        </label>
-      </div>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer">
+            <input type="checkbox" checked={config.retryable}
+              onChange={e => patch({ retryable: e.target.checked })} />
+            Retryable
+          </label>
+          <label className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer">
+            <input type="checkbox" checked={config.unbreakablePlayerShields ?? false}
+              onChange={e => patch({ unbreakablePlayerShields: e.target.checked })} />
+            Unbreakable Player Shields
+          </label>
+        </div>
 
-      <label className="flex flex-col gap-1">
-        <span className={LABEL}>Enemy Deck Card IDs (comma-separated)</span>
-        <input value={config.enemyDeckCardIds.join(', ')}
-          onChange={e => patch({ enemyDeckCardIds: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
-          className={INPUT} />
-      </label>
-
-      <div className="grid grid-cols-2 gap-2">
         <label className="flex flex-col gap-1">
-          <span className={LABEL}>Player Dummy Shield Slots</span>
-          <input type="number" value={config.playerDummyShieldSlots ?? 3}
-            onChange={e => patch({ playerDummyShieldSlots: Number(e.target.value) })}
+          <span className={LABEL}>Enemy Deck Card IDs (comma-separated)</span>
+          <input value={config.enemyDeckCardIds.join(', ')}
+            onChange={e => patch({ enemyDeckCardIds: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
             className={INPUT} />
         </label>
-        <label className="flex flex-col gap-1">
-          <span className={LABEL}>Priority Mode</span>
-          <select value={config.priorityMode ?? 'frame'}
-            onChange={e => patch({ priorityMode: e.target.value as 'frame' | 'classic' })}
-            className={INPUT}>
-            <option value="frame">Frame</option>
-            <option value="classic">Classic</option>
-          </select>
-        </label>
+
+        <div className="grid grid-cols-2 gap-2">
+          <label className="flex flex-col gap-1">
+            <span className={LABEL}>Player Dummy Shield Slots</span>
+            <input type="number" value={config.playerDummyShieldSlots ?? 3}
+              onChange={e => patch({ playerDummyShieldSlots: Number(e.target.value) })}
+              className={INPUT} />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className={LABEL}>Priority Mode</span>
+            <select value={config.priorityMode ?? 'frame'}
+              onChange={e => patch({ priorityMode: e.target.value as 'frame' | 'classic' })}
+              className={INPUT}>
+              <option value="frame">Frame</option>
+              <option value="classic">Classic</option>
+            </select>
+          </label>
+        </div>
+
+        <ShieldEditor shields={config.opponentShields}
+          onChange={opponentShields => patch({
+            opponentShields,
+            shieldBreakOrder: opponentShields.map((_, i) => i),
+          })} />
+
+        <TraitEditor traits={config.traits} onChange={traits => patch({ traits })} />
+
+        {editingId && <RelevantCardGallery encounterId={editingId} />}
+        {!editingId && (
+          <div className="text-xs text-zinc-500 italic">Save encounter first to manage relevant cards.</div>
+        )}
+
+        <div className="flex gap-2 flex-wrap border-t border-zinc-700 pt-3">
+          <button onClick={handleSave}
+            className={`${BTN} ${saved ? 'border-green-500 text-green-400' : 'border-blue-500 text-blue-400 hover:bg-blue-900'}`}>
+            {saved ? 'Saved!' : editingId ? 'Update' : 'Save'}
+          </button>
+          <button onClick={handleExportDownload}
+            className={`${BTN} border-zinc-500 text-zinc-400 hover:border-white hover:text-white`}>
+            Download
+          </button>
+          <button onClick={handleExportCopy}
+            className={`${BTN} ${copied ? 'border-green-500 text-green-400' : 'border-zinc-500 text-zinc-400 hover:border-white hover:text-white'}`}>
+            {copied ? 'Copied!' : 'Copy'}
+          </button>
+          {onLoadEncounter && (
+            <button onClick={handleLoadIntoCombat}
+              className={`${BTN} border-orange-500 text-orange-400 hover:bg-orange-900`}>
+              Load into Combat
+            </button>
+          )}
+          {onStartPlaytest && (
+            <button onClick={() => handlePlaytest(config)}
+              className={`${BTN} border-green-500 text-green-400 hover:bg-green-900`}>
+              Playtest
+            </button>
+          )}
+        </div>
       </div>
 
-      <ShieldEditor shields={config.opponentShields}
-        onChange={opponentShields => patch({
-          opponentShields,
-          shieldBreakOrder: opponentShields.map((_, i) => i),
-        })} />
-
-      <TraitEditor traits={config.traits} onChange={traits => patch({ traits })} />
-
-      {editingId && <NuggetOverrideEditor encounterId={editingId} />}
-      {!editingId && (
-        <div className="text-xs text-zinc-500 italic">Save encounter first to manage nugget overrides.</div>
+      {/* Right column — Card Creator (hidden when embedded in DevPanel) */}
+      {!hideCardEditor && (
+        <div className="w-80 shrink-0 flex flex-col gap-3 border-l border-zinc-800 pl-6">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-zinc-500 uppercase tracking-widest">
+              {editingCard ? 'Edit Card' : 'Create Card'}
+            </span>
+            <button
+              onClick={() => setCardEditorOpen(!cardEditorOpen)}
+              className="text-xs text-zinc-500 hover:text-white"
+            >
+              {cardEditorOpen ? 'Collapse' : 'Expand'}
+            </button>
+          </div>
+          {cardEditorOpen && (
+            <>
+              {cardSaved && <span className="text-xs text-green-400">Card saved!</span>}
+              {customCards.length > 0 && !editingCard && (
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs text-zinc-600">Custom cards ({customCards.length})</span>
+                  <div className="max-h-32 overflow-y-auto flex flex-col gap-0.5">
+                    {customCards.map(c => (
+                      <button
+                        key={c.id}
+                        onClick={() => handleCardEdit(c)}
+                        className="text-left text-xs text-zinc-400 hover:text-white truncate px-1 py-0.5 rounded hover:bg-zinc-800"
+                      >
+                        {c.name} <span className="text-zinc-600">({c.id})</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <CardForm
+                key={editingCard?.id ?? 'new'}
+                initial={editingCard ?? undefined}
+                onSubmit={editingCard ? handleCardSaveEdit : handleCardCreate}
+                submitLabel={editingCard ? 'Save Changes' : 'Create Card'}
+                onCancel={editingCard ? () => {
+                  setEditingCard(null);
+                  setEditingCardOriginalId(null);
+                } : undefined}
+              />
+            </>
+          )}
+        </div>
       )}
-
-      <div className="flex gap-2 flex-wrap border-t border-zinc-700 pt-3">
-        <button onClick={handleSave}
-          className={`${BTN} ${saved ? 'border-green-500 text-green-400' : 'border-blue-500 text-blue-400 hover:bg-blue-900'}`}>
-          {saved ? 'Saved!' : editingId ? 'Update' : 'Save'}
-        </button>
-        <button onClick={handleExportDownload}
-          className={`${BTN} border-zinc-500 text-zinc-400 hover:border-white hover:text-white`}>
-          Download
-        </button>
-        <button onClick={handleExportCopy}
-          className={`${BTN} ${copied ? 'border-green-500 text-green-400' : 'border-zinc-500 text-zinc-400 hover:border-white hover:text-white'}`}>
-          {copied ? 'Copied!' : 'Copy'}
-        </button>
-        {onLoadEncounter && (
-          <button onClick={handleLoadIntoCombat}
-            className={`${BTN} border-orange-500 text-orange-400 hover:bg-orange-900`}>
-            Load into Combat
-          </button>
-        )}
-        {onStartPlaytest && (
-          <button onClick={() => handlePlaytest(config)}
-            className={`${BTN} border-green-500 text-green-400 hover:bg-green-900`}>
-            Playtest
-          </button>
-        )}
-      </div>
     </div>
   );
 }

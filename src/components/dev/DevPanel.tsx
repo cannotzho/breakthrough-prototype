@@ -475,7 +475,7 @@ export default function DevPanel({ open, onClose, state, dispatch, onLoadEncount
                 {activeView === 'State' && <StateView state={state} dispatch={dispatch} onLoadEncounter={onLoadEncounter} />}
                 {activeView === 'Cards' && <CardCreatorView dispatch={dispatch} />}
                 {activeView === 'NuggetOvr' && <NuggetOverrideCreatorView dispatch={dispatch} />}
-                {activeView === 'Encounters' && <EncounterEditor onLoadEncounter={onLoadEncounter} />}
+                {activeView === 'Encounters' && <EncounterEditor onLoadEncounter={onLoadEncounter} hideCardEditor />}
                 {activeView === 'Collection' && <CardCollection dispatch={dispatch} />}
                 {activeView === 'Decks' && <DeckBuilder hideCardEditor />}
               </div>
