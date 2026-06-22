@@ -80,7 +80,7 @@ export const DEV_ENEMY_CARDS: CardDefinition[] = [
   {
     id: 'dev_enemy_dismiss',
     name: 'Dismiss',
-    cost: 0,
+    cost: 2,
     keywords: [],
     effects: [{ type: 'BREAK_PLAYER_SHIELD' }],
     color: 'Colorless',
@@ -92,7 +92,7 @@ export const DEV_ENEMY_CARDS: CardDefinition[] = [
   {
     id: 'dev_enemy_deflect',
     name: 'Deflect',
-    cost: 0,
+    cost: 1,
     keywords: [],
     effects: [{ type: 'MODIFY_PRIORITY', value: -3 }],
     color: 'Colorless',

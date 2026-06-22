@@ -523,6 +523,14 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       if (state.phase !== 'EnemyPlay' || !state.stagedEnemyCard) return state;
       const card = state.stagedEnemyCard;
       let s: CombatState = addLog(state, `NPC played ${card.definition.name}`);
+
+      // Frame mode: enemy card cost pushes priority toward positive (self-limiting)
+      if (s.config.priorityMode === 'frame' && card.definition.cost > 0) {
+        const newPriority = clampPriority(s.priority + card.definition.cost);
+        s = addLog({ ...s, priority: newPriority },
+          `NPC spent ${card.definition.cost} initiative (priority ${s.priority} → ${newPriority})`);
+      }
+
       return resolveEffectList(s, card.definition.effects, card, (resolved) => {
         let final: CombatState = {
           ...resolved,
@@ -531,10 +539,7 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
           pendingEffects: [],
           pendingEffectCard: null,
         };
-        // Field Trigger Check after Enemy Play
         final = resolveFieldTriggerCheck(final);
-        // Trap expiry check: if no more NPC cards staged (initiative returning to player)
-        // Traps expire when initiative returns to the player, handled by priorityRestore/checkState
         return checkState({ ...final, phase: 'Check' });
       });
     }

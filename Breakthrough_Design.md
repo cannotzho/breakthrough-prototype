@@ -21,6 +21,7 @@ Changes are listed in reverse chronological order. Each entry describes what cha
 - **New encounter config fields are required.** `allowedCoreShields`, `playerDummyShieldSlots`, and `priorityMode` are required fields on encounter definitions — no backwards-compatibility shim, since there are no production-ready encounters.
 - **Priority Restore decoupled from shield breaks.** Breaking a player shield (Dummy or Core) no longer triggers Priority Restore. Shield breaks now resolve only their Patience cost and Shield Trigger effects. Priority Restore still fires from other causes (NPC deck exhaustion, card effects that push Priority above 0).
 - **Priority meter structure differs by mode.** Frame Priority Mode uses a single shared Priority meter (positive = player's turn, ≤ 0 = NPC's turn). Classic Priority Mode gives player and NPC each their own independent Priority meter with full reset per turn.
+- **Frame mode initiative recovery resolved (Open Question #3).** Card costs are sign-directional: NPC card costs push the shared Priority meter toward positive (player territory), self-limiting the NPC's turn. No separate restore mechanic is needed — the NPC's own spending is the mechanism that returns initiative to the player.
 
 ### v1.1 — 2026-06-21
 
@@ -100,9 +101,9 @@ Playing a card costs the Priority value printed on the card. The player must exp
 
 An encounter selects one of two priority modes via the `priorityMode` config field:
 
-**Frame Priority Mode** (default): A single shared Priority meter between player and NPC, represented as a signed integer clamped to −10 to +10. Positive values mean it is the player's turn; zero or negative values mean it is the NPC's turn. Both sides' actions modify the same meter — playing a card pushes the meter toward the opponent's territory.
+**Frame Priority Mode** (default): A single shared Priority meter between player and NPC, represented as a signed integer clamped to −10 to +10. Positive values mean it is the player's turn; zero or negative values mean it is the NPC's turn. Both sides' actions modify the same meter — playing a card pushes the meter toward the opponent's territory. **Card costs are sign-directional:** when the player plays a card, the cost pushes Priority toward negative (NPC territory); when the NPC plays a card, the cost pushes Priority toward positive (player territory). This is the self-balancing mechanism that prevents the NPC from playing indefinitely — the NPC's own card costs erode its initiative, and without any restore effect, the NPC's spending is what eventually flips the sign back to positive and returns initiative to the player.
 
-Playing a card costs `min(cost, currentPriority)` from Priority, then `max(0, cost − currentPriority)` from NPC Patience (overflow). The name reflects "frame advantage" from fighting games — both sides contest a single momentum resource, and the tug-of-war over that resource determines who acts.
+Playing a card costs `min(cost, currentPriority)` from Priority, then `max(0, cost − currentPriority)` from NPC Patience (overflow). For NPC card plays, the card's cost is added to Priority (toward positive) before effects resolve. The name reflects "frame advantage" from fighting games — both sides contest a single momentum resource, and the tug-of-war over that resource determines who acts.
 
 **Priority Restore event (Frame mode):** Triggered whenever the shared Priority meter transitions from ≤ 0 to > 0, regardless of cause (NPC deck exhaustion, card effects that add Priority). When triggered:
 1. Priority is set to the encounter's `defaultRestorePriority` value.
@@ -941,13 +942,11 @@ This section summarizes what parts of the existing combat engine architecture wi
 
 ### Open Questions (v1.2)
 
-The following new questions emerged from the Priority restructuring and are smaller in scope than the v1.1 questions. They need design decisions before Classic Priority Mode can be implemented; Frame Priority Mode can proceed without them.
+The following new questions emerged from the Priority restructuring and are smaller in scope than the v1.1 questions. They need design decisions before Classic Priority Mode can be implemented; Frame Priority Mode is fully specified.
 
 1. **Classic Priority Mode: Check State routing.** The current Check State routing (§4.3) is defined entirely in terms of a single shared Priority meter (rules 5–8). With Classic mode's separate meters and alternating turns, how does Check State route? Does it use an explicit `currentTurn` flag? Does "End Turn" pass control to the NPC directly, or does some condition on the NPC's meter determine when control returns to the player? The win/loss rules (1–4) are mode-independent, but the turn-routing rules need a Classic-specific definition.
 
 2. **Classic Priority Mode: turn transition mechanics.** In Classic mode, what happens at each turn transition? Does the player draw a fresh hand at the start of each of their turns (analogous to Priority Restore's hand draw in Frame mode)? Does BotM work the same way? Is there a staged-card cancellation equivalent?
-
-3. **Frame Priority Mode: initiative recovery during NPC's turn.** With Priority Restore no longer firing on shield breaks, the only ways for the shared Priority meter to go positive during the NPC's turn are: (a) the NPC running out of cards, or (b) a card effect (including Shield Trigger effects) that explicitly adds Priority. Is this the intended design — that shield breaks are purely Patience events with no initiative shift? If so, what is the primary intended mechanism for the player to regain initiative before the NPC's deck is exhausted? (This question does not block implementation but affects game balance and may surface a missing mechanic.)
 
 ---
 
