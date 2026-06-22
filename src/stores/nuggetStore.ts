@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { InfoNugget } from '../combat/types';
 import { supabase } from '../lib/supabaseClient';
+import { createSyncedStore } from './createSyncedStore';
 
 interface NuggetStore {
   nuggets: Record<string, InfoNugget>;
@@ -16,96 +17,40 @@ interface NuggetStore {
 }
 
 export const useNuggetStore = create<NuggetStore>()((set, get) => {
-  supabase
-    .from('info_nuggets')
-    .select('*')
-    .then(({ data, error }) => {
-      if (error) {
-        console.error('[info_nuggets] fetch failed:', error.message);
-        set({ loading: false, error: error.message });
-        return;
-      }
-      const nuggets: Record<string, InfoNugget> = {};
-      for (const row of data ?? []) {
-        nuggets[row.id] = {
-          id: row.id,
-          name: row.name,
-          longDescription: row.long_description,
-          imageUrl: row.image_url ?? undefined,
-          defaultCardId: row.default_card_id ?? undefined,
-        };
-      }
-      set({ nuggets, loading: false });
-    });
+  const synced = createSyncedStore<InfoNugget>(set, get, {
+    table: 'info_nuggets',
+    select: '*',
+    itemsKey: 'nuggets',
+    logPrefix: 'info_nuggets',
+    toRow: (nugget) => ({
+      id: nugget.id,
+      name: nugget.name,
+      long_description: nugget.longDescription,
+      image_url: nugget.imageUrl ?? null,
+      default_card_id: nugget.defaultCardId ?? null,
+    }),
+    fromRow: (row) => ({
+      id: (row as { id: string }).id,
+      name: (row as { name: string }).name,
+      longDescription: (row as { long_description: string }).long_description,
+      imageUrl: (row as { image_url?: string }).image_url ?? undefined,
+      defaultCardId: (row as { default_card_id?: string }).default_card_id ?? undefined,
+    }),
+  });
 
   return {
-    nuggets: {},
-    loading: true,
-    error: null,
-
-    addNugget: (nugget) => {
-      set((s) => ({ nuggets: { ...s.nuggets, [nugget.id]: nugget } }));
-      supabase
-        .from('info_nuggets')
-        .upsert({
-          id: nugget.id,
-          name: nugget.name,
-          long_description: nugget.longDescription,
-          image_url: nugget.imageUrl ?? null,
-          default_card_id: nugget.defaultCardId ?? null,
-        })
-        .then(({ error }) => {
-          if (error) console.error('[info_nuggets] upsert failed:', error.message);
-        });
-    },
-
-    updateNugget: (id, nugget) => {
-      set((s) => {
-        const next = { ...s.nuggets };
-        delete next[id];
-        next[nugget.id] = nugget;
-        return { nuggets: next };
-      });
-      (async () => {
-        if (id !== nugget.id) {
-          const { error: delErr } = await supabase.from('info_nuggets').delete().eq('id', id);
-          if (delErr) console.error('[info_nuggets] delete old id failed:', delErr.message);
-        }
-        const { error: upsErr } = await supabase.from('info_nuggets').upsert({
-          id: nugget.id,
-          name: nugget.name,
-          long_description: nugget.longDescription,
-          image_url: nugget.imageUrl ?? null,
-          default_card_id: nugget.defaultCardId ?? null,
-        });
-        if (upsErr) console.error('[info_nuggets] upsert failed:', upsErr.message);
-      })();
-    },
-
-    removeNugget: (id) => {
-      set((s) => {
-        const next = { ...s.nuggets };
-        delete next[id];
-        return { nuggets: next };
-      });
-      supabase
-        .from('info_nuggets')
-        .delete()
-        .eq('id', id)
-        .then(({ error }) => {
-          if (error) console.error('[info_nuggets] delete failed:', error.message);
-        });
-    },
-
-    getNugget: (id) => get().nuggets[id],
-    getAllNuggets: () => Object.values(get().nuggets),
+    ...synced,
+    addNugget: synced.addItem,
+    updateNugget: synced.updateItem,
+    removeNugget: synced.removeItem,
+    getNugget: synced.getItem,
+    getAllNuggets: synced.getAllItems,
     getCompleteNuggets: () => Object.values(get().nuggets).filter(n => !!n.defaultCardId),
-
-    setDefaultCardId: (nuggetId, cardId) => {
+    setDefaultCardId: (nuggetId: string, cardId: string) => {
       const nugget = get().nuggets[nuggetId];
       if (!nugget) return;
       const updated = { ...nugget, defaultCardId: cardId };
-      set((s) => ({ nuggets: { ...s.nuggets, [nuggetId]: updated } }));
+      set((s: NuggetStore) => ({ nuggets: { ...s.nuggets, [nuggetId]: updated } }));
       supabase
         .from('info_nuggets')
         .update({ default_card_id: cardId })
@@ -114,5 +59,5 @@ export const useNuggetStore = create<NuggetStore>()((set, get) => {
           if (error) console.error('[info_nuggets] set default_card_id failed:', error.message);
         });
     },
-  };
+  } as NuggetStore;
 });
