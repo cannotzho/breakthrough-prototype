@@ -10,7 +10,7 @@ Changes are listed in reverse chronological order. Each entry describes what cha
 
 ### v1.2 — 2026-06-22
 
-- **Priority modes renamed.** "Standard Priority Mode" → **Frame Priority Mode** (variable priority restore based on shield breaks, inspired by fighting-game frame advantage). "Fixed Priority Mode" → **Classic Priority Mode** (full priority replenishment each turn, named for genre convention). Frame remains the default.
+- **Priority modes renamed.** "Standard Priority Mode" → **Frame Priority Mode** (shared meter, carry-over, inspired by fighting-game frame advantage). "Fixed Priority Mode" → **Classic Priority Mode** (separate meters, full replenishment each turn, named for genre convention). Frame remains the default.
 - **Player Shield Choice is now fully automatic.** The leftmost eligible shield is always broken; the player's only lever is pre-arranging shield order via free resequencing. The `PlayerShieldChoice` blocking state is collapsed into a non-blocking resolution step within Enemy Play.
 - **"Trap Zone" renamed to "Field."** The Field is a shared persistent zone (modeled on MTG/Hearthstone battlefields) where both Trap cards and Impression cards reside while active. All references to "Trap Zone" replaced.
 - **Core Shield Patience cost is per-shield configurable.** Each Core Shield definition specifies its own `patienceCostOnBreak` value. Dummy Shields remain a flat 1 Patience on break.
@@ -19,6 +19,8 @@ Changes are listed in reverse chronological order. Each entry describes what cha
 - **BotM rationale updated.** BotM's purpose is now solely limited card retention across turns (since hands refresh each turn). The "Blue increases BotM capacity" mechanic remains relevant for strategic carry-over depth.
 - **Nested trigger resolution confirmed with depth guard.** When a trigger's resolution causes another trigger, it resolves immediately as a sub-step (genuinely nested/recursive, not flat queuing). A hard depth cap of 20 nested triggers is required as a safety guard.
 - **New encounter config fields are required.** `allowedCoreShields`, `playerDummyShieldSlots`, and `priorityMode` are required fields on encounter definitions — no backwards-compatibility shim, since there are no production-ready encounters.
+- **Priority Restore decoupled from shield breaks.** Breaking a player shield (Dummy or Core) no longer triggers Priority Restore. Shield breaks now resolve only their Patience cost and Shield Trigger effects. Priority Restore still fires from other causes (NPC deck exhaustion, card effects that push Priority above 0).
+- **Priority meter structure differs by mode.** Frame Priority Mode uses a single shared Priority meter (positive = player's turn, ≤ 0 = NPC's turn). Classic Priority Mode gives player and NPC each their own independent Priority meter with full reset per turn.
 
 ### v1.1 — 2026-06-21
 
@@ -49,7 +51,7 @@ This game is keyword-driven. All mechanical terms should be used precisely and c
 
 | Term | Definition |
 |---|---|
-| **Priority** | A signed integer tracking who controls the conversation. Positive = Detective's turn; zero or negative = NPC's turn. |
+| **Priority** | The resource governing turn order. In Frame Priority Mode, a single shared signed integer (positive = Detective's turn; ≤ 0 = NPC's turn). In Classic Priority Mode, player and NPC each have their own independent Priority meter. |
 | **Patience** | The NPC's tolerance for the conversation. Has a starting value per encounter but no maximum cap. Reaching zero or below ends the encounter as a loss. |
 | **Shield Trigger** | A keyword on certain cards used as Player Shields. When a shield with Shield Trigger is broken, its printed effects resolve before the break outcome fires. Formerly called "Counter." |
 | **Opponent Shield** | A face-down card belonging to the NPC. Breaking all opponent shields wins the encounter. |
@@ -72,15 +74,15 @@ This game is keyword-driven. All mechanical terms should be used precisely and c
 | **Skill Deck** | A 20-card deck built from Skill Cards chosen by the player. Combined with Information Cards to form the Conversation Deck. |
 | **Discovered** | The state of an Information Card whose effect has been revealed. Discovery persists across encounters. |
 | **Impression** | A card subtype native to Orange. When played, an Impression card is placed on the Field rather than discarded, providing a persistent passive effect for the remainder of the encounter. |
-| **Priority Restore** | The event that occurs whenever Priority transitions from ≤ 0 to > 0. Always triggers a fresh hand draw and sets Priority to the encounter's default restore value. |
+| **Priority Restore** | (Frame Priority Mode) The event that occurs whenever the shared Priority meter transitions from ≤ 0 to > 0. Triggers a fresh hand draw and sets Priority to the encounter's default restore value. Does **not** fire on shield breaks — only on NPC deck exhaustion or card effects that push Priority positive. |
 | **Staged Card** | The NPC's currently loaded card, pending resolution. Exists between Enemy Pending and the end of Enemy Play. |
 | **Retryable** | An encounter property. If true, the player may restart the encounter after losing. |
 | **Persistent Break** | An opponent shield that remains broken when a retryable encounter is restarted. |
 | **Deck Recycle** | When the draw pile is empty, the discard pile is reshuffled to form a new draw pile. |
 | **Field** | The persistent battlefield zone where Trap cards and Impression cards reside while active. Modeled on the "permanents on a battlefield" concept from games like MTG and Hearthstone. Distinct from hand, deck, and discard pile. |
 | **Field Trigger Check** | The engine step that evaluates whether any Trap triggers or Shield Triggers should fire after a card resolves. Replaces the former interrupt-checking model. |
-| **Classic Priority Mode** | An alternative game mode where Priority resets to 10 at the start of each player turn (both player and enemy), with no carry-over or overflow. Named for the genre convention — most card games use full priority replenishment per turn. |
-| **Frame Priority Mode** | The default game mode where restored Priority is variable, determined by the shield break that caused the Priority Restore event. Named after the concept of "frame advantage" in fighting games, where the reward for a successful action determines how much initiative you recover. |
+| **Classic Priority Mode** | An alternative game mode where player and NPC each have their own independent Priority meter, each resetting to its full value at the start of that side's turn. No carry-over, no overflow, no shared meter. Named for the genre convention — most card games give each player a separate resource pool per turn. |
+| **Frame Priority Mode** | The default game mode using a single shared Priority meter between player and NPC. Positive Priority = player's turn; zero or negative = NPC's turn. Priority carries over between turns and playing cards pushes the meter toward the opponent's territory. Named after the concept of "frame advantage" in fighting games — both sides contest a single momentum resource, and the tug-of-war over that resource determines who acts. |
 
 ---
 
@@ -88,21 +90,25 @@ This game is keyword-driven. All mechanical terms should be used precisely and c
 
 ### Priority
 
-Priority is a signed integer. In Frame Priority Mode it is clamped to the range −10 to +10. It starts at a per-encounter value and changes as cards are played.
+Priority governs turn order and action availability. Its structure differs fundamentally between the two priority modes — see Priority Modes below.
 
 Playing a card costs the Priority value printed on the card. The player must explicitly click "End Turn" to pass initiative to the NPC — there is no automatic turn-ending even when Priority reaches zero or no valid moves remain.
 
-**Priority Restore event:** Triggered whenever Priority transitions from ≤ 0 to > 0, regardless of cause (shield break outcome, NPC ending their turn). When triggered:
-1. Priority is set to the encounter's `defaultRestorePriority` value.
-2. The player draws a fresh hand (up to the hand limit). If a BotM card exists, it is returned to hand first.
+**Priority Restore does not fire on shield breaks.** Breaking a player shield (Dummy or Core) has no effect on Priority. Shield breaks resolve only their Patience cost and any Shield Trigger effects. Priority Restore fires only from other causes: NPC deck exhaustion or card effects that push Priority above 0 (Frame mode) or the start of a new turn (Classic mode).
 
 #### Priority Modes
 
 An encounter selects one of two priority modes via the `priorityMode` config field:
 
-**Frame Priority Mode** (default): Priority carries over between turns. Playing a card costs `min(cost, currentPriority)` from Priority, then `max(0, cost − currentPriority)` from NPC Patience (overflow). Priority is clamped to −10 to +10. The name reflects "frame advantage" from fighting games — the reward for a successful shield break determines how much initiative the player recovers, creating variable momentum.
+**Frame Priority Mode** (default): A single shared Priority meter between player and NPC, represented as a signed integer clamped to −10 to +10. Positive values mean it is the player's turn; zero or negative values mean it is the NPC's turn. Both sides' actions modify the same meter — playing a card pushes the meter toward the opponent's territory.
 
-**Classic Priority Mode**: Priority resets to 10 at the start of each player turn (and each enemy turn). There is no carry-over and no overflow — if a card's Priority cost exceeds the player's current Priority, the card simply cannot be played unless a specific card effect grants an exception. There is no Patience overflow mechanic in this mode. Named for the genre convention — most card games follow this full-replenishment-per-turn pattern.
+Playing a card costs `min(cost, currentPriority)` from Priority, then `max(0, cost − currentPriority)` from NPC Patience (overflow). The name reflects "frame advantage" from fighting games — both sides contest a single momentum resource, and the tug-of-war over that resource determines who acts.
+
+**Priority Restore event (Frame mode):** Triggered whenever the shared Priority meter transitions from ≤ 0 to > 0, regardless of cause (NPC deck exhaustion, card effects that add Priority). When triggered:
+1. Priority is set to the encounter's `defaultRestorePriority` value.
+2. The player draws a fresh hand (up to the hand limit). If a BotM card exists, it is returned to hand first.
+
+**Classic Priority Mode**: Player and NPC each have their own independent Priority meter. Each meter resets to its full value (e.g. 10) at the start of that side's turn. There is no carry-over between turns — unspent Priority is lost. There is no overflow mechanic — if a card's Priority cost exceeds the player's current Priority, the card simply cannot be played unless a specific card effect grants an exception. Turns alternate: the player takes their full turn (spending from their own meter), then the NPC takes their full turn (spending from theirs). Named for the genre convention — most card games give each side a separate resource pool per turn.
 
 ### Patience
 
@@ -145,14 +151,14 @@ When the NPC breaks a player shield, the leftmost eligible shield is targeted:
 
 #### Shield Break Outcomes
 
+Breaking a player shield does **not** trigger Priority Restore or any Priority change. Shield breaks affect only Patience (and any Shield Trigger effects).
+
 Two break outcomes exist for Dummy Shields:
 
-- **Effective Break** — triggered if the broken shield has the **Safety** keyword. Outcome: shield owner loses 0 Patience (instead of the normal 1); **Priority Restore** fires.
-- **Plain Break** — all other Dummy Shields. Outcome: shield owner loses 1 Patience; **Priority Restore** fires.
+- **Effective Break** — triggered if the broken shield has the **Safety** keyword. Outcome: shield owner loses **0 Patience** (instead of the normal 1).
+- **Plain Break** — all other Dummy Shields. Outcome: shield owner loses **1 Patience**.
 
-In both cases, Priority Restore fires and the player draws a fresh hand.
-
-Core Shield breaks always trigger Priority Restore. Each Core Shield specifies its own `patienceCostOnBreak` value in the encounter configuration, allowing designers to set different Patience costs for different Core Shields (including 0). This cost is independent of any Shield Trigger effects the Core Shield may also carry.
+For Core Shields: each Core Shield specifies its own `patienceCostOnBreak` value in the encounter configuration, allowing designers to set different Patience costs for different Core Shields (including 0). This cost is independent of any Shield Trigger effects the Core Shield may also carry.
 
 > **Safety keyword clarification:** The Safety keyword has no mechanical effect when a card bearing it is played normally (i.e. not placed as a shield). Its sole purpose is to upgrade the break outcome from Plain Break to Effective Break when the card is used as a Dummy Shield.
 
@@ -231,9 +237,9 @@ The play-time Ponder conversion logic (Case 1) should be implemented as a single
 
 ### Back of Mind (BotM)
 
-When the player explicitly ends their turn (clicking "End Turn"), they must discard their hand but may keep one card in the BotM zone. The BotM card persists through the NPC's turn. When Priority Restore fires, the BotM card returns to the player's hand.
+When the player explicitly ends their turn (clicking "End Turn"), they must discard their hand but may keep one card in the BotM zone. The BotM card persists through the NPC's turn. When initiative returns to the player (Priority Restore in Frame mode, or the start of the player's next turn in Classic mode), the BotM card returns to the player's hand.
 
-BotM's purpose is **limited card retention across turns**. Since hands refresh on each Priority Restore, BotM is the only mechanism that allows a player to carry a specific card from one turn to the next. This makes BotM strategically important: the player must decide which single card (or more, if Blue's capacity-increasing effects are active) is worth preserving through the opponent's turn.
+BotM's purpose is **limited card retention across turns**. Since hands refresh at the start of each player turn, BotM is the only mechanism that allows a player to carry a specific card from one turn to the next. This makes BotM strategically important: the player must decide which single card (or more, if Blue's capacity-increasing effects are active) is worth preserving through the opponent's turn.
 
 > **Note:** Unlike previous versions, BotM cards cannot be played during the NPC's turn (interrupts have been removed). The "Blue increases BotM capacity" mechanic (see §8.4, Blue) remains relevant — it increases the number of cards the player may retain across the turn transition, deepening Blue's planning advantage.
 
@@ -280,6 +286,8 @@ When the draw pile contains zero cards and the player would draw, the discard pi
 
 The routing hub. Never blocks. Transitions evaluated top to bottom; first match wins.
 
+The rules below describe **Frame Priority Mode** routing (shared meter). Classic Priority Mode uses alternating turns with separate meters — see Open Questions for the remaining specification needed.
+
 1. All opponent shields broken → **WIN**
 2. All player shields broken *(unless `unbreakablePlayerShields` is set)* → **LOSE**
 3. NPC Patience ≤ 0 → **LOSE**
@@ -291,7 +299,7 @@ The routing hub. Never blocks. Transitions evaluated top to bottom; first match 
 
 > **Win before loss:** Rule 1 is checked before rules 2–4 so that simultaneously breaking the last opponent shield and draining Patience to zero resolves as a win.
 >
-> **Staged card on Priority Restore (rule 5):** When Priority transitions to > 0, the NPC's staged card is cancelled. It is moved to the NPC's discard pile — not removed from the encounter.
+> **Staged card on Priority Restore (rule 5, Frame mode):** When the shared Priority meter transitions to > 0, the NPC's staged card is cancelled. It is moved to the NPC's discard pile — not removed from the encounter.
 
 ---
 
@@ -347,11 +355,11 @@ Shield targeting is fully automatic: the leftmost eligible shield is always brok
 Sequence:
 1. The leftmost eligible shield is targeted (leftmost Dummy Shield if any remain; otherwise leftmost Core Shield).
 2. If the targeted shield has the **Shield Trigger** keyword: its printed effects resolve as a sub-sequence. If a Shield Trigger effect breaks an opponent shield, Reveal Pending fires and suspends the parent sequence until acknowledged. If the Shield Trigger's resolution causes another trigger to fire, it resolves immediately as a nested sub-step (depth cap: 20).
-3. Resolve break outcome:
+3. Resolve break outcome (Patience only — no Priority Restore fires):
    - For Dummy Shields:
-     - **Effective Break** *(Safety keyword present)*: shield owner loses 0 Patience. Priority Restore fires.
-     - **Plain Break** *(all others)*: shield owner loses 1 Patience. Priority Restore fires.
-   - For Core Shields: Priority Restore fires. The shield's configured `patienceCostOnBreak` is deducted from the shield owner's Patience.
+     - **Effective Break** *(Safety keyword present)*: shield owner loses 0 Patience.
+     - **Plain Break** *(all others)*: shield owner loses 1 Patience.
+   - For Core Shields: The shield's configured `patienceCostOnBreak` is deducted from the shield owner's Patience.
 4. Remove shield from player's shield zone.
 5. Resume the Enemy Play effect sequence from the step after the break.
 
@@ -373,7 +381,7 @@ Sequence:
 
 NPC selects their next card. Immediate.
 
-- NPC deck empty → Priority Restore fires → **Check**
+- NPC deck empty → Priority Restore fires (Frame mode) / NPC turn ends (Classic mode) → **Check**
 - Otherwise → load top card from NPC deck as the staged card → **Field Trigger Check** (pre-play check for Trap conditions triggered by staging) → **Enemy Play**
 
 ---
@@ -404,7 +412,7 @@ Effect resolution sequence:
    d. *(next effect)*
 2. Move the staged card to the NPC's discard pile. Clear `stagedEnemyCard`.
 3. Perform **Field Trigger Check** (evaluate Trap triggers and queued Shield Triggers from this card's resolution).
-4. Check for Trap expiry: if no more NPC cards are staged (i.e., this was the NPC's last action before Priority Restore), expire all remaining untriggered Traps to the player's discard pile.
+4. Check for Trap expiry: if no more NPC cards are staged (i.e., this was the NPC's last action before initiative returns to the player), expire all remaining untriggered Traps to the player's discard pile.
 5. → **Check**
 
 > NPC cards do not have a player-visible Priority cost. The initiative system operates at the Check State routing level.
@@ -441,7 +449,7 @@ stateDiagram-v2
     BotMSelect --> EnemyPending : card selected
 
     EnemyPending --> FieldTriggerCheck : card staged\n(pre-play trigger check)
-    EnemyPending --> Check : no cards (Priority Restore)
+    EnemyPending --> Check : no cards\n(Priority Restore / turn end)
 
     FieldTriggerCheck --> EnemyPlay : pre-play triggers resolved
 
@@ -463,7 +471,7 @@ stateDiagram-v2
 
 4. **Win is checked before loss.** All opponent shields broken (rule 1) is evaluated before player shields broken (rule 2) and patience (rule 3).
 
-5. **Staged card cancelled on Priority Restore goes to NPC discard.** It is not removed from the encounter.
+5. **Staged card cancelled on turn transition goes to NPC discard.** When initiative returns to the player (Priority Restore in Frame mode, or the start of the player's turn in Classic mode), the NPC's staged card is cancelled and moved to NPC discard. It is not removed from the encounter.
 
 6. **Enemy Play is entered from:** Field Trigger Check (pre-play path from Enemy Pending) or Check State (rule 6, staged card persists). No other state transitions to Enemy Play.
 
@@ -475,14 +483,14 @@ stateDiagram-v2
 
 10. **Shield Trigger effects do not trigger a Check State evaluation mid-sequence.** Shield Trigger effects resolve as a sub-sequence within the shield break resolution. No Check State evaluation occurs between the conclusion of Shield Trigger effects and the resumption of the parent effect sequence. Consequently:
     - Win and loss conditions altered by Shield Trigger effects (e.g. opponent shields broken, Patience reduced) are evaluated in Check State only after the parent play state completes fully.
-    - If a Shield Trigger effect triggers a Priority Restore, the restored Priority value takes effect immediately, but the routing consequence (transitioning to Player Pending) does not occur until Check State is reached.
+    - If a Shield Trigger effect includes a card effect that modifies Priority (e.g. adds Priority via its effect list), the Priority change takes effect immediately, but the routing consequence (transitioning to Player Pending if Priority becomes positive) does not occur until Check State is reached. Note: the shield break itself does not restore Priority — only explicit Priority-modifying effects within the Shield Trigger can do this.
     - The win-before-loss ordering in Check State (rule 1 before rules 2–4) still applies.
 
 11. **Dummy shield multi-break; Core shield single-break.** A single card effect may break multiple Dummy Shields in one resolution. A single card effect may **never** break more than one Core Shield — this is a hard design invariant enforced at card design time. Combined cards produced by Assemble must also respect this constraint.
 
 12. **Trigger resolution ordering is absolute.** When multiple triggers fire from a single event: Traps resolve first (in play order), then Shield Triggers (in break order). This ordering cannot be overridden by card effects.
 
-13. **Trap expiry occurs at turn transition.** Untriggered Traps are moved from the Field to discard only when Priority Restore fires (transitioning back to the player's turn), not mid-sequence.
+13. **Trap expiry occurs at turn transition.** Untriggered Traps are moved from the Field to discard only when initiative returns to the player (Priority Restore in Frame mode, or the start of the player's turn in Classic mode), not mid-sequence.
 
 14. **Shield resequencing is free during player's turn.** Resequencing does not consume Priority, does not trigger state transitions, and does not interact with any trigger evaluation. It only affects the physical ordering of shields for future break-targeting.
 
@@ -498,9 +506,9 @@ Each encounter corresponds to a specific NPC. The encounter config and NPC defin
 |---|---|---|
 | `id` | string | Unique encounter identifier |
 | `displayName` | string | NPC's display name |
-| `startingPriority` | number | Initial Priority value (positive = player goes first) |
-| `defaultRestorePriority` | number | Priority value set on every Priority Restore event |
-| `priorityMode` | `"frame"` \| `"classic"` | **Required.** Which priority model this encounter uses. `"frame"` = variable restore based on shield breaks (default gameplay); `"classic"` = full replenishment each turn. |
+| `startingPriority` | number | Initial Priority value. In Frame mode, positive = player goes first. In Classic mode, determines each side's starting meter value. |
+| `defaultRestorePriority` | number | (Frame mode) Priority value set on every Priority Restore event. Not used in Classic mode (meters reset to full each turn). |
+| `priorityMode` | `"frame"` \| `"classic"` | **Required.** Which priority model this encounter uses. `"frame"` = shared meter, carry-over, overflow (default gameplay); `"classic"` = separate meters, full replenishment each turn. |
 | `opponentPatience` | number | NPC's starting Patience (no maximum cap) |
 | `opponentShields` | ShieldSlot[] | Ordered list of NPC shield definitions (see below) |
 | `shieldBreakOrder` | number[] | Indices into `opponentShields` defining break sequence |
@@ -878,9 +886,9 @@ Animations within a single turn must be sequential, never concurrent (see §11.1
 
 ---
 
-## 12. Implementation Impact
+## 12. Implementation Impact / Open Questions
 
-This section summarizes what parts of the existing combat engine architecture will require reworking when the v1.1/v1.2 changes are implemented. All design questions from the v1.1 draft have been resolved — there are no open questions remaining.
+This section summarizes what parts of the existing combat engine architecture will require reworking when the v1.1/v1.2 changes are implemented. All 9 open questions from the v1.1 draft have been resolved. A small number of new questions emerged from the v1.2 Priority restructuring (see bottom of section).
 
 ### Architecture Impact
 
@@ -901,14 +909,15 @@ This section summarizes what parts of the existing combat engine architecture wi
 4. **Field state.** The Field is the persistent battlefield zone for both Traps and Impressions. New state needed:
    - Active Traps with their structured trigger conditions, play-order timestamp, and owning player
    - Active Impressions with their persistent passive effects
-   - Expiry tracking for Traps tied to turn transitions (expire when Priority Restore fires)
+   - Expiry tracking for Traps tied to turn transitions (expire when initiative returns to the player)
    - Trigger condition evaluation integrated into Field Trigger Check
 
 5. **Priority mode selection.** New game-mode state:
    - `priorityMode` field on encounter config (`"frame"` | `"classic"`) — **required field**
-   - Conditional logic in Priority deduction (no overflow in Classic mode)
+   - Frame mode: single shared meter, carry-over, Patience overflow on overspend
+   - Classic mode: two independent meters (player + NPC), full reset per turn, no overflow
    - Card playability validation (cannot play if cost > current Priority in Classic mode, unless an exception effect is active)
-   - Priority reset to 10 at start of each player turn in Classic mode
+   - Classic mode requires fundamentally different Check State routing (see Open Questions)
 
 6. **Turn-ending change.** Remove any auto-end-turn logic. The player must always explicitly trigger end turn regardless of Priority value or available moves.
 
@@ -925,6 +934,20 @@ This section summarizes what parts of the existing combat engine architecture wi
    - `priorityMode: "frame" | "classic"` — priority model selection
 
 10. **Trap trigger condition data model.** Trap trigger conditions are authored as structured fields (not a DSL or hardcoded logic). The data shape should mirror the existing card effect field conventions — typed fields with a fixed vocabulary of trigger types, targets, comparators, and values. Exact field names are an implementation detail, but the authoring philosophy is: structured, validatable, and extensible without engine changes. A DSL-based approach is a possible future expansion if trigger complexity outgrows structured fields.
+
+11. **Shield break no longer restores Priority.** All code paths where a player shield break triggers Priority Restore must be removed. Shield breaks now resolve only their Patience cost and Shield Trigger effects. The Priority meter is unaffected by the break itself (though a Shield Trigger's own card effects may still include explicit Priority-modifying effects).
+
+12. **Dual Priority meter structure (Classic mode).** Classic Priority Mode requires a fundamentally different state representation: two independent Priority values instead of one shared meter. The Check State routing (rules 5–8, which check a single shared Priority value) must be branched or replaced for Classic mode with alternating-turn logic. This is a significant engine change — Classic mode's state machine routing may differ substantially from Frame mode's.
+
+### Open Questions (v1.2)
+
+The following new questions emerged from the Priority restructuring and are smaller in scope than the v1.1 questions. They need design decisions before Classic Priority Mode can be implemented; Frame Priority Mode can proceed without them.
+
+1. **Classic Priority Mode: Check State routing.** The current Check State routing (§4.3) is defined entirely in terms of a single shared Priority meter (rules 5–8). With Classic mode's separate meters and alternating turns, how does Check State route? Does it use an explicit `currentTurn` flag? Does "End Turn" pass control to the NPC directly, or does some condition on the NPC's meter determine when control returns to the player? The win/loss rules (1–4) are mode-independent, but the turn-routing rules need a Classic-specific definition.
+
+2. **Classic Priority Mode: turn transition mechanics.** In Classic mode, what happens at each turn transition? Does the player draw a fresh hand at the start of each of their turns (analogous to Priority Restore's hand draw in Frame mode)? Does BotM work the same way? Is there a staged-card cancellation equivalent?
+
+3. **Frame Priority Mode: initiative recovery during NPC's turn.** With Priority Restore no longer firing on shield breaks, the only ways for the shared Priority meter to go positive during the NPC's turn are: (a) the NPC running out of cards, or (b) a card effect (including Shield Trigger effects) that explicitly adds Priority. Is this the intended design — that shield breaks are purely Patience events with no initiative shift? If so, what is the primary intended mechanism for the player to regain initiative before the NPC's deck is exhausted? (This question does not block implementation but affects game balance and may surface a missing mechanic.)
 
 ---
 
