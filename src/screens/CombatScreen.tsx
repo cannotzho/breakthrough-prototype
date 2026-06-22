@@ -1,468 +1,26 @@
 import { useReducer, useEffect, useLayoutEffect, useCallback, useState, useRef } from 'react';
-import { motion, AnimatePresence, PanInfo } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { combatReducer } from '../combat/combatReducer';
 import { buildInitialCombatState, TEST_ENCOUNTER } from '../data/encounterDefs';
-import { CardInstance, CombatState, EncounterConfig, Keyword, SHIELD_PLACEMENT_COST } from '../combat/types';
+import { CardInstance, EncounterConfig, SHIELD_PLACEMENT_COST } from '../combat/types';
 import DevPanel from '../components/dev/DevPanel';
 import PriorityBar from '../components/combat/PriorityBar';
 import PatienceDisplay from '../components/combat/PatienceDisplay';
+import CardView from '../components/combat/CardView';
+import HandCard from '../components/combat/HandCard';
+import ShieldBack from '../components/combat/ShieldBack';
+import PlayerShieldSlot from '../components/combat/PlayerShieldSlot';
+import TraitZone from '../components/combat/TraitZone';
+import PhaseBar from '../components/combat/PhaseBar';
+import PlayZone from '../components/combat/PlayZone';
+import KeywordBadge from '../components/combat/KeywordBadge';
+import useCardDrag from '../components/combat/useCardDrag';
+import { COLOR_BORDER } from '../components/combat/cardColors';
 import { useNuggetDiscoveryStore } from '../stores/nuggetDiscoveryStore';
 
 interface CombatScreenProps {
   onExit: () => void;
   encounterConfig?: EncounterConfig;
-}
-
-const COLOR_BORDER: Record<string, string> = {
-  Red: 'border-red-500',
-  Blue: 'border-blue-500',
-  Green: 'border-green-500',
-  White: 'border-white',
-  Black: 'border-purple-900',
-  Orange: 'border-orange-400',
-  Purple: 'border-purple-500',
-  Colorless: 'border-zinc-500',
-};
-
-const COLOR_BG: Record<string, string> = {
-  Red: 'bg-red-950',
-  Blue: 'bg-blue-950',
-  Green: 'bg-green-950',
-  White: 'bg-zinc-800',
-  Black: 'bg-purple-950',
-  Orange: 'bg-orange-950',
-  Purple: 'bg-purple-950',
-  Colorless: 'bg-zinc-900',
-};
-
-const SHIELD_BREAK_SHAKE = [0, -8, 8, -6, 4, 0];
-
-const KEYWORD_DEFINITIONS: Record<Keyword, string> = {
-  Safety: 'No effect when played normally. When this card is used as a Dummy Shield and that shield is broken, the shield owner loses 0 Patience instead of 1.',
-  Assemble: 'This card may be combined with another Assemble card.',
-  'Shield Trigger': 'When broken as a shield, its printed effects resolve before the break outcome fires.',
-  Lie: 'Playing this card increments the Lie Counter. Exceeding the threshold loses the encounter.',
-  Trap: 'When played from hand, this card is placed on the Field. It triggers when its condition is met during the opponent\'s turn.',
-};
-
-function KeywordBadge({ keyword }: { keyword: Keyword }) {
-  const [showTooltip, setShowTooltip] = useState(false);
-  return (
-    <span
-      className="relative text-sm bg-zinc-700 text-zinc-300 px-2 py-0.5 rounded cursor-help"
-      onMouseEnter={() => setShowTooltip(true)}
-      onMouseLeave={() => setShowTooltip(false)}
-    >
-      {keyword}
-      <AnimatePresence>
-        {showTooltip && (
-          <motion.div
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 4 }}
-            className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-72 p-3 bg-zinc-800 border border-zinc-600 rounded-lg shadow-xl text-sm text-zinc-200 leading-relaxed pointer-events-none"
-          >
-            <span className="font-semibold text-white">{keyword}:</span> {KEYWORD_DEFINITIONS[keyword]}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </span>
-  );
-}
-
-function getCardEffectDisplay(def: import('../combat/types').CardDefinition): string {
-  const lines: string[] = [];
-  for (const kw of def.keywords) lines.push(kw);
-  const text = def.effectText ?? def.description ?? '';
-  if (text) lines.push(text);
-  return lines.join('\n');
-}
-
-function getCardLongDesc(def: import('../combat/types').CardDefinition): string | undefined {
-  return def.longDescription;
-}
-
-function CardView({
-  card,
-  onClick,
-  onRightClick,
-  selected,
-  dimmed,
-  label,
-  isDraggable,
-  onCardDragStart,
-  onCardDrag,
-  onCardDragEnd,
-  initialOffset,
-}: {
-  card: CardInstance;
-  onClick?: (e: React.MouseEvent) => void;
-  onRightClick?: (x: number, y: number) => void;
-  selected?: boolean;
-  dimmed?: boolean;
-  label?: string;
-  isDraggable?: boolean;
-  onCardDragStart?: () => void;
-  onCardDrag?: (event: MouseEvent | TouchEvent | PointerEvent) => void;
-  onCardDragEnd?: (event: MouseEvent | TouchEvent | PointerEvent) => void;
-  initialOffset?: { x: number; y: number };
-}) {
-  const [showTooltip, setShowTooltip] = useState(false);
-  const def = card.definition;
-  const border = COLOR_BORDER[def.color] ?? 'border-zinc-500';
-  const bg = COLOR_BG[def.color] ?? 'bg-zinc-900';
-  const effectDisplay = getCardEffectDisplay(def);
-  const longDesc = getCardLongDesc(def);
-
-  return (
-    <motion.div
-      layout
-      onClick={onClick}
-      onContextMenu={(e) => {
-        if (onRightClick) {
-          e.preventDefault();
-          onRightClick(e.clientX, e.clientY);
-        }
-      }}
-      onMouseEnter={() => { if (longDesc) setShowTooltip(true); }}
-      onMouseLeave={() => setShowTooltip(false)}
-      drag={!!isDraggable}
-      dragSnapToOrigin={isDraggable ? true : undefined}
-      dragElastic={isDraggable ? 0.1 : undefined}
-      onDragStart={isDraggable ? (_e: MouseEvent | TouchEvent | PointerEvent, _i: PanInfo) => onCardDragStart?.() : undefined}
-      onDrag={isDraggable ? (e: MouseEvent | TouchEvent | PointerEvent, _i: PanInfo) => onCardDrag?.(e) : undefined}
-      onDragEnd={isDraggable ? (e: MouseEvent | TouchEvent | PointerEvent, _i: PanInfo) => onCardDragEnd?.(e) : undefined}
-      initial={initialOffset
-        ? { opacity: 0, x: initialOffset.x, y: initialOffset.y, scale: 0.5 }
-        : { opacity: 0, x: -60, scale: 0.9 }}
-      animate={{ opacity: dimmed ? 0.4 : 1, x: 0, y: 0, scale: selected ? 1.05 : 1 }}
-      exit={{ opacity: 0, x: 60, scale: 0.8, transition: { duration: 0.7 } }}
-      transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-      className={`relative w-[104px] h-36 lg:w-[156px] lg:h-[216px] shrink-0 rounded-xl border-2 ${border} ${bg} flex flex-col p-1.5 lg:p-3 select-none
-        ${isDraggable ? 'cursor-grab active:cursor-grabbing' : onClick ? 'cursor-pointer hover:scale-105 transition-transform' : ''}
-        ${selected ? 'ring-2 ring-yellow-400' : ''}`}
-      whileTap={onClick && !isDraggable ? { scale: 0.95 } : {}}
-    >
-      {label && (
-        <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-sm bg-yellow-400 text-black px-2 py-0.5 rounded">
-          {label}
-        </span>
-      )}
-      <div className="flex justify-between items-start gap-1">
-        <span className="text-[10px] lg:text-sm text-white font-semibold truncate leading-tight">{def.name}</span>
-        <span className="text-sm lg:text-lg font-bold text-white shrink-0">{def.cost}</span>
-      </div>
-      <div className="flex-1 flex items-center justify-center bg-zinc-800/50 rounded-lg overflow-hidden mt-1">
-        {def.imageUrl ? (
-          <img src={def.imageUrl} alt={def.name} className="w-full h-full object-cover" />
-        ) : (
-          <svg viewBox="0 0 48 48" className="w-10 h-10 lg:w-14 lg:h-14 text-zinc-600" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="6" y="10" width="36" height="28" rx="2" stroke="currentColor" strokeWidth="2" />
-            <circle cx="17" cy="21" r="4" stroke="currentColor" strokeWidth="1.5" />
-            <path d="M6 34l12-10 10 8 8-6 6 6v4a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-2z" stroke="currentColor" strokeWidth="1.5" />
-          </svg>
-        )}
-      </div>
-      <p className="text-zinc-400 text-[10px] lg:text-xs mt-1 lg:mt-1.5 leading-tight line-clamp-2 lg:line-clamp-3 whitespace-pre-line">{effectDisplay}</p>
-
-      {/* Long description hover tooltip */}
-      <AnimatePresence>
-        {showTooltip && longDesc && (
-          <motion.div
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 4 }}
-            className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-72 p-4 bg-zinc-800 border border-zinc-600 rounded-lg shadow-xl text-sm text-zinc-200 leading-relaxed pointer-events-none"
-          >
-            <span className="font-semibold text-white">{def.name}</span>
-            <p className="mt-1">{longDesc}</p>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
-  );
-}
-
-function HandCard({
-  card,
-  onClick,
-  onRightClick,
-  selected,
-  dimmed,
-  isDraggable,
-  isAnyDragging,
-  onCardDragStart,
-  onCardDrag,
-  onCardDragEnd,
-  initialOffset,
-}: {
-  card: CardInstance;
-  onClick?: (e: React.MouseEvent) => void;
-  onRightClick?: (x: number, y: number) => void;
-  selected?: boolean;
-  dimmed?: boolean;
-  isDraggable?: boolean;
-  isAnyDragging?: boolean;
-  onCardDragStart?: () => void;
-  onCardDrag?: (event: MouseEvent | TouchEvent | PointerEvent) => void;
-  onCardDragEnd?: (event: MouseEvent | TouchEvent | PointerEvent) => void;
-  initialOffset?: { x: number; y: number };
-}) {
-  const [hovered, setHovered] = useState(false);
-  const showHover = hovered && !isAnyDragging;
-
-  return (
-    <motion.div
-      className="relative"
-      style={{ zIndex: showHover ? 50 : 1 }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      animate={{ y: showHover ? -80 : 0 }}
-      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-    >
-      <CardView
-        card={card}
-        onClick={onClick}
-        onRightClick={onRightClick}
-        selected={selected}
-        dimmed={dimmed}
-        isDraggable={isDraggable}
-        onCardDragStart={onCardDragStart}
-        onCardDrag={onCardDrag}
-        onCardDragEnd={onCardDragEnd}
-        initialOffset={initialOffset}
-      />
-    </motion.div>
-  );
-}
-
-function ShieldBack({ broken, loreText, hintText, isHint, compact }: {
-  broken: boolean;
-  loreText?: string;
-  hintText?: string;
-  isHint: boolean;
-  compact?: boolean;
-}) {
-  return (
-    <motion.div
-      animate={{ opacity: broken ? 0.7 : 1 }}
-      className={`rounded-xl border-2 flex flex-col items-center justify-center
-        ${compact ? 'w-[6.5rem] h-[8.5rem] p-2' : 'w-44 h-60 p-4'}
-        ${broken ? 'border-zinc-600 bg-zinc-800/40' : 'border-zinc-500 bg-zinc-800'}
-      `}
-    >
-      <AnimatePresence mode="wait">
-        {broken ? (
-          <motion.div
-            key="broken-content"
-            initial={{ opacity: 0, scale: 1.15 }}
-            animate={{ opacity: 1, scale: 1, x: SHIELD_BREAK_SHAKE }}
-            exit={{ opacity: 0 }}
-            transition={{
-              x: { duration: 0.9, ease: 'easeOut' },
-              opacity: { duration: 1.0 },
-              scale: { type: 'spring', stiffness: 200, damping: 12 },
-            }}
-            className="text-center"
-          >
-            <div className={`text-zinc-500 mb-1 ${compact ? 'text-[10px]' : 'text-sm mb-2'}`}>{isHint ? 'HINT' : 'BROKEN'}</div>
-            <p className={`text-zinc-400 leading-tight ${compact ? 'text-[10px] line-clamp-3' : 'text-sm'}`}>{hintText ?? loreText}</p>
-          </motion.div>
-        ) : (
-          <motion.div
-            key="intact-content"
-            exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.7 } }}
-          >
-            <div className={`text-zinc-600 ${compact ? 'text-2xl' : 'text-5xl'}`}>?</div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
-  );
-}
-
-function PlayerShieldSlot({ slot, idx, selectable, selected, onSelect, isDropTarget, isDragHovered, onDrop }: {
-  slot: CombatState['playerShields'][0];
-  idx: number;
-  selectable?: boolean;
-  selected?: boolean;
-  onSelect?: () => void;
-  isDropTarget?: boolean;
-  isDragHovered?: boolean;
-  onDrop?: () => void;
-}) {
-  const [dragOver, setDragOver] = useState(false);
-  const hovered = (dragOver || isDragHovered) && isDropTarget && !slot;
-
-  return (
-    <motion.div
-      layout
-      className={`w-44 h-[84px] rounded-lg border-2 flex items-center px-3 cursor-pointer transition-all
-        ${slot ? 'border-blue-400 bg-blue-950' : 'border-zinc-700 bg-zinc-900/40 border-dashed'}
-        ${selectable ? 'hover:border-yellow-400' : ''}
-        ${selected ? 'border-yellow-400 ring-2 ring-yellow-400' : ''}
-        ${isDropTarget && !slot ? 'border-amber-400 border-solid bg-amber-950/30' : ''}
-        ${hovered ? 'ring-2 ring-amber-400 bg-amber-950/50 shadow-[0_0_16px_rgba(245,158,11,0.4)]' : ''}
-      `}
-      onClick={onSelect}
-      onDragOver={isDropTarget && !slot ? (e) => { e.preventDefault(); setDragOver(true); } : undefined}
-      onDragLeave={isDropTarget ? () => setDragOver(false) : undefined}
-      onDrop={isDropTarget && !slot ? (e) => { e.preventDefault(); setDragOver(false); onDrop?.(); } : undefined}
-    >
-      <AnimatePresence mode="wait">
-        {slot ? (
-          <motion.div
-            key="filled"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 60, scale: 0.8, transition: { duration: 0.8 } }}
-            className="flex items-center gap-2 min-w-0 w-full"
-          >
-            <span className="text-white text-sm font-semibold truncate flex-1">{slot.card.definition.name}</span>
-            {slot.card.definition.keywords.includes('Safety') && (
-              <span className="text-[11px] bg-green-900/60 text-green-400 px-1.5 py-0.5 rounded shrink-0">Safety</span>
-            )}
-            {slot.card.definition.keywords.includes('Shield Trigger') && (
-              <span className="text-[11px] bg-blue-900/60 text-blue-400 px-1.5 py-0.5 rounded shrink-0">Shield Trigger</span>
-            )}
-          </motion.div>
-        ) : (
-          <motion.div
-            key="empty"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex items-center justify-center w-full"
-          >
-            <span className="text-zinc-600 text-sm">Slot {idx + 1}</span>
-            {isDropTarget && (
-              <span className="text-amber-500/60 text-xs ml-2">Drop</span>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
-  );
-}
-
-function TraitZone({ traits, compact }: { traits: CombatState['config']['traits']; compact?: boolean }) {
-  if (traits.length === 0) return null;
-  return (
-    <div className="flex items-center gap-1.5 justify-center mt-0.5">
-      <span className={`text-zinc-500 uppercase tracking-widest ${compact ? 'text-[9px]' : 'text-xs'}`}>Traits</span>
-      {traits.map(trait => (
-        <TraitIcon key={trait.id} trait={trait} compact={compact} />
-      ))}
-    </div>
-  );
-}
-
-function TraitIcon({ trait, compact }: { trait: CombatState['config']['traits'][0]; compact?: boolean }) {
-  const [showTooltip, setShowTooltip] = useState(false);
-  return (
-    <span
-      className="relative cursor-help"
-      onMouseEnter={() => setShowTooltip(true)}
-      onMouseLeave={() => setShowTooltip(false)}
-    >
-      <motion.span
-        key={trait.discovered ? 'discovered' : 'hidden'}
-        initial={{ rotateY: 90 }}
-        animate={{ rotateY: 0 }}
-        className={`inline-flex items-center justify-center rounded-full border-2 font-bold
-          ${compact ? 'w-7 h-7 text-xs' : 'w-12 h-12 text-base'}
-          ${trait.discovered
-            ? 'border-amber-500 bg-amber-950 text-amber-400'
-            : 'border-zinc-600 bg-zinc-800 text-zinc-500'}`}
-      >
-        {trait.discovered ? trait.name.charAt(0).toUpperCase() : '?'}
-      </motion.span>
-      <AnimatePresence>
-        {showTooltip && (
-          <motion.div
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 4 }}
-            className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-zinc-800 border border-zinc-600 rounded-lg shadow-xl text-sm text-zinc-200 leading-relaxed pointer-events-none"
-          >
-            {trait.discovered ? (
-              <>
-                <span className="font-semibold text-amber-400">{trait.name}</span>
-                <p className="mt-0.5">{trait.description}</p>
-              </>
-            ) : (
-              <span className="italic text-zinc-400">Unknown trait — trigger it to discover.</span>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </span>
-  );
-}
-
-const PHASE_DISPLAY: Record<string, string> = {
-  BotMSelect: 'Select',
-};
-
-function PhaseBar({ phase }: { phase: string }) {
-  const isPlayer = ['PlayerPending', 'PlayerPlay', 'BotMSelect'].includes(phase);
-  const isEnemy = ['EnemyPending', 'EnemyPlay', 'FieldTriggerCheck'].includes(phase);
-
-  return (
-    <div className={`px-6 py-2 rounded-lg text-sm font-bold uppercase tracking-widest
-      ${isPlayer ? 'bg-blue-900 text-blue-200' :
-        isEnemy ? 'bg-red-900 text-red-200' :
-        'bg-zinc-800 text-zinc-300'}
-    `}>
-      {PHASE_DISPLAY[phase] ?? phase}
-    </div>
-  );
-}
-
-function PlayZone({
-  isHovered,
-  visible,
-  zoneRef,
-}: {
-  isHovered: boolean;
-  visible: boolean;
-  zoneRef: { current: HTMLDivElement | null };
-}) {
-  return (
-    <AnimatePresence>
-      {visible && (
-        <motion.div
-          key="play-zone-outer"
-          ref={zoneRef}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="absolute inset-0 z-0 pointer-events-none flex items-center justify-center transition-all duration-150 rounded-xl"
-          style={{
-            border: isHovered
-              ? '2px solid rgba(251,191,36,0.8)'
-              : '1px dashed rgba(161,161,170,0.18)',
-            background: isHovered
-              ? 'radial-gradient(ellipse, rgba(248,200,80,0.08) 0%, transparent 70%)'
-              : 'transparent',
-          }}
-        >
-          <AnimatePresence>
-            {isHovered && (
-              <motion.span
-                key="play-label"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="text-amber-400 text-xl font-semibold tracking-widest uppercase"
-              >
-                Play
-              </motion.span>
-            )}
-          </AnimatePresence>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
 }
 
 export default function CombatScreen({ onExit, encounterConfig }: CombatScreenProps) {
@@ -475,11 +33,8 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
     dispatch({ type: 'DEV_RESET', state: buildInitialCombatState(config) });
   }, []);
   const [devOpen, setDevOpen] = useState(false);
-  const [playZoneHovered, setPlayZoneHovered] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ cardId: string; x: number; y: number; source: 'hand' | 'botm' } | null>(null);
   const [priorityRestoreFlash, setPriorityRestoreFlash] = useState(false);
-  const [draggingCardId, setDraggingCardId] = useState<string | null>(null);
-  const [hoveredShieldIdx, setHoveredShieldIdx] = useState(-1);
   const [viewingPile, setViewingPile] = useState<'draw' | 'discard' | null>(null);
   const [enemyPanelCollapsed, setEnemyPanelCollapsed] = useState(false);
   const [detailCard, setDetailCard] = useState<CardInstance | null>(null);
@@ -492,12 +47,40 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
   const handContainerRef = useRef<HTMLDivElement | null>(null);
   const drawPileOffset = useRef<{ x: number; y: number } | undefined>(undefined);
   const shieldSlotRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const dragOccurredRef = useRef(false);
   const prevPriorityRef = useRef(state.priority);
   const handRef = useRef(state.playerHand);
   const botmRef = useRef(state.backOfMind);
   handRef.current = state.playerHand;
   botmRef.current = state.backOfMind;
+
+  const capturePlayedCard = useCallback((instanceId: string) => {
+    const card = handRef.current.find(c => c.instanceId === instanceId)
+      ?? botmRef.current.find(c => c.instanceId === instanceId);
+    if (card) {
+      setPlayedCardAnim(card);
+      const container = playedCardContainerRef.current;
+      const dp = discardPileRef.current;
+      if (container && dp) {
+        const containerRect = container.getBoundingClientRect();
+        const dpRect = dp.getBoundingClientRect();
+        setDiscardExitOffset({
+          x: dpRect.left + dpRect.width / 2 - (containerRect.left + containerRect.width / 2),
+          y: dpRect.top + dpRect.height / 2 - (containerRect.top + containerRect.height / 2),
+        });
+      }
+    }
+  }, []);
+
+  const {
+    playZoneHovered,
+    draggingCardId,
+    hoveredShieldIdx,
+    dragOccurredRef,
+    handleCardDragStart,
+    handleCardDrag,
+    handleCardDragEnd,
+    handleShieldDrop,
+  } = useCardDrag(playZoneRef, shieldSlotRefs, state, dispatch, capturePlayedCard);
 
   useLayoutEffect(() => {
     const dp = drawPileRef.current;
@@ -528,24 +111,6 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
       return () => clearTimeout(t);
     }
   }, [playedCardAnim]);
-
-  const capturePlayedCard = useCallback((instanceId: string) => {
-    const card = handRef.current.find(c => c.instanceId === instanceId)
-      ?? botmRef.current.find(c => c.instanceId === instanceId);
-    if (card) {
-      setPlayedCardAnim(card);
-      const container = playedCardContainerRef.current;
-      const dp = discardPileRef.current;
-      if (container && dp) {
-        const containerRect = container.getBoundingClientRect();
-        const dpRect = dp.getBoundingClientRect();
-        setDiscardExitOffset({
-          x: dpRect.left + dpRect.width / 2 - (containerRect.left + containerRect.width / 2),
-          y: dpRect.top + dpRect.height / 2 - (containerRect.top + containerRect.height / 2),
-        });
-      }
-    }
-  }, []);
 
   const recordDiscovery = useNuggetDiscoveryStore(s => s.recordDiscovery);
   const prevDiscoveredRef = useRef(state.discoveredNuggetIds.length);
@@ -590,87 +155,10 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
     }
   }, [state.phase, state.stagedEnemyCard]);
 
-  const isOverZone = useCallback((event: MouseEvent | TouchEvent | PointerEvent): boolean => {
-    const rect = playZoneRef.current?.getBoundingClientRect();
-    if (!rect) return false;
-    const clientX = 'clientX' in event
-      ? (event as MouseEvent | PointerEvent).clientX
-      : ((event as TouchEvent).touches[0] ?? (event as TouchEvent).changedTouches[0])?.clientX ?? 0;
-    const clientY = 'clientY' in event
-      ? (event as MouseEvent | PointerEvent).clientY
-      : ((event as TouchEvent).touches[0] ?? (event as TouchEvent).changedTouches[0])?.clientY ?? 0;
-    return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
-  }, []);
-
-  const handleCardDragStart = useCallback((instanceId: string) => {
-    setDraggingCardId(instanceId);
-    dragOccurredRef.current = true;
-  }, []);
-
-  const getClientPos = useCallback((event: MouseEvent | TouchEvent | PointerEvent) => {
-    const clientX = 'clientX' in event
-      ? (event as MouseEvent | PointerEvent).clientX
-      : ((event as TouchEvent).touches[0] ?? (event as TouchEvent).changedTouches[0])?.clientX ?? 0;
-    const clientY = 'clientY' in event
-      ? (event as MouseEvent | PointerEvent).clientY
-      : ((event as TouchEvent).touches[0] ?? (event as TouchEvent).changedTouches[0])?.clientY ?? 0;
-    return { clientX, clientY };
-  }, []);
-
-  const handleCardDrag = useCallback((event: MouseEvent | TouchEvent | PointerEvent) => {
-    setPlayZoneHovered(prev => {
-      const over = Boolean(playZoneRef.current && isOverZone(event));
-      return over === prev ? prev : over;
-    });
-    const { clientX, clientY } = getClientPos(event);
-    let found = -1;
-    for (let i = 0; i < shieldSlotRefs.current.length; i++) {
-      const el = shieldSlotRefs.current[i];
-      if (!el) continue;
-      const rect = el.getBoundingClientRect();
-      if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) {
-        found = i;
-        break;
-      }
-    }
-    setHoveredShieldIdx(prev => prev === found ? prev : found);
-  }, [isOverZone, getClientPos]);
-
-  const handleCardDragEnd = useCallback((instanceId: string, event: MouseEvent | TouchEvent | PointerEvent) => {
-    if (isOverZone(event)) {
-      capturePlayedCard(instanceId);
-      dispatch({ type: 'PLAY_CARD', cardInstanceId: instanceId });
-    } else if (state.phase === 'PlayerPending') {
-      const { clientX, clientY } = getClientPos(event);
-      for (let i = 0; i < shieldSlotRefs.current.length; i++) {
-        const el = shieldSlotRefs.current[i];
-        if (!el) continue;
-        const rect = el.getBoundingClientRect();
-        if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) {
-          if (state.playerShields[i] === null) {
-            dispatch({ type: 'PLACE_SHIELD', cardInstanceId: instanceId, slotIdx: i });
-          }
-          break;
-        }
-      }
-    }
-    setPlayZoneHovered(false);
-    setDraggingCardId(null);
-    setHoveredShieldIdx(-1);
-    setTimeout(() => { dragOccurredRef.current = false; }, 200);
-  }, [isOverZone, state.phase, state.playerShields, getClientPos, capturePlayedCard]);
-
-  const handleShieldDrop = useCallback((slotIdx: number) => {
-    if (!draggingCardId) return;
-    dispatch({ type: 'PLACE_SHIELD', cardInstanceId: draggingCardId, slotIdx });
-    setDraggingCardId(null);
-    setPlayZoneHovered(false);
-  }, [draggingCardId]);
-
   const openContextMenu = useCallback((cardId: string, x: number, y: number, source: 'hand' | 'botm') => {
     if (dragOccurredRef.current) return;
     setContextMenu({ cardId, x, y, source });
-  }, []);
+  }, [dragOccurredRef]);
 
   const { phase, priority, patience, playerHand, playerShields,
     opponentShields, stagedEnemyCard, backOfMind, pendingReveal } = state;
@@ -756,7 +244,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
               </button>
             )}
 
-            {/* Place as Shield — available for ALL cards during PlayerPending */}
+            {/* Place as Shield */}
             {isPlayerTurn && hasEmptyShieldSlot && (
               <button
                 className="w-full text-left px-5 py-3 text-base text-amber-300 hover:bg-zinc-700 transition-colors"
@@ -785,7 +273,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
               </button>
             )}
 
-            {/* Details — always available */}
+            {/* Details */}
             {(() => {
               const ctxCard = contextMenu.source === 'botm'
                 ? backOfMind.find(c => c.instanceId === contextMenu.cardId)
@@ -830,14 +318,14 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
           {/* ═══ TOP: Opponent area + staged card + play zone ═══ */}
           <div className="flex-1 flex flex-col p-2 lg:p-4 min-h-0 overflow-hidden relative">
 
-            {/* Play zone overlay — covers entire top area */}
+            {/* Play zone overlay */}
             <PlayZone
               isHovered={playZoneHovered}
               visible={showPlayZone}
               zoneRef={playZoneRef}
             />
 
-            {/* Staged enemy card — centered in the play zone */}
+            {/* Staged enemy card */}
             <div ref={playedCardContainerRef} className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
               <AnimatePresence>
                 {stagedEnemyCard && (
@@ -855,9 +343,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
                 )}
               </AnimatePresence>
 
-              {/* Player played card — appears briefly then exits:
-                   Impression cards dissolve in place (consumed),
-                   normal cards shrink and fly toward the discard pile */}
+              {/* Player played card animation */}
               <AnimatePresence>
                 {playedCardAnim && !stagedEnemyCard && (() => {
                   const isConsumed = playedCardAnim.definition.subtype === 'Impression';
@@ -898,7 +384,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
               <div className="text-center text-base text-yellow-400 py-2 relative z-10">Choose a shield slot to place the card</div>
             )}
 
-            {/* Enemy Panel — compact, bottom-left, collapsible */}
+            {/* Enemy Panel */}
             <div data-testid="enemy-panel" className="absolute bottom-0 left-0 z-20 pl-2 pb-1 max-w-[33%] max-h-[50%]">
               <div className="bg-zinc-950/70 backdrop-blur-sm rounded-lg p-3 inline-flex flex-col items-center gap-2">
                 <button
@@ -951,7 +437,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
                 {/* Top: draw pile + priority + patience + shields + discard pile */}
                 <div className="flex items-center justify-center gap-3 lg:gap-6">
 
-                  {/* Draw pile — left of priority bar */}
+                  {/* Draw pile */}
                   <button
                     ref={drawPileRef}
                     onClick={() => setViewingPile('draw')}
@@ -981,7 +467,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
                     maxPatience={state.config.opponentPatience}
                   />
 
-                  {/* Player shields — also the drop zone for shield placement */}
+                  {/* Player shields */}
                   <div className="flex gap-2 lg:gap-4 shrink-0">
                     <AnimatePresence mode="popLayout">
                       {playerShields.map((slot, i) => (
@@ -1007,7 +493,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
                     </AnimatePresence>
                   </div>
 
-                  {/* Discard pile — right of shields */}
+                  {/* Discard pile */}
                   <button
                     ref={discardPileRef}
                     onClick={() => setViewingPile('discard')}
@@ -1043,12 +529,12 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
               </div>
             )}
 
-            {/* Hand Area — sits partially below viewport, cards pop up on hover */}
+            {/* Hand Area */}
             <div data-testid="hand-area" className={`px-4 lg:px-6 pt-2 lg:pt-3 ${
               isBotMSelect ? 'animate-indigo-pulse' : 'bg-zinc-950/60'
             }`}>
               <div className="flex items-end gap-4">
-                {/* Hand cards — clipped at bottom, individual cards pop up on hover */}
+                {/* Hand cards */}
                 <div className="flex-1 min-w-0 h-[140px] lg:h-[160px] overflow-visible relative">
                   <div ref={handContainerRef} className="flex gap-2 lg:gap-4 flex-wrap justify-center absolute bottom-0 left-0 right-0 translate-y-[40%] lg:translate-y-[35%]">
                     <AnimatePresence mode="popLayout">
@@ -1087,7 +573,7 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
                   </div>
                 </div>
 
-                {/* Action buttons — right of hand */}
+                {/* Action buttons */}
                 <div className="flex flex-col gap-2 shrink-0 pb-2">
                   {isPlayerTurn && (
                     <button
