@@ -6,7 +6,7 @@ interface PriorityBarProps {
 }
 
 export default function PriorityBar({ priority, maxPriority }: PriorityBarProps) {
-  const totalPerSide = maxPriority;
+  const totalPerSide = Math.max(maxPriority, Math.abs(priority));
   const absPriority = Math.abs(priority);
   const isNegative = priority < 0;
   const isPositive = priority > 0;

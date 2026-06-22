@@ -7,6 +7,14 @@ export function clampPriority(value: number): number {
   return Math.max(-10, Math.min(10, value));
 }
 
+const TURN_HANDOFF_BONUS = 3;
+
+export function applyTurnHandoffBonus(priority: number, receivingSide: 'player' | 'npc'): number {
+  return receivingSide === 'npc'
+    ? priority - TURN_HANDOFF_BONUS
+    : priority + TURN_HANDOFF_BONUS;
+}
+
 export function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -43,7 +51,8 @@ export function drawCards(state: CombatState, count: number): CombatState {
 
 export function priorityRestore(state: CombatState): CombatState {
   if (state.config.priorityMode !== 'frame') return state;
-  const restored = { ...state, priority: clampPriority(state.config.defaultRestorePriority) };
+  const restoredPriority = applyTurnHandoffBonus(state.config.defaultRestorePriority, 'player');
+  const restored = { ...state, priority: restoredPriority };
   const withBotM = restored.backOfMind.length > 0
     ? { ...restored, playerHand: [...restored.playerHand, ...restored.backOfMind], backOfMind: [] as typeof restored.backOfMind }
     : restored;

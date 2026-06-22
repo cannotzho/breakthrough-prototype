@@ -1,14 +1,9 @@
 import { CombatState, CombatAction, CardInstance, CardEffect, NuggetOverride, SHIELD_PLACEMENT_COST } from './types';
-import { applyEffect, selectEnemyCard, makeInstance, clampPriority, shuffle, resolveFieldTriggerCheck, classicTurnStart, npcTurnStart, addLog } from './effectHandlers';
+import { applyEffect, selectEnemyCard, makeInstance, clampPriority, applyTurnHandoffBonus, shuffle, resolveFieldTriggerCheck, classicTurnStart, npcTurnStart, addLog } from './effectHandlers';
 import { COMBINATIONS } from '../data/combinations';
 import { PONDER_DEFINITION } from '../data/devCards';
 
-function computeCost(cost: number, priority: number, isFrame: boolean) {
-  if (isFrame) {
-    const priorityCovered = Math.min(cost, priority);
-    const patienceCost = Math.max(0, cost - priority);
-    return { priorityCovered, patienceCost };
-  }
+function computeCost(cost: number, _priority: number, _isFrame: boolean) {
   return { priorityCovered: cost, patienceCost: 0 };
 }
 
@@ -189,6 +184,18 @@ function completePlayerPlay(state: CombatState, card: CardInstance, isPonderConv
   // Field Trigger Check after Player Play
   s = resolveFieldTriggerCheck(s);
 
+  // Frame mode: if priority ≤ 0 and hand is empty, BotM will be skipped
+  // and NPC turn starts immediately — apply the turn-handoff bonus here
+  if (
+    s.config.priorityMode === 'frame' &&
+    s.priority <= 0 &&
+    s.playerHand.length === 0
+  ) {
+    const before = s.priority;
+    s = { ...s, priority: applyTurnHandoffBonus(s.priority, 'npc') };
+    s = addLog(s, `Turn handoff bonus (priority ${before} → ${s.priority})`);
+  }
+
   return checkState({
     ...s,
     pendingEffects: [],
@@ -249,7 +256,7 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
 
       let s: CombatState = {
         ...state,
-        priority: isFrame ? clampPriority(state.priority - priorityCovered) : Math.max(0, state.priority - priorityCovered),
+        priority: isFrame ? state.priority - priorityCovered : Math.max(0, state.priority - priorityCovered),
         patience: state.patience - patienceCost,
         playerHand: state.playerHand.filter(c => c.instanceId !== action.cardInstanceId),
         pendingEffects: [],
@@ -328,13 +335,20 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
 
       let s: CombatState = {
         ...state,
-        priority: isFrame ? clampPriority(state.priority - priorityCovered) : Math.max(0, state.priority - priorityCovered),
+        priority: isFrame ? state.priority - priorityCovered : Math.max(0, state.priority - priorityCovered),
         patience: state.patience - patienceCost,
         playerHand: state.playerHand.filter(c => c.instanceId !== action.cardInstanceId),
         playerShields: newShields,
         shieldsEverPlaced: state.shieldsEverPlaced + 1,
       };
       s = addLog(s, `${card.definition.name} placed as shield in slot ${action.slotIdx} (cost ${SHIELD_PLACEMENT_COST} priority)`);
+
+      if (isFrame && s.priority <= 0 && s.playerHand.length === 0) {
+        const before = s.priority;
+        s = { ...s, priority: applyTurnHandoffBonus(s.priority, 'npc') };
+        s = addLog(s, `Turn handoff bonus (priority ${before} → ${s.priority})`);
+      }
+
       return checkState({ ...s, phase: 'Check' });
     }
 
@@ -350,7 +364,8 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       if (state.phase !== 'PlayerPending') return state;
       const isFrame = state.config.priorityMode === 'frame';
       if (isFrame) {
-        return checkState(addLog({ ...state, priority: 0 }, 'Player ended turn'));
+        const bonusPriority = applyTurnHandoffBonus(state.priority, 'npc');
+        return checkState(addLog({ ...state, priority: bonusPriority }, `Player ended turn (priority ${state.priority} → ${bonusPriority} with handoff bonus)`));
       } else {
         return checkState(npcTurnStart(state));
       }
@@ -378,12 +393,18 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       if (state.phase !== 'BotMSelect') return state;
       const selectedIds = new Set(state.backOfMind.map(c => c.instanceId));
       const rest = state.playerHand.filter(c => !selectedIds.has(c.instanceId));
+      const isFrameBotm = state.config.priorityMode === 'frame';
+      const bonusPriorityBotm = isFrameBotm ? applyTurnHandoffBonus(state.priority, 'npc') : state.priority;
       let s: CombatState = {
         ...state,
+        priority: bonusPriorityBotm,
         playerHand: [],
         playerDiscard: [...state.playerDiscard, ...rest],
         phase: 'EnemyPending',
       };
+      if (isFrameBotm) {
+        s = addLog(s, `Turn handoff bonus (priority ${state.priority} → ${bonusPriorityBotm})`);
+      }
       if (state.backOfMind.length === 0) {
         s = addLog(s, 'Back of Mind: passed (no cards kept)');
       } else {
@@ -474,7 +495,7 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
     }
 
     case 'DEV_SET_PRIORITY':
-      return addLog({ ...state, priority: clampPriority(action.value) }, `[DEV] Priority → ${action.value}`);
+      return addLog({ ...state, priority: action.value }, `[DEV] Priority → ${action.value}`);
 
     case 'DEV_SET_PATIENCE':
       return addLog({ ...state, patience: action.value }, `[DEV] Patience → ${action.value}`);

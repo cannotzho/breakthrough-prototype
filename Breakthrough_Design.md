@@ -8,6 +8,12 @@
 
 Changes are listed in reverse chronological order. Each entry describes what changed in the design; the body of the document always reflects the current state of the design.
 
+### v1.3 — 2026-06-22
+
+- **Frame mode priority overflow allowed.** Player card plays now deduct their full cost from the shared Priority meter without a floor — Priority can go arbitrarily negative from player plays. The previous behaviour split excess cost into Patience damage; that no longer occurs. NPC card costs remain clamped (±10) to preserve the self-limiting turn mechanic.
+- **Turn-handoff bonus introduced.** When a turn handoff occurs in Frame Priority Mode, the side receiving initiative gets a flat 3-point Priority bonus in their favourable direction. When the NPC receives the turn (player ends turn or BotM concludes), Priority shifts 3 further negative. When the player receives the turn via Priority Restore, Priority is set to `defaultRestorePriority + 3`. This applies symmetrically.
+- **Card cost no longer spills into Patience.** In Frame mode, the full card cost is paid from Priority. If the player's Priority is less than the card's cost, the difference pushes Priority negative rather than reducing Patience.
+
 ### v1.2 — 2026-06-22
 
 - **Priority modes renamed.** "Standard Priority Mode" → **Frame Priority Mode** (shared meter, carry-over, inspired by fighting-game frame advantage). "Fixed Priority Mode" → **Classic Priority Mode** (separate meters, full replenishment each turn, named for genre convention). Frame remains the default.
@@ -76,7 +82,8 @@ This game is keyword-driven. All mechanical terms should be used precisely and c
 | **Skill Deck** | A 20-card deck built from Skill Cards chosen by the player. Combined with Information Cards to form the Conversation Deck. |
 | **Discovered** | The state of an Information Card whose effect has been revealed. Discovery persists across encounters. |
 | **Impression** | A card subtype native to Orange. When played, an Impression card is placed on the Field rather than discarded, providing a persistent passive effect for the remainder of the encounter. |
-| **Priority Restore** | (Frame Priority Mode) The event that occurs whenever the shared Priority meter transitions from ≤ 0 to > 0. Triggers a fresh hand draw and sets Priority to the encounter's default restore value. Does **not** fire on shield breaks — only on NPC deck exhaustion or card effects that push Priority positive. |
+| **Priority Restore** | (Frame Priority Mode) The event that occurs whenever the shared Priority meter transitions from ≤ 0 to > 0. Triggers a fresh hand draw and sets Priority to `defaultRestorePriority + 3` (base restore value plus the turn-handoff bonus). Does **not** fire on shield breaks — only on NPC deck exhaustion or card effects that push Priority positive. |
+| **Turn-Handoff Bonus** | (Frame Priority Mode) A flat 3-point Priority bonus applied in the favourable direction whenever a turn handoff occurs. When the NPC receives the turn (player ends turn or confirms Back of Mind), Priority shifts 3 further negative. When the player receives the turn via Priority Restore, the bonus is added to the restore value. |
 | **Staged Card** | The NPC's currently loaded card, pending resolution. Exists between Enemy Pending and the end of Enemy Play. |
 | **Retryable** | An encounter property. If true, the player may restart the encounter after losing. |
 | **Persistent Break** | An opponent shield that remains broken when a retryable encounter is restarted. |
@@ -104,17 +111,17 @@ An encounter selects one of two priority modes via the `priorityMode` config fie
 
 **Frame Priority Mode** (default): A single shared Priority meter between player and NPC, represented as a signed integer clamped to −10 to +10. Positive values mean it is the player's turn; zero or negative values mean it is the NPC's turn. Both sides' actions modify the same meter — playing a card pushes the meter toward the opponent's territory. **Card costs are sign-directional:** when the player plays a card, the cost pushes Priority toward negative (NPC territory); when the NPC plays a card, the cost pushes Priority toward positive (player territory). This is the self-balancing mechanism that prevents the NPC from playing indefinitely — the NPC's own card costs erode its initiative, and without any restore effect, the NPC's spending is what eventually flips the sign back to positive and returns initiative to the player.
 
-Playing a card costs `min(cost, currentPriority)` from Priority, then `max(0, cost − currentPriority)` from NPC Patience (overflow). For NPC card plays, the card's cost is added to Priority (toward positive) before effects resolve. The name reflects "frame advantage" from fighting games — both sides contest a single momentum resource, and the tug-of-war over that resource determines who acts.
+Playing a card deducts its full cost from Priority — Priority can go arbitrarily negative from player plays (no floor, no overflow into Patience). For NPC card plays, the card's cost is added to Priority (toward positive, clamped to ±10) before effects resolve. When a turn handoff occurs, a flat 3-point bonus is applied in the direction that favours the receiving side: −3 when the NPC receives the turn, +3 when the player receives the turn. The name reflects "frame advantage" from fighting games — both sides contest a single momentum resource, and the tug-of-war over that resource determines who acts.
 
 **Priority Restore event (Frame mode):** Triggered whenever the shared Priority meter transitions from ≤ 0 to > 0, regardless of cause (NPC deck exhaustion, card effects that add Priority). When triggered:
-1. Priority is set to the encounter's `defaultRestorePriority` value.
+1. Priority is set to `defaultRestorePriority + 3` (base restore value plus the turn-handoff bonus).
 2. The player draws a fresh hand (up to the hand limit). If a BotM card exists, it is returned to hand first.
 
 **Classic Priority Mode**: Player and NPC each have their own independent Priority meter. Each meter resets to its full value (e.g. 10) at the start of that side's turn. There is no carry-over between turns — unspent Priority is lost. There is no overflow mechanic — if a card's Priority cost exceeds the player's current Priority, the card simply cannot be played unless a specific card effect grants an exception. Turns alternate: the player takes their full turn (spending from their own meter), then the NPC takes their full turn (spending from theirs). Named for the genre convention — most card games give each side a separate resource pool per turn.
 
 ### Patience
 
-Patience is the NPC's tolerance for the conversation. It starts at a per-encounter value (default: 10). **There is no maximum Patience cap** — effects that restore or grant Patience can exceed the starting value without limit. If Patience reaches zero or below, the conversation ends immediately as a loss. Patience is modified by card effects, shield break outcomes, and Priority overflow (Frame Priority Mode only).
+Patience is the NPC's tolerance for the conversation. It starts at a per-encounter value (default: 10). **There is no maximum Patience cap** — effects that restore or grant Patience can exceed the starting value without limit. If Patience reaches zero or below, the conversation ends immediately as a loss. Patience is modified by card effects and shield break outcomes.
 
 ### Opponent Shields
 

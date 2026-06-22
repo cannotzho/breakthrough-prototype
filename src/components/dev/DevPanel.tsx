@@ -131,7 +131,7 @@ function StateView({ state, dispatch, onLoadEncounter }: { state: CombatState; d
         </select>
       </div>
 
-      <Slider label="Priority" value={state.priority} min={-10} max={10}
+      <Slider label="Priority" value={state.priority} min={-30} max={30}
         onChange={v => dispatch({ type: 'DEV_SET_PRIORITY', value: v })} />
       <Slider label="Patience" value={state.patience} min={0} max={30}
         onChange={v => dispatch({ type: 'DEV_SET_PATIENCE', value: v })} />
