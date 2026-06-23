@@ -24,7 +24,7 @@ function defaultEncounter(): EncounterConfig {
       { cardId: 'shield_1', isHint: false, broken: false, loreDescription: '' },
     ],
     shieldBreakOrder: [0],
-    playerDummyShieldSlots: 3,
+    playerDummyShieldSlots: 10,
     allowedCoreShields: [],
     unbreakablePlayerShields: false,
     nuggetOverrides: [],
@@ -471,7 +471,7 @@ export default function EncounterEditor({ onLoadEncounter, onStartPlaytest, hide
         <div className="grid grid-cols-2 gap-2">
           <label className="flex flex-col gap-1">
             <span className={LABEL}>Player Dummy Shield Slots</span>
-            <input type="number" value={config.playerDummyShieldSlots ?? 3}
+            <input type="number" value={config.playerDummyShieldSlots ?? 10}
               onChange={e => patch({ playerDummyShieldSlots: Number(e.target.value) })}
               className={INPUT} />
           </label>
