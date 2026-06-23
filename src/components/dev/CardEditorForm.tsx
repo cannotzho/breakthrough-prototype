@@ -21,8 +21,9 @@ function NuggetCreator({ onCreated, onCancel }: {
   onCreated: (nugget: InfoNugget) => void;
   onCancel: () => void;
 }) {
-  const [id, setId] = useState(`nugget_${Date.now()}`);
+  const [id, setId] = useState('');
   const [name, setName] = useState('');
+  const [idManuallyEdited, setIdManuallyEdited] = useState(false);
   const [longDescription, setLongDescription] = useState('');
   const [imageUrl, setImageUrl] = useState('');
 
@@ -31,11 +32,14 @@ function NuggetCreator({ onCreated, onCancel }: {
       <div className="text-xs text-amber-400 uppercase tracking-widest">New Info Nugget</div>
       <label className="flex flex-col gap-1">
         <span className="text-xs text-zinc-500">Nugget ID</span>
-        <input value={id} onChange={e => setId(e.target.value)} className={INPUT} />
+        <input value={id} onChange={e => { setId(e.target.value); setIdManuallyEdited(true); }} className={INPUT} />
       </label>
       <label className="flex flex-col gap-1">
         <span className="text-xs text-zinc-500">Name</span>
-        <input value={name} onChange={e => setName(e.target.value)} className={INPUT} placeholder="Nugget display name" />
+        <input value={name} onChange={e => {
+          setName(e.target.value);
+          if (!idManuallyEdited) setId(`nugget_${slugify(e.target.value)}`);
+        }} className={INPUT} placeholder="Nugget display name" />
       </label>
       <label className="flex flex-col gap-1">
         <span className="text-xs text-zinc-500">Long Description</span>
@@ -65,6 +69,16 @@ function NuggetCreator({ onCreated, onCancel }: {
   );
 }
 
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/['']/g, '')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_|_$/g, '')
+    || `card_${Date.now()}`;
+}
+
 export interface CardFormProps {
   initial?: CardDefinition;
   onSubmit: (card: CardDefinition, nugget?: InfoNugget) => void;
@@ -76,8 +90,9 @@ export default function CardForm({ initial, onSubmit, submitLabel, onCancel }: C
   const { getAllNuggets } = useNuggetStore();
   const allNuggets = getAllNuggets();
 
-  const [id, setId] = useState(initial?.id ?? `dev_custom_${Date.now()}`);
+  const [id, setId] = useState(initial?.id ?? slugify('New Card'));
   const [name, setName] = useState(initial?.name ?? 'New Card');
+  const [idManuallyEdited, setIdManuallyEdited] = useState(!!initial);
   const [cost, setCost] = useState(initial?.cost ?? 1);
   const [color, setColor] = useState<ColorIdentity>(initial?.color ?? 'Red');
   const [supertype, setSupertype] = useState<CardSupertype>(initial?.supertype ?? 'Skill');
@@ -97,6 +112,7 @@ export default function CardForm({ initial, onSubmit, submitLabel, onCancel }: C
     if (initial) {
       setId(initial.id);
       setName(initial.name);
+      setIdManuallyEdited(true);
       setCost(initial.cost);
       setColor(initial.color);
       setSupertype(initial.supertype);
@@ -114,6 +130,7 @@ export default function CardForm({ initial, onSubmit, submitLabel, onCancel }: C
     if (selectedNugget && isInfo) {
       setName(selectedNugget.name);
       setLongDescription(selectedNugget.longDescription);
+      if (!idManuallyEdited) setId(slugify(selectedNugget.name));
     }
   }, [selectedNugget, isInfo]);
 
@@ -133,7 +150,7 @@ export default function CardForm({ initial, onSubmit, submitLabel, onCancel }: C
       <div className="grid grid-cols-2 gap-2">
         <label className="flex flex-col gap-1">
           <span className="text-xs text-zinc-500">ID</span>
-          <input value={id} onChange={e => setId(e.target.value)} className={INPUT} />
+          <input value={id} onChange={e => { setId(e.target.value); setIdManuallyEdited(true); }} className={INPUT} />
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-xs text-zinc-500">Supertype</span>
@@ -200,7 +217,10 @@ export default function CardForm({ initial, onSubmit, submitLabel, onCancel }: C
       <div className="grid grid-cols-2 gap-2">
         <label className="flex flex-col gap-1">
           <span className="text-xs text-zinc-500">Name{isInfo && selectedNugget ? ' (from nugget)' : ''}</span>
-          <input value={name} onChange={e => setName(e.target.value)} className={INPUT}
+          <input value={name} onChange={e => {
+              setName(e.target.value);
+              if (!idManuallyEdited) setId(slugify(e.target.value));
+            }} className={INPUT}
             disabled={isInfo && !!selectedNugget} />
         </label>
         <label className="flex flex-col gap-1">
