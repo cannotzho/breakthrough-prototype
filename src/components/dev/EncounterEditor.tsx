@@ -16,10 +16,10 @@ function defaultEncounter(): EncounterConfig {
   return {
     id: `encounter_${Date.now()}`,
     displayName: 'New Encounter',
-    startingPriority: 5,
-    defaultRestorePriority: 5,
+    startingPriority: 10,
+    defaultRestorePriority: 10,
     priorityMode: 'frame',
-    opponentPatience: 10,
+    opponentPatience: 15,
     opponentShields: [
       { cardId: 'shield_1', isHint: false, broken: false, loreDescription: '' },
     ],
