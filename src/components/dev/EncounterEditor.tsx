@@ -468,13 +468,6 @@ export default function EncounterEditor({ onLoadEncounter, onStartPlaytest, hide
           </label>
         </div>
 
-        <label className="flex flex-col gap-1">
-          <span className={LABEL}>Enemy Deck Card IDs (comma-separated)</span>
-          <input value={config.enemyDeckCardIds.join(', ')}
-            onChange={e => patch({ enemyDeckCardIds: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
-            className={INPUT} />
-        </label>
-
         <div className="grid grid-cols-2 gap-2">
           <label className="flex flex-col gap-1">
             <span className={LABEL}>Player Dummy Shield Slots</span>
