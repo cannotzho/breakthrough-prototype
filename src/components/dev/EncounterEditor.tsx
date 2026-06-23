@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import {
   EncounterConfig, OpponentShieldSlot, Trait, CardDefinition, InfoNugget,
+  CoreShieldDef,
 } from '../../combat/types';
 import { useDevEncounterStore } from '../../stores/encounterStore';
 import { useNuggetStore } from '../../stores/nuggetStore';
@@ -105,6 +106,111 @@ function TraitEditor({ traits, onChange }: {
             placeholder="Description" className={INPUT} />
         </div>
       ))}
+    </div>
+  );
+}
+
+function PlayerShieldConfig({
+  dummySlots,
+  coreShields,
+  onDummySlotsChange,
+  onCoreShieldsChange,
+}: {
+  dummySlots: number;
+  coreShields: CoreShieldDef[];
+  onDummySlotsChange: (n: number) => void;
+  onCoreShieldsChange: (shields: CoreShieldDef[]) => void;
+}) {
+  const cardMap = useDevCardStore(s => s.cards);
+  const [galleryFilter, setGalleryFilter] = useState('');
+
+  const allCards = useMemo(() =>
+    Object.values(cardMap).sort((a, b) => a.name.localeCompare(b.name)),
+    [cardMap],
+  );
+
+  const coreShieldIds = useMemo(() =>
+    new Set(coreShields.map(s => s.cardId)),
+    [coreShields],
+  );
+
+  const toggleCoreShield = (card: CardDefinition) => {
+    if (coreShieldIds.has(card.id)) {
+      onCoreShieldsChange(coreShields.filter(s => s.cardId !== card.id));
+    } else {
+      onCoreShieldsChange([...coreShields, { cardId: card.id, patienceCostOnBreak: 2 }]);
+    }
+  };
+
+  const updateCost = (cardId: string, cost: number) => {
+    onCoreShieldsChange(
+      coreShields.map(s => s.cardId === cardId ? { ...s, patienceCostOnBreak: cost } : s),
+    );
+  };
+
+  const resolveCardName = (cardId: string) => cardMap[cardId]?.name ?? cardId;
+
+  return (
+    <div className="flex flex-col gap-3 border border-zinc-700 rounded p-3">
+      <span className="text-xs text-zinc-400 uppercase tracking-widest">Player Shields</span>
+
+      {/* Dummy shield count */}
+      <label className="flex flex-col gap-1">
+        <span className={LABEL}>Dummy Shield Slots</span>
+        <input type="number" value={dummySlots} min={0}
+          onChange={e => onDummySlotsChange(Math.max(0, Number(e.target.value)))}
+          className={INPUT} />
+        <span className="text-[10px] text-zinc-600">
+          Empty slots the player can place cards into during combat
+        </span>
+      </label>
+
+      {/* Core shields list */}
+      <div className="flex flex-col gap-2">
+        <span className={LABEL}>Core Shields ({coreShields.length})</span>
+        {coreShields.length > 0 ? (
+          <div className="flex flex-col gap-1">
+            {coreShields.map(s => (
+              <div key={s.cardId} className="flex items-center gap-2 border border-indigo-700/50 rounded px-2 py-1 bg-indigo-950/20">
+                <span className="text-xs text-indigo-300 flex-1 truncate">{resolveCardName(s.cardId)}</span>
+                <label className="flex items-center gap-1 shrink-0">
+                  <span className="text-[10px] text-zinc-500">Cost</span>
+                  <input type="number" value={s.patienceCostOnBreak} min={0}
+                    onChange={e => updateCost(s.cardId, Math.max(0, Number(e.target.value)))}
+                    className="text-xs bg-zinc-800 border border-zinc-600 rounded px-1 py-0.5 text-white w-12 text-center" />
+                </label>
+                <button onClick={() => toggleCoreShield({ id: s.cardId } as CardDefinition)}
+                  className="text-xs text-red-500 hover:text-red-400">✕</button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <span className="text-[10px] text-zinc-600">No core shields. Click a card below to add one.</span>
+        )}
+      </div>
+
+      {/* Card gallery for selecting core shields */}
+      <div className="flex flex-col gap-1">
+        <span className="text-xs text-zinc-500 uppercase tracking-widest">
+          Click a card to toggle as core shield
+        </span>
+        <CardGalleryGrid
+          cards={allCards}
+          onCardClick={toggleCoreShield}
+          filter={galleryFilter}
+          onFilterChange={setGalleryFilter}
+          filterPlaceholder="Filter cards for core shields..."
+          renderOverlay={(card) => {
+            if (!coreShieldIds.has(card.id)) return null;
+            return (
+              <span className="flex items-center justify-center w-5 h-5 rounded-full bg-indigo-500 text-white text-[10px] font-bold">
+                ◆
+              </span>
+            );
+          }}
+          emptyMessage="No cards available. Create cards in the Card Collection first."
+        />
+      </div>
     </div>
   );
 }
@@ -468,23 +574,15 @@ export default function EncounterEditor({ onLoadEncounter, onStartPlaytest, hide
           </label>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          <label className="flex flex-col gap-1">
-            <span className={LABEL}>Player Dummy Shield Slots</span>
-            <input type="number" value={config.playerDummyShieldSlots ?? 10}
-              onChange={e => patch({ playerDummyShieldSlots: Number(e.target.value) })}
-              className={INPUT} />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className={LABEL}>Priority Mode</span>
-            <select value={config.priorityMode ?? 'frame'}
-              onChange={e => patch({ priorityMode: e.target.value as 'frame' | 'classic' })}
-              className={INPUT}>
-              <option value="frame">Frame</option>
-              <option value="classic">Classic</option>
-            </select>
-          </label>
-        </div>
+        <label className="flex flex-col gap-1">
+          <span className={LABEL}>Priority Mode</span>
+          <select value={config.priorityMode ?? 'frame'}
+            onChange={e => patch({ priorityMode: e.target.value as 'frame' | 'classic' })}
+            className={INPUT}>
+            <option value="frame">Frame</option>
+            <option value="classic">Classic</option>
+          </select>
+        </label>
 
         <ShieldEditor shields={config.opponentShields}
           onChange={opponentShields => patch({
@@ -493,6 +591,13 @@ export default function EncounterEditor({ onLoadEncounter, onStartPlaytest, hide
           })} />
 
         <TraitEditor traits={config.traits} onChange={traits => patch({ traits })} />
+
+        <PlayerShieldConfig
+          dummySlots={config.playerDummyShieldSlots ?? 10}
+          coreShields={config.allowedCoreShields ?? []}
+          onDummySlotsChange={n => patch({ playerDummyShieldSlots: n })}
+          onCoreShieldsChange={shields => patch({ allowedCoreShields: shields })}
+        />
 
         {editingId && <RelevantCardGallery encounterId={editingId} />}
         {!editingId && (
