@@ -21,7 +21,7 @@ export default function PlayerShieldSlot({ slot, idx, selectable, selected, onSe
       <motion.div
         layout
         className={`w-4 lg:w-5 h-10 lg:h-12 rounded border-2 cursor-pointer transition-all
-          border-blue-400 bg-blue-950
+          border-zinc-400 bg-zinc-300/20
           ${selected ? 'ring-2 ring-yellow-400' : ''}
         `}
         onClick={onSelect}
@@ -35,7 +35,7 @@ export default function PlayerShieldSlot({ slot, idx, selectable, selected, onSe
       <motion.div
         layout
         className={`w-4 lg:w-5 h-10 lg:h-12 rounded border cursor-pointer transition-all
-          border-zinc-700 bg-zinc-900/40 border-dashed
+          border-zinc-700/50 bg-transparent border-dashed
           ${selectable ? 'hover:border-yellow-400' : ''}
           ${isDropTarget ? 'border-amber-400 border-solid bg-amber-950/30' : ''}
           ${hovered ? 'ring-2 ring-amber-400 bg-amber-950/50 shadow-[0_0_16px_rgba(245,158,11,0.4)]' : ''}
