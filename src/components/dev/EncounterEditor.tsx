@@ -34,6 +34,7 @@ function defaultEncounter(): EncounterConfig {
     traits: [],
     retryable: true,
     lieThreshold: 3,
+    npcDummyShieldSlots: 10,
     enemyDeckCardIds: [],
   };
 }
@@ -786,6 +787,15 @@ export default function EncounterEditor({ onLoadEncounter, onStartPlaytest, hide
           })} />
 
         <TraitEditor traits={config.traits} onChange={traits => patch({ traits })} />
+
+        <div>
+          <label className="text-xs text-zinc-400 block mb-1">NPC Dummy Shield Slots</label>
+          <input type="number" min={0} max={30}
+            value={config.npcDummyShieldSlots ?? 10}
+            onChange={e => patch({ npcDummyShieldSlots: Number(e.target.value) || 0 })}
+            className="w-20 px-2 py-1 rounded bg-zinc-800 border border-zinc-700 text-white text-sm"
+          />
+        </div>
 
         <PlayerShieldConfig
           dummySlots={config.playerDummyShieldSlots ?? 10}

@@ -177,6 +177,7 @@ export interface EncounterConfig {
   tutorialMode?: boolean;
   scriptedDrawOrder?: string[][];
   scriptedOpponentPlays?: string[];
+  npcDummyShieldSlots: number;
   enemyDeckCardIds: string[];
 }
 

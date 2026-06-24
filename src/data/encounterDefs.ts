@@ -24,6 +24,7 @@ export const TEST_ENCOUNTER: EncounterConfig = {
   ],
   retryable: true,
   lieThreshold: 3,
+  npcDummyShieldSlots: 10,
   enemyDeckCardIds: ['dev_enemy_dismiss', 'dev_enemy_deflect', 'dev_enemy_deflect'],
 };
 
@@ -49,6 +50,7 @@ export const CLASSIC_TEST_ENCOUNTER: EncounterConfig = {
   ],
   retryable: true,
   lieThreshold: 3,
+  npcDummyShieldSlots: 10,
   enemyDeckCardIds: ['dev_enemy_dismiss', 'dev_enemy_deflect', 'dev_enemy_deflect'],
 };
 
@@ -77,11 +79,22 @@ export function buildInitialCombatState(config: EncounterConfig): CombatState {
 
   const shieldSlots = [...dummySlots, ...coreSlots];
 
+  const npcDummyCount = config.npcDummyShieldSlots ?? 0;
+  const adjustedConfig = npcDummyCount > 0 && config.shieldBreakOrder
+    ? {
+        ...config,
+        shieldBreakOrder: [
+          ...Array.from({ length: npcDummyCount }, (_, i) => i),
+          ...config.shieldBreakOrder.map(idx => idx + npcDummyCount),
+        ],
+      }
+    : config;
+
   return {
     phase: 'Check',
-    priority: config.startingPriority,
-    npcPriority: config.priorityMode === 'classic' ? config.startingPriority : 0,
-    patience: config.opponentPatience,
+    priority: adjustedConfig.startingPriority,
+    npcPriority: adjustedConfig.priorityMode === 'classic' ? adjustedConfig.startingPriority : 0,
+    patience: adjustedConfig.opponentPatience,
     lieCounter: 0,
     playerHand: initialHand,
     playerDeck: initialDeck,
@@ -89,7 +102,14 @@ export function buildInitialCombatState(config: EncounterConfig): CombatState {
     backOfMind: [],
     playerShields: shieldSlots,
     shieldsEverPlaced: 0,
-    opponentShields: config.opponentShields.map(s => ({ ...s })),
+    opponentShields: [
+      ...Array.from({ length: npcDummyCount }, (_, i) => ({
+        cardId: `npc_dummy_${i}`,
+        isHint: false,
+        broken: false,
+      })),
+      ...adjustedConfig.opponentShields.map(s => ({ ...s })),
+    ],
     pendingReveal: null,
     enemyDeck: enemyInstances,
     enemyDiscard: [],
@@ -99,7 +119,7 @@ export function buildInitialCombatState(config: EncounterConfig): CombatState {
     fieldTraps: [],
     trapPlayCounter: 0,
     playedNonRelevantCards: [],
-    config,
+    config: adjustedConfig,
     combatConfig: DEFAULT_COMBAT_CONFIG,
     pendingEffects: [],
     pendingEffectCard: null,
