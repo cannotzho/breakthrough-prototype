@@ -61,6 +61,26 @@ flowchart TD
 | `CREATE_TOKEN` | Create token instance(s) from registry + dispatch `TOKEN_CREATED` |
 | `DESTROY_SELF` | Destroy the source card (token or impression) — routes through `destroyToken` for tokens |
 | `TRANSFORM_TOKEN` | Replace token(s) of one type with another — uses `removeTokenRaw` (no triggers) |
+| `DESTROY_TOKENS` | Destroy multiple tokens by definition ID or instance IDs — reveal-aware looping |
+| `APPLY_RESTRICTION` | Apply a temporary restriction on a player/NPC (e.g., prevent shield breaks) |
+
+## Active Restrictions
+
+Restrictions are temporary rules that modify or prevent certain actions. Stored as `activeRestrictions: ActiveRestriction[]` on `CombatState`.
+
+```typescript
+interface ActiveRestriction {
+  id: string;
+  restrictionType: RestrictionType;  // 'PREVENT_SHIELD_BREAK' | 'MAX_CARD_COST' | 'INCREASE_CARD_COST'
+  target: CardOwner;                 // who is restricted
+  value?: number;                    // parameter (e.g., max cost, extra cost amount)
+  turnsRemaining: number;            // decrements each turn cycle; removed at 0
+}
+```
+
+- **Applied** via `APPLY_RESTRICTION` effect (restrictionType, restrictionTarget, restrictionDuration, value)
+- **Enforced** inline — e.g., `BREAK_OPPONENT_SHIELD` checks for `PREVENT_SHIELD_BREAK` before executing
+- **Expired** by `tickRestrictions()`, called at `priorityRestore` (frame) and `classicTurnStart` (classic)
 
 ## Token Lifecycle
 

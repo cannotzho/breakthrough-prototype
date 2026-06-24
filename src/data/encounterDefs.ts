@@ -129,6 +129,7 @@ export function buildInitialCombatState(config: EncounterConfig): CombatState {
     pendingDiscovery: null,
     discoveredNuggetIds: [],
     activeTurn: 'player',
+    activeRestrictions: [],
     manualEnemyMode: false,
     tokenRegistry: { ...DEV_TOKEN_DEFINITIONS },
     actionLog: ['Encounter started.'],

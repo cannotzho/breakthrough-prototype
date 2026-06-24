@@ -16,7 +16,8 @@ export type CardEffectType =
   | 'CREATE_TOKEN'
   | 'DESTROY_SELF'
   | 'TRANSFORM_TOKEN'
-  | 'DESTROY_TOKENS';
+  | 'DESTROY_TOKENS'
+  | 'APPLY_RESTRICTION';
 
 export interface CardEffect {
   type: CardEffectType;
@@ -29,6 +30,9 @@ export interface CardEffect {
   targetDefinitionId?: string;
   targetInstanceIds?: string[];
   destroyAll?: boolean;
+  restrictionType?: RestrictionType;
+  restrictionTarget?: CardOwner;
+  restrictionDuration?: number;
 }
 
 // ─── Game Events (for passive triggered abilities) ───────────
@@ -223,6 +227,20 @@ export const SHIELD_PLACEMENT_COST = 2;
 
 export const MAX_TRIGGER_DEPTH = 20;
 
+// ─── Active Restrictions ─────────────────────────────────────
+export type RestrictionType =
+  | 'PREVENT_SHIELD_BREAK'
+  | 'MAX_CARD_COST'
+  | 'INCREASE_CARD_COST';
+
+export interface ActiveRestriction {
+  id: string;
+  restrictionType: RestrictionType;
+  target: CardOwner;
+  value?: number;
+  turnsRemaining: number;
+}
+
 // ─── Combat Phase ──────────────────────────────────────────────
 export type CombatPhase =
   | 'Check'
@@ -291,6 +309,7 @@ export interface CombatState {
   discoveredNuggetIds: string[];
 
   activeTurn: 'player' | 'npc';
+  activeRestrictions: ActiveRestriction[];
 
   manualEnemyMode: boolean;
 

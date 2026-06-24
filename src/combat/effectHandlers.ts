@@ -1,6 +1,6 @@
 import {
   CombatState, CardEffect, CardInstance, CardOwner, FieldTrap,
-  TrapTriggerCondition, TrapTriggerType, GameEvent, MAX_TRIGGER_DEPTH,
+  TrapTriggerCondition, TrapTriggerType, GameEvent, MAX_TRIGGER_DEPTH, ActiveRestriction,
 } from './types';
 
 export function clampPriority(value: number): number {
@@ -49,6 +49,16 @@ export function drawCards(state: CombatState, count: number): CombatState {
   return { ...state, playerDeck: deck, playerDiscard: discard, playerHand: hand, actionLog: log };
 }
 
+export function tickRestrictions(state: CombatState): CombatState {
+  const updated = state.activeRestrictions
+    .map(r => ({ ...r, turnsRemaining: r.turnsRemaining - 1 }))
+    .filter(r => r.turnsRemaining > 0);
+  const expired = state.activeRestrictions.length - updated.length;
+  let s: CombatState = { ...state, activeRestrictions: updated };
+  if (expired > 0) s = addLog(s, `${expired} restriction(s) expired`);
+  return s;
+}
+
 export function priorityRestore(state: CombatState): CombatState {
   if (state.config.priorityMode !== 'frame') return state;
   const restoredPriority = applyTurnHandoffBonus(state.priority, 'player');
@@ -60,6 +70,7 @@ export function priorityRestore(state: CombatState): CombatState {
   const toDraw = Math.max(0, s.combatConfig.handLimit - s.playerHand.length);
   s = drawCards(s, toDraw);
   s = expireTraps(s);
+  s = tickRestrictions(s);
   return s;
 }
 
@@ -82,6 +93,7 @@ export function classicTurnStart(state: CombatState): CombatState {
   const toDraw = Math.max(0, s.combatConfig.handLimit - s.playerHand.length);
   s = drawCards(s, toDraw);
   s = expireTraps(s);
+  s = tickRestrictions(s);
   return addLog(s, 'Classic Turn Start — player\'s turn begins');
 }
 
@@ -313,6 +325,10 @@ export function applyEffect(state: CombatState, effect: CardEffect, controller: 
     case 'INCREMENT_LIE_COUNTER':
       return { ...state, lieCounter: state.lieCounter + 1 };
     case 'BREAK_OPPONENT_SHIELD': {
+      const blocked = state.activeRestrictions.some(
+        r => r.restrictionType === 'PREVENT_SHIELD_BREAK' && r.target === controller
+      );
+      if (blocked) return addLog(state, `Shield break prevented by active restriction`);
       const targetSide = controller === 'player' ? 'npc' : 'player';
       if (targetSide === 'npc') {
         const idx = getNextOpponentShieldIdx(state);
@@ -421,6 +437,22 @@ export function applyEffect(state: CombatState, effect: CardEffect, controller: 
         s = dispatchGameEvent(s, { type: 'TOKEN_CREATED', sourceCard: token });
       }
       return s;
+    }
+    case 'APPLY_RESTRICTION': {
+      const { restrictionType, restrictionTarget, restrictionDuration } = effect;
+      if (!restrictionType) return addLog(state, '[ERROR] APPLY_RESTRICTION: missing restrictionType');
+      const target = restrictionTarget ?? (controller === 'player' ? 'npc' : 'player');
+      const restriction: ActiveRestriction = {
+        id: crypto.randomUUID(),
+        restrictionType,
+        target,
+        value: effect.value,
+        turnsRemaining: restrictionDuration ?? 1,
+      };
+      return addLog(
+        { ...state, activeRestrictions: [...state.activeRestrictions, restriction] },
+        `Restriction applied: ${restrictionType} on ${target} (${restriction.turnsRemaining} turn${restriction.turnsRemaining !== 1 ? 's' : ''})`
+      );
     }
     case 'DESTROY_TOKENS': {
       const { targetDefinitionId, targetInstanceIds, destroyAll } = effect;
