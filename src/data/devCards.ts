@@ -61,6 +61,18 @@ export const DEV_SKILL_CARDS: CardDefinition[] = [
     effectText: '+2 Priority.',
     longDescription: 'A sharp comeback that seizes back momentum in the conversation.',
   },
+  {
+    id: 'dev_call_contact',
+    name: 'Call Contact',
+    cost: 1,
+    keywords: [],
+    effects: [{ type: 'CREATE_TOKEN', tokenDefinitionId: 'dev_token_informant', value: 1 }],
+    color: 'Green',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: 'Create an Informant Contact token.',
+    longDescription: 'Reach out to a contact who can provide tips during the interrogation.',
+  },
 ];
 
 export const PONDER_DEFINITION: CardDefinition = {
@@ -74,6 +86,26 @@ export const PONDER_DEFINITION: CardDefinition = {
   subtype: null,
   effectText: 'Draw 1 card.',
   longDescription: 'Some leads need time to breathe before they turn into something useful.',
+};
+
+export const DEV_TOKEN_DEFINITIONS: Record<string, CardDefinition> = {
+  dev_token_informant: {
+    id: 'dev_token_informant',
+    name: 'Informant Contact',
+    cost: 0,
+    keywords: [],
+    effects: [],
+    color: 'Green',
+    supertype: 'Skill',
+    subtype: 'Token',
+    effectText: 'A contact on the field. Activate to draw 1 card.',
+    activatedAbilities: [{
+      id: 'informant_tip',
+      name: 'Tip',
+      cost: { priority: 1 },
+      effects: [{ type: 'DRAW_CARDS', value: 1 }],
+    }],
+  },
 };
 
 export const DEV_ENEMY_CARDS: CardDefinition[] = [

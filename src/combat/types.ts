@@ -22,6 +22,21 @@ export interface CardEffect {
   tokenDefinitionId?: string;
 }
 
+// ─── Activated Abilities ──────────────────────────────────────
+export interface ActivatedAbilityCost {
+  priority?: number;
+  patience?: number;
+  shields?: number;
+  discard?: number;
+}
+
+export interface ActivatedAbility {
+  id: string;
+  name: string;
+  cost: ActivatedAbilityCost;
+  effects: CardEffect[];
+}
+
 // ─── Trap Trigger Conditions ──────────────────────────────────
 export type TrapTriggerType =
   | 'OPPONENT_PLAYS_CARD'
@@ -77,6 +92,7 @@ export interface CardDefinition {
   imageUrl?: string;
   nuggetId?: string;
   trapTrigger?: TrapTriggerCondition;
+  activatedAbilities?: ActivatedAbility[];
   /** @deprecated Use effectText/longDescription instead */
   description?: string;
 }
@@ -277,6 +293,7 @@ export type CombatAction =
   | { type: 'RESOLVE_ENEMY_CARD' }
   | { type: 'CONFIRM_PLACE_AS_SHIELD'; slotIdx: number }
   | { type: 'CONFIRM_BOTM' }
+  | { type: 'ACTIVATE_ABILITY'; cardInstanceId: string; abilityId: string; discardCardIds?: string[] }
   | { type: 'DESTROY_TOKEN'; instanceId: string }
   | { type: 'DEV_RESET'; state: CombatState }
   | { type: 'DEV_SET_MANUAL_ENEMY'; enabled: boolean }

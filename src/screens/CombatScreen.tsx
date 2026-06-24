@@ -2,7 +2,7 @@ import { useReducer, useEffect, useLayoutEffect, useCallback, useState, useRef }
 import { motion, AnimatePresence } from 'framer-motion';
 import { combatReducer } from '../combat/combatReducer';
 import { buildInitialCombatState, TEST_ENCOUNTER } from '../data/encounterDefs';
-import { CardInstance, EncounterConfig, SHIELD_PLACEMENT_COST } from '../combat/types';
+import { CardInstance, EncounterConfig, SHIELD_PLACEMENT_COST, ActivatedAbilityCost } from '../combat/types';
 import DevPanel from '../components/dev/DevPanel';
 import PriorityBar from '../components/combat/PriorityBar';
 import PatienceDisplay from '../components/combat/PatienceDisplay';
@@ -17,6 +17,15 @@ import KeywordBadge from '../components/combat/KeywordBadge';
 import useCardDrag from '../components/combat/useCardDrag';
 import { COLOR_BORDER } from '../components/combat/cardColors';
 import { useNuggetDiscoveryStore } from '../stores/nuggetDiscoveryStore';
+
+function formatAbilityCost(cost: ActivatedAbilityCost): string {
+  const parts: string[] = [];
+  if (cost.priority) parts.push(`${cost.priority}P`);
+  if (cost.patience) parts.push(`${cost.patience}Pat`);
+  if (cost.shields) parts.push(`${cost.shields}S`);
+  if (cost.discard) parts.push(`${cost.discard}D`);
+  return parts.length > 0 ? `[${parts.join('/')}]` : '[Free]';
+}
 
 interface CombatScreenProps {
   onExit: () => void;
@@ -370,10 +379,32 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
               <div className="flex justify-center gap-4 relative z-10">
                 <AnimatePresence>
                   {state.fieldImpressions.map(c => (
-                    <CardView key={c.instanceId} card={c} label="Impression" />
+                    <div key={c.instanceId} className="flex flex-col items-center gap-1">
+                      <CardView card={c} label="Impression" />
+                      {c.definition.activatedAbilities?.map(ab => (
+                        <button key={ab.id}
+                          onClick={() => dispatch({ type: 'ACTIVATE_ABILITY', cardInstanceId: c.instanceId, abilityId: ab.id })}
+                          disabled={state.phase !== 'PlayerPending'}
+                          className="text-[10px] px-2 py-0.5 rounded border border-amber-600 text-amber-400 hover:bg-amber-900/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        >
+                          {ab.name} {formatAbilityCost(ab.cost)}
+                        </button>
+                      ))}
+                    </div>
                   ))}
                   {state.fieldTokens.map(c => (
-                    <CardView key={c.instanceId} card={c} label="Token" />
+                    <div key={c.instanceId} className="flex flex-col items-center gap-1">
+                      <CardView card={c} label="Token" />
+                      {c.definition.activatedAbilities?.map(ab => (
+                        <button key={ab.id}
+                          onClick={() => dispatch({ type: 'ACTIVATE_ABILITY', cardInstanceId: c.instanceId, abilityId: ab.id })}
+                          disabled={state.phase !== 'PlayerPending'}
+                          className="text-[10px] px-2 py-0.5 rounded border border-amber-600 text-amber-400 hover:bg-amber-900/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        >
+                          {ab.name} {formatAbilityCost(ab.cost)}
+                        </button>
+                      ))}
+                    </div>
                   ))}
                   {state.fieldTraps.map(t => (
                     <CardView key={t.card.instanceId} card={t.card} label="Trap" />

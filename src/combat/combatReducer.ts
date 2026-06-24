@@ -1,4 +1,4 @@
-import { CombatState, CombatAction, CardInstance, CardEffect, NuggetOverride, SHIELD_PLACEMENT_COST } from './types';
+import { CombatState, CombatAction, CardInstance, CardEffect, NuggetOverride, SHIELD_PLACEMENT_COST, ActivatedAbilityCost } from './types';
 import { applyEffect, selectEnemyCard, makeInstance, clampPriority, applyTurnHandoffBonus, shuffle, resolveFieldTriggerCheck, classicTurnStart, npcTurnStart, addLog } from './effectHandlers';
 import { COMBINATIONS } from '../data/combinations';
 import { PONDER_DEFINITION } from '../data/devCards';
@@ -577,6 +577,93 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
         nuggetOverrides: [...state.config.nuggetOverrides, override],
       };
       return addLog({ ...state, config }, `[DEV] Added nugget override for ${override.nuggetId}`);
+    }
+
+    case 'ACTIVATE_ABILITY': {
+      if (state.phase !== 'PlayerPending') return state;
+
+      const fieldCard =
+        state.fieldImpressions.find(c => c.instanceId === action.cardInstanceId) ??
+        state.fieldTokens.find(c => c.instanceId === action.cardInstanceId);
+      if (!fieldCard) return addLog(state, 'Activate failed: card not found on field');
+
+      const abilities = fieldCard.definition.activatedAbilities;
+      if (!abilities || abilities.length === 0) return addLog(state, 'Activate failed: card has no activated abilities');
+
+      const ability = abilities.find(a => a.id === action.abilityId);
+      if (!ability) return addLog(state, `Activate failed: ability "${action.abilityId}" not found`);
+
+      const cost: ActivatedAbilityCost = ability.cost;
+      const isFrame = state.config.priorityMode === 'frame';
+
+      if (cost.priority && !isFrame && cost.priority > state.priority) {
+        return addLog(state, `Cannot activate ${ability.name} — priority cost ${cost.priority} exceeds available ${state.priority}`);
+      }
+      if (cost.patience && cost.patience >= state.patience) {
+        return addLog(state, `Cannot activate ${ability.name} — patience cost ${cost.patience} would reduce patience to 0 or below`);
+      }
+      if (cost.shields) {
+        const activeShields = state.playerShields.filter(s => s !== null).length;
+        if (cost.shields > activeShields) {
+          return addLog(state, `Cannot activate ${ability.name} — shield cost ${cost.shields} exceeds active shields ${activeShields}`);
+        }
+      }
+      if (cost.discard) {
+        const discardIds = action.discardCardIds ?? [];
+        if (discardIds.length < cost.discard) {
+          return addLog(state, `Cannot activate ${ability.name} — discard cost ${cost.discard} but only ${discardIds.length} cards selected`);
+        }
+        const handIds = new Set(state.playerHand.map(c => c.instanceId));
+        if (!discardIds.every(id => handIds.has(id))) {
+          return addLog(state, `Cannot activate ${ability.name} — some discard targets not in hand`);
+        }
+      }
+
+      let s: CombatState = state;
+
+      if (cost.priority) {
+        s = isFrame
+          ? { ...s, priority: s.priority - cost.priority }
+          : { ...s, priority: Math.max(0, s.priority - cost.priority) };
+      }
+      if (cost.patience) {
+        s = { ...s, patience: s.patience - cost.patience };
+      }
+      if (cost.shields) {
+        let remaining = cost.shields;
+        const newShields = [...s.playerShields];
+        for (let i = 0; i < newShields.length && remaining > 0; i++) {
+          if (newShields[i] !== null) {
+            s = addLog(s, `Shield sacrificed: ${newShields[i]!.card.definition.name}`);
+            newShields[i] = null;
+            remaining--;
+          }
+        }
+        s = { ...s, playerShields: newShields };
+      }
+      if (cost.discard && action.discardCardIds) {
+        const discardSet = new Set(action.discardCardIds.slice(0, cost.discard));
+        const discarded = s.playerHand.filter(c => discardSet.has(c.instanceId));
+        s = {
+          ...s,
+          playerHand: s.playerHand.filter(c => !discardSet.has(c.instanceId)),
+          playerDiscard: [...s.playerDiscard, ...discarded],
+        };
+        s = addLog(s, `Discarded ${discarded.map(c => c.definition.name).join(', ')} as ability cost`);
+      }
+
+      s = addLog(s, `Activated ${ability.name} on ${fieldCard.definition.name}`);
+
+      return resolveEffectList(s, ability.effects, fieldCard, (resolved) => {
+        let final: CombatState = {
+          ...resolved,
+          pendingEffects: [],
+          pendingEffectCard: null,
+          phase: 'Check',
+        };
+        final = resolveFieldTriggerCheck(final);
+        return checkState(final);
+      });
     }
 
     case 'DESTROY_TOKEN': {

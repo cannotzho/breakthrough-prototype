@@ -1,6 +1,6 @@
 import { EncounterConfig, CombatState, DEFAULT_COMBAT_CONFIG, PlayerShieldSlot } from '../combat/types';
 import { makeInstance, shuffle } from '../combat/effectHandlers';
-import { DEV_SKILL_CARDS, DEV_ENEMY_CARDS } from './devCards';
+import { DEV_SKILL_CARDS, DEV_ENEMY_CARDS, DEV_TOKEN_DEFINITIONS } from './devCards';
 
 export const TEST_ENCOUNTER: EncounterConfig = {
   id: 'test_encounter',
@@ -110,7 +110,7 @@ export function buildInitialCombatState(config: EncounterConfig): CombatState {
     discoveredNuggetIds: [],
     activeTurn: 'player',
     manualEnemyMode: false,
-    tokenRegistry: {},
+    tokenRegistry: { ...DEV_TOKEN_DEFINITIONS },
     actionLog: ['Encounter started.'],
   };
 }
