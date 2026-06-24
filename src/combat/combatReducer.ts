@@ -487,6 +487,8 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       const combinedInstance: CardInstance = {
         instanceId: crypto.randomUUID(),
         definition: recipe.result,
+        owner: 'player',
+        controller: 'player',
         combinedFrom: [cardA, cardB],
       };
       const newHand = state.playerHand
