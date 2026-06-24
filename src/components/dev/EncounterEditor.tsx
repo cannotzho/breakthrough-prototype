@@ -6,7 +6,9 @@ import {
 import { useDevEncounterStore } from '../../stores/encounterStore';
 import { useNuggetStore } from '../../stores/nuggetStore';
 import { useDevCardStore } from '../../stores/collectionStore';
+import { useDeckStore } from '../../stores/deckStore';
 import { useEncounterRelevantCardStore } from '../../stores/encounterRelevantCardStore';
+import { DEV_SKILL_CARDS, DEV_ENEMY_CARDS } from '../../data/devCards';
 import SupabaseStatus from './SupabaseStatus';
 import CardGalleryGrid from './CardGalleryGrid';
 import CardForm, { INPUT, BTN } from './CardEditorForm';
@@ -251,6 +253,153 @@ function PlayerShieldConfig({
             return (
               <span className="flex items-center justify-center w-5 h-5 rounded-full bg-indigo-500 text-white text-[10px] font-bold">
                 ◆
+              </span>
+            );
+          }}
+          emptyMessage="No cards available. Create cards in the Card Collection first."
+        />
+      </div>
+    </div>
+  );
+}
+
+function EnemyDeckConfig({
+  cardIds,
+  onChange,
+}: {
+  cardIds: string[];
+  onChange: (ids: string[]) => void;
+}) {
+  const cardMap = useDevCardStore(s => s.cards);
+  const decks = useDeckStore(s => s.decks);
+  const [galleryFilter, setGalleryFilter] = useState('');
+
+  const allDecks = useMemo(() => Object.values(decks), [decks]);
+
+  const allCards = useMemo(() => {
+    const builtInIds = new Set([...DEV_SKILL_CARDS, ...DEV_ENEMY_CARDS].map(c => c.id));
+    const custom = Object.values(cardMap).filter(c => !builtInIds.has(c.id));
+    return [...DEV_ENEMY_CARDS, ...DEV_SKILL_CARDS, ...custom]
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [cardMap]);
+
+  const quantities = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const id of cardIds) map[id] = (map[id] ?? 0) + 1;
+    return map;
+  }, [cardIds]);
+
+  const uniqueEntries = useMemo(() => {
+    const seen = new Set<string>();
+    const entries: { cardId: string; qty: number }[] = [];
+    for (const id of cardIds) {
+      if (!seen.has(id)) {
+        seen.add(id);
+        entries.push({ cardId: id, qty: quantities[id] });
+      }
+    }
+    return entries;
+  }, [cardIds, quantities]);
+
+  const resolveCardName = (cardId: string) => {
+    if (cardMap[cardId]) return cardMap[cardId].name;
+    const builtIn = [...DEV_SKILL_CARDS, ...DEV_ENEMY_CARDS].find(c => c.id === cardId);
+    return builtIn?.name ?? cardId;
+  };
+
+  const addCard = (card: CardDefinition) => {
+    onChange([...cardIds, card.id]);
+  };
+
+  const setQuantity = (cardId: string, qty: number) => {
+    const without = cardIds.filter(id => id !== cardId);
+    if (qty <= 0) {
+      onChange(without);
+    } else {
+      onChange([...without, ...Array(qty).fill(cardId)]);
+    }
+  };
+
+  const removeCard = (cardId: string) => {
+    onChange(cardIds.filter(id => id !== cardId));
+  };
+
+  const loadFromDeck = (deckId: string) => {
+    const deck = decks[deckId];
+    if (!deck) return;
+    const ids: string[] = [];
+    for (const entry of deck.cards) {
+      for (let i = 0; i < entry.quantity; i++) ids.push(entry.cardId);
+    }
+    onChange(ids);
+  };
+
+  return (
+    <div className="flex flex-col gap-3 border border-zinc-700 rounded p-3">
+      <span className="text-xs text-zinc-400 uppercase tracking-widest">
+        Enemy Deck ({cardIds.length} cards)
+      </span>
+
+      {/* Load from saved deck */}
+      {allDecks.length > 0 && (
+        <div className="flex gap-2 items-end">
+          <label className="flex flex-col gap-1 flex-1">
+            <span className={LABEL}>Load from Deck</span>
+            <select
+              defaultValue=""
+              onChange={e => { if (e.target.value) { loadFromDeck(e.target.value); e.target.value = ''; } }}
+              className={INPUT}
+            >
+              <option value="">— Select a deck to load —</option>
+              {allDecks.map(d => (
+                <option key={d.id} value={d.id}>
+                  {d.name || d.id} ({d.cards.reduce((s, c) => s + c.quantity, 0)} cards)
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
+
+      {/* Current deck list */}
+      {uniqueEntries.length > 0 ? (
+        <div className="flex flex-col gap-1">
+          {uniqueEntries.map(({ cardId, qty }) => (
+            <div key={cardId} className="flex items-center gap-2 border border-red-700/50 rounded px-2 py-1 bg-red-950/10">
+              <span className="text-xs text-red-300 flex-1 truncate">{resolveCardName(cardId)}</span>
+              <button onClick={() => setQuantity(cardId, qty - 1)}
+                className="text-xs text-zinc-400 hover:text-white px-1">−</button>
+              <input type="number" value={qty} min={0}
+                onChange={e => setQuantity(cardId, Math.max(0, Number(e.target.value)))}
+                className="text-xs bg-zinc-800 border border-zinc-600 rounded px-1 py-0.5 text-white w-10 text-center" />
+              <button onClick={() => setQuantity(cardId, qty + 1)}
+                className="text-xs text-zinc-400 hover:text-white px-1">+</button>
+              <button onClick={() => removeCard(cardId)}
+                className="text-xs text-red-500 hover:text-red-400">✕</button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <span className="text-[10px] text-zinc-600">No cards in enemy deck. Click a card below or load a deck.</span>
+      )}
+
+      {/* Card gallery */}
+      <div className="flex flex-col gap-1">
+        <span className="text-xs text-zinc-500 uppercase tracking-widest">
+          Click a card to add to enemy deck
+        </span>
+        <CardGalleryGrid
+          cards={allCards}
+          onCardClick={addCard}
+          filter={galleryFilter}
+          onFilterChange={setGalleryFilter}
+          filterPlaceholder="Filter cards for enemy deck..."
+          renderOverlay={(card) => {
+            const qty = quantities[card.id];
+            if (!qty) return null;
+            return (
+              <span className="flex items-center justify-center w-5 h-5 rounded-full bg-red-600 text-white text-[10px] font-bold">
+                {qty}
               </span>
             );
           }}
@@ -643,6 +792,11 @@ export default function EncounterEditor({ onLoadEncounter, onStartPlaytest, hide
           coreShields={config.allowedCoreShields ?? []}
           onDummySlotsChange={n => patch({ playerDummyShieldSlots: n })}
           onCoreShieldsChange={shields => patch({ allowedCoreShields: shields })}
+        />
+
+        <EnemyDeckConfig
+          cardIds={config.enemyDeckCardIds}
+          onChange={ids => patch({ enemyDeckCardIds: ids })}
         />
 
         {editingId && <RelevantCardGallery encounterId={editingId} />}
