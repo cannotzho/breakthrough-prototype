@@ -374,8 +374,8 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
               </AnimatePresence>
             </div>
 
-            {/* Field — Impressions, Tokens, and Traps */}
-            {(state.fieldImpressions.length > 0 || state.fieldTokens.length > 0 || state.fieldTraps.length > 0) && (
+            {/* Field — Impressions and Traps (top of play area) */}
+            {(state.fieldImpressions.length > 0 || state.fieldTraps.length > 0) && (
               <div className="flex justify-center gap-4 relative z-10">
                 <AnimatePresence>
                   {state.fieldImpressions.map(c => (
@@ -392,6 +392,20 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
                       ))}
                     </div>
                   ))}
+                  {state.fieldTraps.map(t => (
+                    <CardView key={t.card.instanceId} card={t.card} label="Trap" />
+                  ))}
+                </AnimatePresence>
+              </div>
+            )}
+
+            {/* Spacer pushes tokens to bottom of play area */}
+            <div className="flex-1" />
+
+            {/* Field — Tokens (bottom of play area) */}
+            {state.fieldTokens.length > 0 && (
+              <div className="flex justify-center gap-4 relative z-10 pb-2">
+                <AnimatePresence>
                   {state.fieldTokens.map(c => (
                     <div key={c.instanceId} className="flex flex-col items-center gap-1">
                       <CardView card={c} label="Token" />
@@ -405,9 +419,6 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
                         </button>
                       ))}
                     </div>
-                  ))}
-                  {state.fieldTraps.map(t => (
-                    <CardView key={t.card.instanceId} card={t.card} label="Trap" />
                   ))}
                 </AnimatePresence>
               </div>
@@ -465,44 +476,31 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
           {/* ═══ BOTTOM: Stats row (Priority + Patience + Player Shields) + Hand ═══ */}
           <div className="flex flex-col">
 
-            {/* Combat Bar */}
+            {/* Combat Bar — two rows: shields on top, priority+patience on bottom */}
             <div data-testid="combat-bar" className="bg-zinc-950/80 backdrop-blur-sm border-t border-zinc-800 px-4 lg:px-6 py-2 lg:py-3">
-              <div className="flex flex-col gap-2 lg:gap-3">
-                {/* Top: draw pile + priority + patience + shields + discard pile */}
-                <div className="flex items-center justify-center gap-3 lg:gap-6">
+              <div className="flex items-stretch gap-3 lg:gap-5">
 
-                  {/* Draw pile */}
-                  <button
-                    ref={drawPileRef}
-                    onClick={() => setViewingPile('draw')}
-                    className="group flex flex-col items-center gap-1 text-zinc-500 hover:text-zinc-200 transition-colors shrink-0"
-                    title="View draw pile"
-                  >
-                    <svg viewBox="0 0 24 28" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-9 h-10 lg:w-[72px] lg:h-[84px] group-hover:scale-110 transition-transform">
-                      <rect x="4" y="0" width="18" height="24" rx="2" className="fill-zinc-700 stroke-zinc-500" strokeWidth="1"/>
-                      <rect x="2" y="2" width="18" height="24" rx="2" className="fill-zinc-800 stroke-zinc-500" strokeWidth="1"/>
-                      <rect x="0" y="4" width="18" height="24" rx="2" className="fill-zinc-900 stroke-zinc-400" strokeWidth="1.5"/>
-                      <text x="9" y="19" textAnchor="middle" className="fill-zinc-400" fontSize="10" fontWeight="bold">?</text>
-                    </svg>
-                    <span className="tabular-nums font-medium text-sm lg:text-base">{state.playerDeck.length}</span>
-                  </button>
+                {/* Draw pile — spans full height of both rows */}
+                <button
+                  ref={drawPileRef}
+                  onClick={() => setViewingPile('draw')}
+                  className="group flex flex-col items-center justify-center gap-1 text-zinc-500 hover:text-zinc-200 transition-colors shrink-0"
+                  title="View draw pile"
+                >
+                  <svg viewBox="0 0 24 28" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-9 h-10 lg:w-[60px] lg:h-[70px] group-hover:scale-110 transition-transform">
+                    <rect x="4" y="0" width="18" height="24" rx="2" className="fill-zinc-700 stroke-zinc-500" strokeWidth="1"/>
+                    <rect x="2" y="2" width="18" height="24" rx="2" className="fill-zinc-800 stroke-zinc-500" strokeWidth="1"/>
+                    <rect x="0" y="4" width="18" height="24" rx="2" className="fill-zinc-900 stroke-zinc-400" strokeWidth="1.5"/>
+                    <text x="9" y="19" textAnchor="middle" className="fill-zinc-400" fontSize="10" fontWeight="bold">?</text>
+                  </svg>
+                  <span className="tabular-nums font-medium text-xs lg:text-sm">{state.playerDeck.length}</span>
+                </button>
 
-                  {/* Priority bar */}
-                  <div className="flex-1 max-w-md min-w-0">
-                    <PriorityBar
-                      priority={priority}
-                      maxPriority={state.config.defaultRestorePriority}
-                    />
-                  </div>
+                {/* Two-row center content */}
+                <div className="flex-1 flex flex-col gap-1.5 lg:gap-2 min-w-0">
 
-                  {/* Patience */}
-                  <PatienceDisplay
-                    patience={patience}
-                    maxPatience={state.config.opponentPatience}
-                  />
-
-                  {/* Player shields */}
-                  <div className="flex gap-2 lg:gap-4 shrink-0">
+                  {/* Row 1: Player shields */}
+                  <div className="flex items-center gap-1 lg:gap-1.5 flex-wrap justify-center">
                     <AnimatePresence mode="popLayout">
                       {playerShields.map((slot, i) => (
                         <div key={i} ref={el => { shieldSlotRefs.current[i] = el; }}>
@@ -527,21 +525,35 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
                     </AnimatePresence>
                   </div>
 
-                  {/* Discard pile */}
-                  <button
-                    ref={discardPileRef}
-                    onClick={() => setViewingPile('discard')}
-                    className="group flex flex-col items-center gap-1 text-zinc-500 hover:text-zinc-200 transition-colors shrink-0"
-                    title="View discard pile"
-                  >
-                    <svg viewBox="0 0 22 28" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-8 h-10 lg:w-[68px] lg:h-[84px] group-hover:scale-110 transition-transform">
-                      <rect x="2" y="2" width="18" height="24" rx="2" className="fill-zinc-800 stroke-zinc-600" strokeWidth="1" opacity="0.5" transform="rotate(-6 11 14)"/>
-                      <rect x="0" y="2" width="18" height="24" rx="2" className="fill-zinc-900 stroke-zinc-500" strokeWidth="1.5"/>
-                      <path d="M12 2 L18 2 Q20 2 20 4 L20 8 Z" className="fill-zinc-700" opacity="0.6"/>
-                    </svg>
-                    <span className="tabular-nums font-medium text-sm lg:text-base">{state.playerDiscard.length}</span>
-                  </button>
+                  {/* Row 2: Priority + Patience */}
+                  <div className="flex items-center gap-3 lg:gap-5">
+                    <div className="flex-1 min-w-0">
+                      <PriorityBar
+                        priority={priority}
+                        maxPriority={state.config.defaultRestorePriority}
+                      />
+                    </div>
+                    <PatienceDisplay
+                      patience={patience}
+                      maxPatience={state.config.opponentPatience}
+                    />
+                  </div>
                 </div>
+
+                {/* Discard pile — spans full height of both rows */}
+                <button
+                  ref={discardPileRef}
+                  onClick={() => setViewingPile('discard')}
+                  className="group flex flex-col items-center justify-center gap-1 text-zinc-500 hover:text-zinc-200 transition-colors shrink-0"
+                  title="View discard pile"
+                >
+                  <svg viewBox="0 0 22 28" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-8 h-10 lg:w-[56px] lg:h-[70px] group-hover:scale-110 transition-transform">
+                    <rect x="2" y="2" width="18" height="24" rx="2" className="fill-zinc-800 stroke-zinc-600" strokeWidth="1" opacity="0.5" transform="rotate(-6 11 14)"/>
+                    <rect x="0" y="2" width="18" height="24" rx="2" className="fill-zinc-900 stroke-zinc-500" strokeWidth="1.5"/>
+                    <path d="M12 2 L18 2 Q20 2 20 4 L20 8 Z" className="fill-zinc-700" opacity="0.6"/>
+                  </svg>
+                  <span className="tabular-nums font-medium text-xs lg:text-sm">{state.playerDiscard.length}</span>
+                </button>
               </div>
             </div>
 
