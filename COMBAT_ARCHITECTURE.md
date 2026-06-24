@@ -60,6 +60,7 @@ flowchart TD
 | `PLACE_IMPRESSION` | Place card as persistent impression on field |
 | `CREATE_TOKEN` | Create token instance(s) from registry + dispatch `TOKEN_CREATED` |
 | `DESTROY_SELF` | Destroy the source card (token or impression) — routes through `destroyToken` for tokens |
+| `TRANSFORM_TOKEN` | Replace token(s) of one type with another — uses `removeTokenRaw` (no triggers) |
 
 ## Token Lifecycle
 
@@ -84,11 +85,36 @@ flowchart TD
 
 ### Two Removal Paths (by design)
 
-- **`destroyToken(state, instanceId)`** — Full lifecycle: removes the token, fires its `leavesTriggerEffects`, then dispatches `TOKEN_DESTROYED` to passive listeners. Used by: `DESTROY_SELF` effect, `DESTROY_TOKEN` action, and any future forced-destruction effects.
+- **`destroyToken(state, instanceId)`** — Full lifecycle: removes the token, fires its `leavesTriggerEffects` (with reveal-aware pausing), then dispatches `TOKEN_DESTROYED` to passive listeners. Used by: `DESTROY_SELF` effect, `DESTROY_TOKEN` action, and any future forced-destruction effects.
 
-- **`removeTokenRaw(state, instanceId)`** — Silent removal: removes the token without firing any triggers or events. Used exclusively by transform effects, where the token is being converted to another type, not leaving the battlefield.
+- **`removeTokenRaw(state, instanceId)`** — Silent removal: removes the token without firing any triggers or events. Used exclusively by `TRANSFORM_TOKEN`, where the token is being converted to another type, not leaving the battlefield.
 
 This separation is structural, not conditional — transform must never accidentally route through `destroyToken`.
+
+### Transform Token
+
+`TRANSFORM_TOKEN` replaces token(s) of one definition type with another. It uses `removeTokenRaw` for the old tokens (no leave triggers) and creates new token instances, dispatching `TOKEN_CREATED` for each.
+
+```typescript
+interface CardEffect {
+  type: 'TRANSFORM_TOKEN';
+  transformSourceId: string;   // definition ID to find on field
+  transformTargetId: string;   // definition ID to create
+  value?: number;              // max count (default 1)
+  transformAll?: boolean;      // transform all matching tokens
+  transformUpTo?: boolean;     // allow fewer than value
+}
+```
+
+### Nested Reveal Handling
+
+When `destroyToken`'s leave-trigger effects include shield breaks, each break sets a `pendingReveal`. The system handles this correctly:
+
+1. `destroyToken` applies leave effects one at a time
+2. On `pendingReveal`, remaining leave effects are queued into `state.pendingEffects`
+3. `resolveEffectList` detects the reveal and merges its own remaining effects into `pendingEffects`
+4. `DISMISS_REVEAL` clears `pendingEffects` from state before resuming to prevent duplicates
+5. Each reveal is shown sequentially until all effects resolve
 
 ### Token Definition Fields
 
