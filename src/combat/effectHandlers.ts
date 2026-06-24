@@ -51,13 +51,14 @@ export function drawCards(state: CombatState, count: number): CombatState {
 
 export function priorityRestore(state: CombatState): CombatState {
   if (state.config.priorityMode !== 'frame') return state;
-  const restoredPriority = applyTurnHandoffBonus(state.config.defaultRestorePriority, 'player');
-  const restored = { ...state, priority: restoredPriority };
-  const withBotM = restored.backOfMind.length > 0
-    ? { ...restored, playerHand: [...restored.playerHand, ...restored.backOfMind], backOfMind: [] as typeof restored.backOfMind }
-    : restored;
-  const toDraw = Math.max(0, withBotM.combatConfig.handLimit - withBotM.playerHand.length);
-  let s = drawCards(withBotM, toDraw);
+  const restoredPriority = applyTurnHandoffBonus(state.priority, 'player');
+  let s: CombatState = addLog({ ...state, priority: restoredPriority },
+    `Priority restore (${state.priority} → ${restoredPriority})`);
+  if (s.backOfMind.length > 0) {
+    s = { ...s, playerHand: [...s.playerHand, ...s.backOfMind], backOfMind: [] as typeof s.backOfMind };
+  }
+  const toDraw = Math.max(0, s.combatConfig.handLimit - s.playerHand.length);
+  s = drawCards(s, toDraw);
   s = expireTraps(s);
   return s;
 }

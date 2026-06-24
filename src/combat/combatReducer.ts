@@ -1,5 +1,5 @@
 import { CombatState, CombatAction, CardInstance, CardEffect, CardOwner, NuggetOverride, SHIELD_PLACEMENT_COST, ActivatedAbilityCost } from './types';
-import { applyEffect, selectEnemyCard, makeInstance, clampPriority, applyTurnHandoffBonus, shuffle, resolveFieldTriggerCheck, classicTurnStart, npcTurnStart, addLog } from './effectHandlers';
+import { applyEffect, selectEnemyCard, makeInstance, clampPriority, applyTurnHandoffBonus, priorityRestore, shuffle, resolveFieldTriggerCheck, classicTurnStart, npcTurnStart, addLog } from './effectHandlers';
 import { COMBINATIONS } from '../data/combinations';
 import { PONDER_DEFINITION } from '../data/devCards';
 
@@ -551,9 +551,13 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       if (s.config.priorityMode === 'frame') {
         // Frame mode: enemy card cost pushes priority toward positive (self-limiting)
         if (card.definition.cost > 0) {
+          const oldPriority = s.priority;
           const newPriority = clampPriority(s.priority + card.definition.cost);
           s = addLog({ ...s, priority: newPriority },
-            `NPC spent ${card.definition.cost} initiative (priority ${s.priority} → ${newPriority})`);
+            `NPC spent ${card.definition.cost} initiative (priority ${oldPriority} → ${newPriority})`);
+          if (oldPriority <= 0 && newPriority > 0) {
+            s = priorityRestore(s);
+          }
         }
       } else {
         // Classic mode: deduct cost from npcPriority
