@@ -36,43 +36,89 @@ function defaultEncounter(): EncounterConfig {
   };
 }
 
-function ShieldEditor({ shields, onChange }: {
+function OpponentShieldConfig({
+  shields,
+  onChange,
+}: {
   shields: OpponentShieldSlot[];
   onChange: (shields: OpponentShieldSlot[]) => void;
 }) {
-  const addShield = () => onChange([
-    ...shields,
-    { cardId: `shield_${shields.length + 1}`, isHint: false, broken: false, loreDescription: '' },
-  ]);
+  const cardMap = useDevCardStore(s => s.cards);
+  const [galleryFilter, setGalleryFilter] = useState('');
+
+  const allCards = useMemo(() =>
+    Object.values(cardMap).sort((a, b) => a.name.localeCompare(b.name)),
+    [cardMap],
+  );
+
   const removeShield = (i: number) => onChange(shields.filter((_, j) => j !== i));
   const update = (i: number, partial: Partial<OpponentShieldSlot>) =>
     onChange(shields.map((s, j) => j === i ? { ...s, ...partial } : s));
 
+  const addShieldFromCard = (card: CardDefinition) => {
+    onChange([...shields, { cardId: card.id, isHint: false, broken: false, loreDescription: '' }]);
+  };
+
+  const resolveCardName = (cardId: string) => cardMap[cardId]?.name ?? cardId;
+
+  const shieldCardIds = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const s of shields) counts[s.cardId] = (counts[s.cardId] ?? 0) + 1;
+    return counts;
+  }, [shields]);
+
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex justify-between items-center">
-        <span className={LABEL}>Opponent Shields ({shields.length})</span>
-        <button onClick={addShield} className="text-xs text-blue-400 hover:text-blue-300">+ Add</button>
-      </div>
-      {shields.map((s, i) => (
-        <div key={i} className="border border-zinc-700 rounded p-2 flex flex-col gap-1">
-          <div className="flex gap-1 items-center">
-            <input value={s.cardId} onChange={e => update(i, { cardId: e.target.value })}
-              placeholder="Card ID" className={INPUT} />
-            <button onClick={() => removeShield(i)} className="text-xs text-red-500 hover:text-red-400">✕</button>
-          </div>
-          <label className="flex items-center gap-1 text-xs text-zinc-300 cursor-pointer">
-            <input type="checkbox" checked={s.isHint} onChange={e => update(i, { isHint: e.target.checked })} />
-            Hint
-          </label>
-          {s.isHint && (
-            <input value={s.hintText ?? ''} onChange={e => update(i, { hintText: e.target.value })}
-              placeholder="Hint text" className={INPUT} />
-          )}
-          <input value={s.loreDescription ?? ''} onChange={e => update(i, { loreDescription: e.target.value })}
-            placeholder="Lore description" className={INPUT} />
+    <div className="flex flex-col gap-3 border border-zinc-700 rounded p-3">
+      <span className="text-xs text-zinc-400 uppercase tracking-widest">Opponent Shields ({shields.length})</span>
+
+      {shields.length > 0 ? (
+        <div className="flex flex-col gap-2">
+          {shields.map((s, i) => (
+            <div key={i} className="border border-rose-700/50 rounded p-2 flex flex-col gap-1 bg-rose-950/10">
+              <div className="flex gap-1 items-center">
+                <span className="text-xs text-rose-300 flex-1 truncate">{resolveCardName(s.cardId)}</span>
+                <span className="text-[10px] text-zinc-600">{s.cardId}</span>
+                <button onClick={() => removeShield(i)} className="text-xs text-red-500 hover:text-red-400">✕</button>
+              </div>
+              <label className="flex items-center gap-1 text-xs text-zinc-300 cursor-pointer">
+                <input type="checkbox" checked={s.isHint} onChange={e => update(i, { isHint: e.target.checked })} />
+                Hint
+              </label>
+              {s.isHint && (
+                <input value={s.hintText ?? ''} onChange={e => update(i, { hintText: e.target.value })}
+                  placeholder="Hint text" className={INPUT} />
+              )}
+              <input value={s.loreDescription ?? ''} onChange={e => update(i, { loreDescription: e.target.value })}
+                placeholder="Lore description" className={INPUT} />
+            </div>
+          ))}
         </div>
-      ))}
+      ) : (
+        <span className="text-[10px] text-zinc-600">No opponent shields. Click a card below to add one.</span>
+      )}
+
+      <div className="flex flex-col gap-1">
+        <span className="text-xs text-zinc-500 uppercase tracking-widest">
+          Click a card to add as opponent shield
+        </span>
+        <CardGalleryGrid
+          cards={allCards}
+          onCardClick={addShieldFromCard}
+          filter={galleryFilter}
+          onFilterChange={setGalleryFilter}
+          filterPlaceholder="Filter cards for opponent shields..."
+          renderOverlay={(card) => {
+            const count = shieldCardIds[card.id];
+            if (!count) return null;
+            return (
+              <span className="flex items-center justify-center w-5 h-5 rounded-full bg-rose-500 text-white text-[10px] font-bold">
+                {count}
+              </span>
+            );
+          }}
+          emptyMessage="No cards available. Create cards in the Card Collection first."
+        />
+      </div>
     </div>
   );
 }
@@ -584,7 +630,7 @@ export default function EncounterEditor({ onLoadEncounter, onStartPlaytest, hide
           </select>
         </label>
 
-        <ShieldEditor shields={config.opponentShields}
+        <OpponentShieldConfig shields={config.opponentShields}
           onChange={opponentShields => patch({
             opponentShields,
             shieldBreakOrder: opponentShields.map((_, i) => i),
