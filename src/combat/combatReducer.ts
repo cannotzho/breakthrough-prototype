@@ -368,8 +368,14 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       if (state.phase !== 'PlayerPending') return state;
       const isFrame = state.config.priorityMode === 'frame';
       if (isFrame) {
-        const bonusPriority = applyTurnHandoffBonus(state.priority, 'npc');
-        return checkState(addLog({ ...state, priority: bonusPriority }, `Player ended turn (priority ${state.priority} → ${bonusPriority} with handoff bonus)`));
+        const newPriority = state.priority - 2;
+        let s = addLog({ ...state, priority: newPriority }, `Player ended turn (priority ${state.priority} → ${newPriority})`);
+        if (newPriority <= 0 && s.playerHand.length === 0) {
+          const before = s.priority;
+          s = { ...s, priority: applyTurnHandoffBonus(s.priority, 'npc') };
+          s = addLog(s, `Turn handoff bonus (priority ${before} → ${s.priority})`);
+        }
+        return checkState(s);
       } else {
         return checkState(npcTurnStart(state));
       }
