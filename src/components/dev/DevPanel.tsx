@@ -38,7 +38,7 @@ const KEYWORDS: Keyword[] = ['Safety', 'Assemble', 'Shield Trigger', 'Lie', 'Tra
 const EFFECT_TYPES: CardEffectType[] = [
   'BREAK_OPPONENT_SHIELD', 'MODIFY_PRIORITY',
   'MODIFY_PATIENCE', 'DRAW_CARDS', 'PLACE_AS_SHIELD', 'INCREMENT_LIE_COUNTER', 'PLACE_IMPRESSION',
-  'CREATE_TOKEN',
+  'CREATE_TOKEN', 'DESTROY_SELF',
 ];
 
 interface Props {

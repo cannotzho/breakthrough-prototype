@@ -1,6 +1,6 @@
 import {
   CombatState, CardEffect, CardInstance, CardOwner, FieldTrap,
-  TrapTriggerCondition, TrapTriggerType, MAX_TRIGGER_DEPTH,
+  TrapTriggerCondition, TrapTriggerType, GameEvent, MAX_TRIGGER_DEPTH,
 } from './types';
 
 export function clampPriority(value: number): number {
@@ -111,6 +111,83 @@ export function expireTraps(state: CombatState): CombatState {
   };
 }
 
+// ─── Token lifecycle ─────────────────────────────────────────
+// removeTokenRaw: removes a token WITHOUT firing leave triggers or events.
+// Used by transform effects to avoid triggering "leaves the battlefield."
+export function removeTokenRaw(state: CombatState, instanceId: string): CombatState {
+  const token = state.fieldTokens.find(t => t.instanceId === instanceId);
+  if (!token) return state;
+  return {
+    ...state,
+    fieldTokens: state.fieldTokens.filter(t => t.instanceId !== instanceId),
+  };
+}
+
+// destroyToken: removes a token AND fires its leave triggers + dispatches
+// TOKEN_DESTROYED to passive listeners. All voluntary/forced token removal
+// paths should route through this (except transform — use removeTokenRaw).
+export function destroyToken(state: CombatState, instanceId: string): CombatState {
+  const token = state.fieldTokens.find(t => t.instanceId === instanceId);
+  if (!token) return state;
+
+  let s: CombatState = {
+    ...state,
+    fieldTokens: state.fieldTokens.filter(t => t.instanceId !== instanceId),
+  };
+  s = addLog(s, `Token destroyed: ${token.definition.name}`);
+
+  if (token.definition.leavesTriggerEffects && token.definition.leavesTriggerEffects.length > 0) {
+    if (s.triggerDepth < MAX_TRIGGER_DEPTH) {
+      s = { ...s, triggerDepth: s.triggerDepth + 1 };
+      s = addLog(s, `${token.definition.name} leaves the battlefield`);
+      for (const effect of token.definition.leavesTriggerEffects) {
+        s = applyEffect(s, effect, token.controller, token);
+      }
+      s = { ...s, triggerDepth: s.triggerDepth - 1 };
+    } else {
+      s = addLog(s, `[ERROR] Trigger depth cap — skipping ${token.definition.name} leave trigger`);
+    }
+  }
+
+  s = dispatchGameEvent(s, { type: 'TOKEN_DESTROYED', sourceCard: token });
+  return s;
+}
+
+// dispatchGameEvent: scans field impressions and tokens for triggered abilities
+// matching the event, then resolves their effects. Uses triggerDepth for
+// recursion protection.
+export function dispatchGameEvent(state: CombatState, event: GameEvent): CombatState {
+  let s = state;
+  const fieldCards = [...s.fieldImpressions, ...s.fieldTokens];
+
+  for (const card of fieldCards) {
+    const abilities = card.definition.triggeredAbilities;
+    if (!abilities || abilities.length === 0) continue;
+
+    for (const ability of abilities) {
+      if (ability.trigger !== event.type) continue;
+
+      if (ability.controllerFilter && event.sourceCard) {
+        if (event.sourceCard.controller !== card.controller) continue;
+      }
+
+      if (s.triggerDepth >= MAX_TRIGGER_DEPTH) {
+        s = addLog(s, `[ERROR] Trigger depth cap — skipping ${card.definition.name} trigger`);
+        break;
+      }
+
+      s = { ...s, triggerDepth: s.triggerDepth + 1 };
+      s = addLog(s, `${card.definition.name} triggered: ${ability.id}`);
+      for (const effect of ability.effects) {
+        s = applyEffect(s, effect, card.controller, card);
+      }
+      s = { ...s, triggerDepth: s.triggerDepth - 1 };
+    }
+  }
+
+  return s;
+}
+
 function getNextOpponentShieldIdx(state: CombatState): number {
   const order = state.config.shieldBreakOrder;
   if (order && order.length > 0) {
@@ -180,7 +257,7 @@ export function breakPlayerShieldAutomatic(state: CombatState): ShieldBreakResul
   };
 }
 
-export function applyEffect(state: CombatState, effect: CardEffect, controller: CardOwner = 'player'): CombatState {
+export function applyEffect(state: CombatState, effect: CardEffect, controller: CardOwner = 'player', sourceCard?: CardInstance): CombatState {
   switch (effect.type) {
     case 'MODIFY_PRIORITY': {
       if (state.config.priorityMode === 'frame') {
@@ -265,10 +342,29 @@ export function applyEffect(state: CombatState, effect: CardEffect, controller: 
       for (let i = 0; i < count; i++) {
         newTokens.push(makeInstance(tokenDef, controller));
       }
-      return addLog(
+      let s = addLog(
         { ...state, fieldTokens: [...state.fieldTokens, ...newTokens] },
         `Created ${count}× ${tokenDef.name} token${count > 1 ? 's' : ''} on the field`
       );
+      for (const token of newTokens) {
+        s = dispatchGameEvent(s, { type: 'TOKEN_CREATED', sourceCard: token });
+      }
+      return s;
+    }
+    case 'DESTROY_SELF': {
+      if (!sourceCard) return addLog(state, '[ERROR] DESTROY_SELF: no source card');
+      if (state.fieldTokens.some(t => t.instanceId === sourceCard.instanceId)) {
+        return destroyToken(state, sourceCard.instanceId);
+      }
+      if (state.fieldImpressions.some(c => c.instanceId === sourceCard.instanceId)) {
+        let s: CombatState = {
+          ...state,
+          fieldImpressions: state.fieldImpressions.filter(c => c.instanceId !== sourceCard.instanceId),
+          playerDiscard: [...state.playerDiscard, sourceCard],
+        };
+        return addLog(s, `${sourceCard.definition.name} destroyed itself`);
+      }
+      return addLog(state, `[ERROR] DESTROY_SELF: ${sourceCard.definition.name} not on field`);
     }
     default:
       return state;
@@ -338,7 +434,7 @@ export function resolveFieldTriggerCheck(state: CombatState): CombatState {
     s = addLog(s, `Trap triggered: ${trap.card.definition.name}`);
     s = { ...s, triggerDepth: s.triggerDepth + 1 };
     for (const effect of trap.card.definition.effects) {
-      s = applyEffect(s, effect, trap.card.controller);
+      s = applyEffect(s, effect, trap.card.controller, trap.card);
     }
     s = {
       ...s,
@@ -360,7 +456,7 @@ export function resolveFieldTriggerCheck(state: CombatState): CombatState {
     s = addLog(s, `Shield Trigger: ${trigger.card.definition.name}`);
     s = { ...s, triggerDepth: s.triggerDepth + 1 };
     for (const effect of trigger.card.definition.effects) {
-      s = applyEffect(s, effect, trigger.card.controller);
+      s = applyEffect(s, effect, trigger.card.controller, trigger.card);
       if (s.pendingReveal) break;
     }
     s = resolveFieldTriggerCheck(s);

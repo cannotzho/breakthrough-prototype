@@ -13,12 +13,28 @@ export type CardEffectType =
   | 'PLACE_AS_SHIELD'
   | 'INCREMENT_LIE_COUNTER'
   | 'PLACE_IMPRESSION'
-  | 'CREATE_TOKEN';
+  | 'CREATE_TOKEN'
+  | 'DESTROY_SELF';
 
 export interface CardEffect {
   type: CardEffectType;
   value?: number;
   tokenDefinitionId?: string;
+}
+
+// ─── Game Events (for passive triggered abilities) ───────────
+export type GameEventType = 'TOKEN_DESTROYED' | 'TOKEN_CREATED' | 'CARD_PLAYED' | 'SHIELD_BROKEN';
+
+export interface GameEvent {
+  type: GameEventType;
+  sourceCard?: CardInstance;
+}
+
+export interface TriggeredAbility {
+  id: string;
+  trigger: GameEventType;
+  controllerFilter?: CardOwner;
+  effects: CardEffect[];
 }
 
 // ─── Activated Abilities ──────────────────────────────────────
@@ -92,6 +108,8 @@ export interface CardDefinition {
   nuggetId?: string;
   trapTrigger?: TrapTriggerCondition;
   activatedAbilities?: ActivatedAbility[];
+  triggeredAbilities?: TriggeredAbility[];
+  leavesTriggerEffects?: CardEffect[];
   /** @deprecated Use effectText/longDescription instead */
   description?: string;
 }

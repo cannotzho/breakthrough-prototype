@@ -1,5 +1,5 @@
 import { CombatState, CombatAction, CardInstance, CardEffect, CardOwner, NuggetOverride, SHIELD_PLACEMENT_COST, ActivatedAbilityCost } from './types';
-import { applyEffect, selectEnemyCard, makeInstance, clampPriority, applyTurnHandoffBonus, priorityRestore, shuffle, resolveFieldTriggerCheck, classicTurnStart, npcTurnStart, addLog } from './effectHandlers';
+import { applyEffect, selectEnemyCard, makeInstance, clampPriority, applyTurnHandoffBonus, priorityRestore, shuffle, resolveFieldTriggerCheck, classicTurnStart, npcTurnStart, addLog, destroyToken } from './effectHandlers';
 import { COMBINATIONS } from '../data/combinations';
 import { PONDER_DEFINITION } from '../data/devCards';
 
@@ -115,7 +115,7 @@ function resolveEffectList(
   for (let i = 0; i < effects.length; i++) {
     const effect = effects[i];
     const beforeReveal = s.pendingReveal;
-    s = applyEffect(s, effect, controller);
+    s = applyEffect(s, effect, controller, card);
 
     if (s.pendingReveal && s.pendingReveal !== beforeReveal) {
       return {
@@ -679,12 +679,8 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
     }
 
     case 'DESTROY_TOKEN': {
-      const token = state.fieldTokens.find(t => t.instanceId === action.instanceId);
-      if (!token) return state;
-      return addLog(
-        { ...state, fieldTokens: state.fieldTokens.filter(t => t.instanceId !== action.instanceId) },
-        `Token destroyed: ${token.definition.name} (removed from combat)`
-      );
+      if (!state.fieldTokens.some(t => t.instanceId === action.instanceId)) return state;
+      return destroyToken(state, action.instanceId);
     }
 
     case 'DEV_RESET':
