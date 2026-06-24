@@ -136,12 +136,26 @@ export function destroyToken(state: CombatState, instanceId: string): CombatStat
   };
   s = addLog(s, `Token destroyed: ${token.definition.name}`);
 
-  if (token.definition.leavesTriggerEffects && token.definition.leavesTriggerEffects.length > 0) {
+  const leaveEffects = token.definition.leavesTriggerEffects;
+  if (leaveEffects && leaveEffects.length > 0) {
     if (s.triggerDepth < MAX_TRIGGER_DEPTH) {
       s = { ...s, triggerDepth: s.triggerDepth + 1 };
       s = addLog(s, `${token.definition.name} leaves the battlefield`);
-      for (const effect of token.definition.leavesTriggerEffects) {
-        s = applyEffect(s, effect, token.controller, token);
+      for (let i = 0; i < leaveEffects.length; i++) {
+        s = applyEffect(s, leaveEffects[i], token.controller, token);
+        if (s.pendingReveal) {
+          const remaining = leaveEffects.slice(i + 1);
+          if (remaining.length > 0) {
+            s = {
+              ...s,
+              pendingEffects: [...remaining, ...s.pendingEffects],
+              pendingEffectCard: s.pendingEffectCard ?? token,
+            };
+          }
+          s = { ...s, triggerDepth: s.triggerDepth - 1 };
+          s = dispatchGameEvent(s, { type: 'TOKEN_DESTROYED', sourceCard: token });
+          return s;
+        }
       }
       s = { ...s, triggerDepth: s.triggerDepth - 1 };
     } else {
@@ -365,6 +379,48 @@ export function applyEffect(state: CombatState, effect: CardEffect, controller: 
         return addLog(s, `${sourceCard.definition.name} destroyed itself`);
       }
       return addLog(state, `[ERROR] DESTROY_SELF: ${sourceCard.definition.name} not on field`);
+    }
+    case 'TRANSFORM_TOKEN': {
+      const { transformSourceId, transformTargetId, transformAll, transformUpTo } = effect;
+      if (!transformSourceId || !transformTargetId) {
+        return addLog(state, '[ERROR] TRANSFORM_TOKEN: missing source or target definition ID');
+      }
+      const targetDef = state.tokenRegistry[transformTargetId];
+      if (!targetDef) {
+        return addLog(state, `[ERROR] TRANSFORM_TOKEN: no token definition for "${transformTargetId}"`);
+      }
+
+      const candidates = state.fieldTokens.filter(
+        t => t.definition.id === transformSourceId && t.controller === controller
+      );
+      if (candidates.length === 0) {
+        return addLog(state, `TRANSFORM_TOKEN: no ${transformSourceId} tokens to transform`);
+      }
+
+      const maxCount = transformAll ? candidates.length : (effect.value ?? 1);
+      const count = transformUpTo
+        ? Math.min(maxCount, candidates.length)
+        : Math.min(maxCount, candidates.length);
+      const toTransform = candidates.slice(0, count);
+
+      let s = state;
+      for (const token of toTransform) {
+        s = removeTokenRaw(s, token.instanceId);
+      }
+
+      const newTokens: CardInstance[] = toTransform.map(
+        () => makeInstance(targetDef, controller)
+      );
+      s = {
+        ...s,
+        fieldTokens: [...s.fieldTokens, ...newTokens],
+      };
+      s = addLog(s, `Transformed ${toTransform.length}× ${transformSourceId} → ${targetDef.name}`);
+
+      for (const token of newTokens) {
+        s = dispatchGameEvent(s, { type: 'TOKEN_CREATED', sourceCard: token });
+      }
+      return s;
     }
     default:
       return state;

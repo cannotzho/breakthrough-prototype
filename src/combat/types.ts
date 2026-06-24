@@ -14,12 +14,17 @@ export type CardEffectType =
   | 'INCREMENT_LIE_COUNTER'
   | 'PLACE_IMPRESSION'
   | 'CREATE_TOKEN'
-  | 'DESTROY_SELF';
+  | 'DESTROY_SELF'
+  | 'TRANSFORM_TOKEN';
 
 export interface CardEffect {
   type: CardEffectType;
   value?: number;
   tokenDefinitionId?: string;
+  transformSourceId?: string;
+  transformTargetId?: string;
+  transformAll?: boolean;
+  transformUpTo?: boolean;
 }
 
 // ─── Game Events (for passive triggered abilities) ───────────

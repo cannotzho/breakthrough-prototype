@@ -121,8 +121,8 @@ function resolveEffectList(
       return {
         ...s,
         phase: 'RevealPending',
-        pendingEffects: effects.slice(i + 1),
-        pendingEffectCard: card,
+        pendingEffects: [...s.pendingEffects, ...effects.slice(i + 1)],
+        pendingEffectCard: s.pendingEffectCard ?? card,
       };
     }
   }
@@ -428,9 +428,9 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
 
     case 'DISMISS_REVEAL': {
       if (state.phase !== 'RevealPending') return state;
-      let s: CombatState = { ...state, pendingReveal: null };
       const remainingEffects = state.pendingEffects;
       const card = state.pendingEffectCard;
+      let s: CombatState = { ...state, pendingReveal: null, pendingEffects: [], pendingEffectCard: null };
 
       if (!card || remainingEffects.length === 0) {
         let final: CombatState = { ...s, phase: 'Check', pendingEffects: [], pendingEffectCard: null };
