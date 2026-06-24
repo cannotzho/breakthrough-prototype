@@ -1,4 +1,4 @@
-import { CombatState, CombatAction, CardInstance, CardEffect, NuggetOverride, SHIELD_PLACEMENT_COST, ActivatedAbilityCost } from './types';
+import { CombatState, CombatAction, CardInstance, CardEffect, CardOwner, NuggetOverride, SHIELD_PLACEMENT_COST, ActivatedAbilityCost } from './types';
 import { applyEffect, selectEnemyCard, makeInstance, clampPriority, applyTurnHandoffBonus, shuffle, resolveFieldTriggerCheck, classicTurnStart, npcTurnStart, addLog } from './effectHandlers';
 import { COMBINATIONS } from '../data/combinations';
 import { PONDER_DEFINITION } from '../data/devCards';
@@ -110,11 +110,12 @@ function resolveEffectList(
   card: CardInstance,
   onComplete: (s: CombatState) => CombatState
 ): CombatState {
+  const controller: CardOwner = card.controller;
   let s = state;
   for (let i = 0; i < effects.length; i++) {
     const effect = effects[i];
     const beforeReveal = s.pendingReveal;
-    s = applyEffect(s, effect);
+    s = applyEffect(s, effect, controller);
 
     if (s.pendingReveal && s.pendingReveal !== beforeReveal) {
       return {
@@ -524,7 +525,7 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       return addLog({ ...state, phase: action.phase }, `[DEV] Phase → ${action.phase}`);
 
     case 'DEV_ADD_CARD_TO_HAND': {
-      const instance: CardInstance = makeInstance(action.card);
+      const instance: CardInstance = makeInstance(action.card, 'player');
       return addLog(
         { ...state, playerHand: [...state.playerHand, instance] },
         `[DEV] Added ${action.card.name} to hand`
@@ -532,7 +533,7 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
     }
 
     case 'DEV_SET_ENEMY_CARD': {
-      const instance: CardInstance = makeInstance(action.card);
+      const instance: CardInstance = makeInstance(action.card, 'npc');
       return addLog({ ...state, stagedEnemyCard: instance }, `[DEV] Staged enemy card → ${action.card.name}`);
     }
 

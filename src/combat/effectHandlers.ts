@@ -1,5 +1,5 @@
 import {
-  CombatState, CardEffect, CardInstance, FieldTrap,
+  CombatState, CardEffect, CardInstance, CardOwner, FieldTrap,
   TrapTriggerCondition, TrapTriggerType, MAX_TRIGGER_DEPTH,
 } from './types';
 
@@ -24,8 +24,8 @@ export function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-export function makeInstance(definition: CardInstance['definition']): CardInstance {
-  return { instanceId: crypto.randomUUID(), definition };
+export function makeInstance(definition: CardInstance['definition'], owner: CardOwner = 'player'): CardInstance {
+  return { instanceId: crypto.randomUUID(), definition, owner, controller: owner };
 }
 
 export function drawCards(state: CombatState, count: number): CombatState {
@@ -179,7 +179,7 @@ export function breakPlayerShieldAutomatic(state: CombatState): ShieldBreakResul
   };
 }
 
-export function applyEffect(state: CombatState, effect: CardEffect): CombatState {
+export function applyEffect(state: CombatState, effect: CardEffect, controller: CardOwner = 'player'): CombatState {
   switch (effect.type) {
     case 'MODIFY_PRIORITY': {
       if (state.config.priorityMode === 'frame') {
@@ -221,30 +221,32 @@ export function applyEffect(state: CombatState, effect: CardEffect): CombatState
     case 'INCREMENT_LIE_COUNTER':
       return { ...state, lieCounter: state.lieCounter + 1 };
     case 'BREAK_OPPONENT_SHIELD': {
-      const idx = getNextOpponentShieldIdx(state);
-      if (idx === -1) return state;
-      const newShields = state.opponentShields.map((s, i) =>
-        i === idx ? { ...s, broken: true } : s
-      );
-      return {
-        ...state,
-        opponentShields: newShields,
-        pendingReveal: newShields[idx],
-      };
-    }
-    case 'BREAK_PLAYER_SHIELD': {
-      const result = breakPlayerShieldAutomatic(state);
-      let s = result.state;
-      if (result.hadShieldTrigger && result.triggerCard) {
-        s = {
-          ...s,
-          pendingShieldTriggers: [
-            ...s.pendingShieldTriggers,
-            { card: result.triggerCard, breakOrder: result.breakOrder },
-          ],
+      const targetSide = controller === 'player' ? 'npc' : 'player';
+      if (targetSide === 'npc') {
+        const idx = getNextOpponentShieldIdx(state);
+        if (idx === -1) return state;
+        const newShields = state.opponentShields.map((s, i) =>
+          i === idx ? { ...s, broken: true } : s
+        );
+        return {
+          ...state,
+          opponentShields: newShields,
+          pendingReveal: newShields[idx],
         };
+      } else {
+        const result = breakPlayerShieldAutomatic(state);
+        let s = result.state;
+        if (result.hadShieldTrigger && result.triggerCard) {
+          s = {
+            ...s,
+            pendingShieldTriggers: [
+              ...s.pendingShieldTriggers,
+              { card: result.triggerCard, breakOrder: result.breakOrder },
+            ],
+          };
+        }
+        return s;
       }
-      return s;
     }
     case 'PLACE_AS_SHIELD':
       return { ...state, pendingPlaceAsShield: true };
@@ -260,7 +262,7 @@ export function applyEffect(state: CombatState, effect: CardEffect): CombatState
       const count = effect.value ?? 1;
       const newTokens: CardInstance[] = [];
       for (let i = 0; i < count; i++) {
-        newTokens.push(makeInstance(tokenDef));
+        newTokens.push(makeInstance(tokenDef, controller));
       }
       return addLog(
         { ...state, fieldTokens: [...state.fieldTokens, ...newTokens] },
@@ -335,7 +337,7 @@ export function resolveFieldTriggerCheck(state: CombatState): CombatState {
     s = addLog(s, `Trap triggered: ${trap.card.definition.name}`);
     s = { ...s, triggerDepth: s.triggerDepth + 1 };
     for (const effect of trap.card.definition.effects) {
-      s = applyEffect(s, effect);
+      s = applyEffect(s, effect, trap.card.controller);
     }
     s = {
       ...s,
@@ -357,7 +359,7 @@ export function resolveFieldTriggerCheck(state: CombatState): CombatState {
     s = addLog(s, `Shield Trigger: ${trigger.card.definition.name}`);
     s = { ...s, triggerDepth: s.triggerDepth + 1 };
     for (const effect of trigger.card.definition.effects) {
-      s = applyEffect(s, effect);
+      s = applyEffect(s, effect, trigger.card.controller);
       if (s.pendingReveal) break;
     }
     s = resolveFieldTriggerCheck(s);

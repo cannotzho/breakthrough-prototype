@@ -7,7 +7,6 @@ export type Keyword = 'Safety' | 'Assemble' | 'Shield Trigger' | 'Lie' | 'Trap';
 // ─── Card Effects ──────────────────────────────────────────────
 export type CardEffectType =
   | 'BREAK_OPPONENT_SHIELD'
-  | 'BREAK_PLAYER_SHIELD'
   | 'MODIFY_PRIORITY'
   | 'MODIFY_PATIENCE'
   | 'DRAW_CARDS'
@@ -97,9 +96,13 @@ export interface CardDefinition {
   description?: string;
 }
 
+export type CardOwner = 'player' | 'npc';
+
 export interface CardInstance {
   instanceId: string;
   definition: CardDefinition;
+  owner: CardOwner;
+  controller: CardOwner;
   combinedFrom?: CardInstance[];
 }
 

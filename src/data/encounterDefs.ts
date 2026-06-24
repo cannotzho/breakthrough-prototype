@@ -57,13 +57,13 @@ export function buildInitialCombatState(config: EncounterConfig): CombatState {
 
   const playerDeckDefs = [...DEV_SKILL_CARDS, ...DEV_SKILL_CARDS];
   const shuffledPlayer = shuffle([...playerDeckDefs]);
-  const playerInstances = shuffledPlayer.map(def => makeInstance(def));
+  const playerInstances = shuffledPlayer.map(def => makeInstance(def, 'player'));
   const initialHand = playerInstances.slice(0, DEFAULT_COMBAT_CONFIG.handLimit);
   const initialDeck = playerInstances.slice(DEFAULT_COMBAT_CONFIG.handLimit);
 
   const enemyInstances = config.enemyDeckCardIds.map(id => {
     const def = allEnemyDefs.find(c => c.id === id) ?? allEnemyDefs[0];
-    return makeInstance(def);
+    return makeInstance(def, 'npc');
   });
 
   // Build shield slots: dummy slots first, then core shields

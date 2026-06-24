@@ -114,11 +114,11 @@ export const DEV_ENEMY_CARDS: CardDefinition[] = [
     name: 'Dismiss',
     cost: 2,
     keywords: [],
-    effects: [{ type: 'BREAK_PLAYER_SHIELD' }],
+    effects: [{ type: 'BREAK_OPPONENT_SHIELD' }],
     color: 'Colorless',
     supertype: 'Skill',
     subtype: null,
-    effectText: 'Break 1 player shield.',
+    effectText: 'Break 1 opponent shield.',
     longDescription: 'The NPC dismisses your defences, breaking through one of your shields.',
   },
   {
