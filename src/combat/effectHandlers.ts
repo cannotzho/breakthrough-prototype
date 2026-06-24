@@ -422,6 +422,46 @@ export function applyEffect(state: CombatState, effect: CardEffect, controller: 
       }
       return s;
     }
+    case 'DESTROY_TOKENS': {
+      const { targetDefinitionId, targetInstanceIds, destroyAll } = effect;
+
+      let targets: CardInstance[];
+      if (targetInstanceIds && targetInstanceIds.length > 0) {
+        targets = state.fieldTokens.filter(t => targetInstanceIds.includes(t.instanceId));
+      } else {
+        const candidates = state.fieldTokens.filter(
+          t => t.controller === controller &&
+            (!targetDefinitionId || t.definition.id === targetDefinitionId)
+        );
+        const count = destroyAll ? candidates.length : Math.min(effect.value ?? 1, candidates.length);
+        targets = candidates.slice(0, count);
+      }
+
+      if (targets.length === 0) {
+        return addLog(state, `DESTROY_TOKENS: no matching tokens to destroy`);
+      }
+
+      let s = state;
+      for (let i = 0; i < targets.length; i++) {
+        s = destroyToken(s, targets[i].instanceId);
+        if (s.pendingReveal) {
+          const remainingIds = targets.slice(i + 1).map(t => t.instanceId);
+          if (remainingIds.length > 0) {
+            s = {
+              ...s,
+              pendingEffects: [
+                { type: 'DESTROY_TOKENS', targetInstanceIds: remainingIds },
+                ...s.pendingEffects,
+              ],
+              pendingEffectCard: s.pendingEffectCard ?? sourceCard ?? null,
+            };
+          }
+          return s;
+        }
+      }
+      s = addLog(s, `Destroyed ${targets.length} token(s)`);
+      return s;
+    }
     default:
       return state;
   }

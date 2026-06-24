@@ -15,7 +15,8 @@ export type CardEffectType =
   | 'PLACE_IMPRESSION'
   | 'CREATE_TOKEN'
   | 'DESTROY_SELF'
-  | 'TRANSFORM_TOKEN';
+  | 'TRANSFORM_TOKEN'
+  | 'DESTROY_TOKENS';
 
 export interface CardEffect {
   type: CardEffectType;
@@ -25,6 +26,9 @@ export interface CardEffect {
   transformTargetId?: string;
   transformAll?: boolean;
   transformUpTo?: boolean;
+  targetDefinitionId?: string;
+  targetInstanceIds?: string[];
+  destroyAll?: boolean;
 }
 
 // ─── Game Events (for passive triggered abilities) ───────────
