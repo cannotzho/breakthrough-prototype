@@ -365,12 +365,15 @@ export default function CombatScreen({ onExit, encounterConfig }: CombatScreenPr
               </AnimatePresence>
             </div>
 
-            {/* Field — Impressions and Traps */}
-            {(state.fieldImpressions.length > 0 || state.fieldTraps.length > 0) && (
+            {/* Field — Impressions, Tokens, and Traps */}
+            {(state.fieldImpressions.length > 0 || state.fieldTokens.length > 0 || state.fieldTraps.length > 0) && (
               <div className="flex justify-center gap-4 relative z-10">
                 <AnimatePresence>
                   {state.fieldImpressions.map(c => (
                     <CardView key={c.instanceId} card={c} label="Impression" />
+                  ))}
+                  {state.fieldTokens.map(c => (
+                    <CardView key={c.instanceId} card={c} label="Token" />
                   ))}
                   {state.fieldTraps.map(t => (
                     <CardView key={t.card.instanceId} card={t.card} label="Trap" />

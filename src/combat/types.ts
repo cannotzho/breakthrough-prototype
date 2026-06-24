@@ -13,11 +13,13 @@ export type CardEffectType =
   | 'DRAW_CARDS'
   | 'PLACE_AS_SHIELD'
   | 'INCREMENT_LIE_COUNTER'
-  | 'PLACE_IMPRESSION';
+  | 'PLACE_IMPRESSION'
+  | 'CREATE_TOKEN';
 
 export interface CardEffect {
   type: CardEffectType;
   value?: number;
+  tokenDefinitionId?: string;
 }
 
 // ─── Trap Trigger Conditions ──────────────────────────────────
@@ -59,7 +61,7 @@ export interface DeckDefinition {
 
 // ─── Card Definition ───────────────────────────────────────────
 export type CardSupertype = 'Skill' | 'Information';
-export type CardSubtype = 'Impression' | 'Trap' | null;
+export type CardSubtype = 'Impression' | 'Trap' | 'Token' | null;
 
 export interface CardDefinition {
   id: string;
@@ -224,6 +226,7 @@ export interface CombatState {
   stagedEnemyCard: CardInstance | null;
 
   fieldImpressions: CardInstance[];
+  fieldTokens: CardInstance[];
   fieldTraps: FieldTrap[];
   trapPlayCounter: number;
 
@@ -243,6 +246,8 @@ export interface CombatState {
   activeTurn: 'player' | 'npc';
 
   manualEnemyMode: boolean;
+
+  tokenRegistry: Record<string, CardDefinition>;
 
   actionLog: string[];
 }
@@ -272,6 +277,7 @@ export type CombatAction =
   | { type: 'RESOLVE_ENEMY_CARD' }
   | { type: 'CONFIRM_PLACE_AS_SHIELD'; slotIdx: number }
   | { type: 'CONFIRM_BOTM' }
+  | { type: 'DESTROY_TOKEN'; instanceId: string }
   | { type: 'DEV_RESET'; state: CombatState }
   | { type: 'DEV_SET_MANUAL_ENEMY'; enabled: boolean }
   | { type: 'DEV_PICK_ENEMY_FROM_DECK'; instanceId: string };

@@ -33,11 +33,12 @@ const PHASES: CombatPhase[] = [
 ];
 const COLORS: ColorIdentity[] = ['Red', 'Blue', 'Green', 'White', 'Black', 'Orange', 'Purple', 'Colorless'];
 const SUPERTYPES: CardSupertype[] = ['Skill', 'Information'];
-const SUBTYPES: CardSubtype[] = [null, 'Impression', 'Trap'];
+const SUBTYPES: CardSubtype[] = [null, 'Impression', 'Trap', 'Token'];
 const KEYWORDS: Keyword[] = ['Safety', 'Assemble', 'Shield Trigger', 'Lie', 'Trap'];
 const EFFECT_TYPES: CardEffectType[] = [
   'BREAK_OPPONENT_SHIELD', 'BREAK_PLAYER_SHIELD', 'MODIFY_PRIORITY',
   'MODIFY_PATIENCE', 'DRAW_CARDS', 'PLACE_AS_SHIELD', 'INCREMENT_LIE_COUNTER', 'PLACE_IMPRESSION',
+  'CREATE_TOKEN',
 ];
 
 interface Props {

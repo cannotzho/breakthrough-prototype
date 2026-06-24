@@ -214,6 +214,9 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       if (state.phase !== 'PlayerPending') return state;
       const card = state.playerHand.find(c => c.instanceId === action.cardInstanceId);
       if (!card) return state;
+      if (card.definition.subtype === 'Token') {
+        return addLog(state, `Cannot play ${card.definition.name} — Token cards cannot be played from hand`);
+      }
 
       const isFrame = state.config.priorityMode === 'frame';
 
@@ -574,6 +577,15 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
         nuggetOverrides: [...state.config.nuggetOverrides, override],
       };
       return addLog({ ...state, config }, `[DEV] Added nugget override for ${override.nuggetId}`);
+    }
+
+    case 'DESTROY_TOKEN': {
+      const token = state.fieldTokens.find(t => t.instanceId === action.instanceId);
+      if (!token) return state;
+      return addLog(
+        { ...state, fieldTokens: state.fieldTokens.filter(t => t.instanceId !== action.instanceId) },
+        `Token destroyed: ${token.definition.name} (removed from combat)`
+      );
     }
 
     case 'DEV_RESET':

@@ -250,6 +250,23 @@ export function applyEffect(state: CombatState, effect: CardEffect): CombatState
       return { ...state, pendingPlaceAsShield: true };
     case 'PLACE_IMPRESSION':
       return state;
+    case 'CREATE_TOKEN': {
+      const tokenDef = effect.tokenDefinitionId
+        ? state.tokenRegistry[effect.tokenDefinitionId]
+        : undefined;
+      if (!tokenDef) {
+        return addLog(state, `[ERROR] CREATE_TOKEN: no token definition found for "${effect.tokenDefinitionId}"`);
+      }
+      const count = effect.value ?? 1;
+      const newTokens: CardInstance[] = [];
+      for (let i = 0; i < count; i++) {
+        newTokens.push(makeInstance(tokenDef));
+      }
+      return addLog(
+        { ...state, fieldTokens: [...state.fieldTokens, ...newTokens] },
+        `Created ${count}× ${tokenDef.name} token${count > 1 ? 's' : ''} on the field`
+      );
+    }
     default:
       return state;
   }

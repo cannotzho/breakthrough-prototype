@@ -95,6 +95,7 @@ export function buildInitialCombatState(config: EncounterConfig): CombatState {
     enemyDiscard: [],
     stagedEnemyCard: null,
     fieldImpressions: [],
+    fieldTokens: [],
     fieldTraps: [],
     trapPlayCounter: 0,
     playedNonRelevantCards: [],
@@ -109,6 +110,7 @@ export function buildInitialCombatState(config: EncounterConfig): CombatState {
     discoveredNuggetIds: [],
     activeTurn: 'player',
     manualEnemyMode: false,
+    tokenRegistry: {},
     actionLog: ['Encounter started.'],
   };
 }
