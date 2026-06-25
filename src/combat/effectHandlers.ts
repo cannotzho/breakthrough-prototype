@@ -453,18 +453,23 @@ export function applyEffect(state: CombatState, effect: CardEffect, controller: 
         ? Math.min(maxCount, candidates.length)
         : Math.min(maxCount, candidates.length);
       const toTransform = candidates.slice(0, count);
-
-      let s = state;
-      for (const token of toTransform) {
-        s = removeTokenRaw(s, token.instanceId);
-      }
+      const toTransformIds = new Set(toTransform.map(t => t.instanceId));
 
       const newTokens: CardInstance[] = toTransform.map(
         () => makeInstance(targetDef, controller)
       );
-      s = {
-        ...s,
-        fieldTokens: [...s.fieldTokens, ...newTokens],
+
+      let replaceIdx = 0;
+      const updatedTokens = state.fieldTokens.map(t => {
+        if (toTransformIds.has(t.instanceId)) {
+          return newTokens[replaceIdx++];
+        }
+        return t;
+      });
+
+      let s: CombatState = {
+        ...state,
+        fieldTokens: updatedTokens,
       };
       s = addLog(s, `Transformed ${toTransform.length}× ${transformSourceId} → ${targetDef.name}`);
 
