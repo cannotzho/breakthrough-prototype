@@ -8,6 +8,7 @@ import { useNuggetStore } from '../../stores/nuggetStore';
 import SupabaseStatus from './SupabaseStatus';
 import CardForm, { BTN } from './CardEditorForm';
 import CardGalleryGrid from './CardGalleryGrid';
+import CodeCardImporter from './CodeCardImporter';
 
 type View = 'gallery' | 'create' | 'edit';
 
@@ -132,6 +133,8 @@ export default function CardCollection({ dispatch }: CardCollectionProps) {
         table="cards"
         importFromLocalStorage={importFromLocalStorage}
       />
+
+      <CodeCardImporter />
 
       <div className="flex gap-2">
         <button onClick={() => { setEditingCard(null); setView('create'); }}

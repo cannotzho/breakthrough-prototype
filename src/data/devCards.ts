@@ -313,6 +313,13 @@ export const BLUE_STARTER_CARDS: CardDefinition[] = [
   },
 ];
 
+// ─── Card Definition Block Registry ──────────────────────────
+// When Claude authors new card blocks (e.g. ORANGE_STARTER_CARDS),
+// add them here so the dev tool importer discovers them automatically.
+export const CARD_DEF_BLOCKS: Record<string, CardDefinition[]> = {
+  'Blue Starter Deck': BLUE_STARTER_CARDS,
+};
+
 export const PONDER_DEFINITION: CardDefinition = {
   id: 'ponder',
   name: 'Ponder',

@@ -72,9 +72,17 @@ The combat engine is intentionally framework-agnostic — split across three fil
 
 | File | Content |
 |------|---------|
-| `src/data/devCards.ts` | `DEV_SKILL_CARDS` (player cards), `DEV_ENEMY_CARDS` (NPC cards), `PONDER_DEFINITION` (fallback draw card) |
+| `src/data/devCards.ts` | Engine foundation data + Claude-authored card definition blocks (see below) |
 | `src/data/encounterDefs.ts` | `TEST_ENCOUNTER` (Frame mode), `CLASSIC_TEST_ENCOUNTER` (Classic mode), `buildInitialCombatState()` factory |
 | `src/data/combinations.ts` | `COMBINATIONS` array — card merge recipes (currently empty) |
+
+### devCards.ts — dual role
+
+`src/data/devCards.ts` serves two distinct purposes:
+
+1. **Engine foundation data** (always active): `DEV_SKILL_CARDS`, `DEV_ENEMY_CARDS` (default test encounter decks), `PONDER_DEFINITION` (fallback draw card), and `DEV_TOKEN_DEFINITIONS` (token registry used by the combat engine — Logical Chain, Impactful Conclusion, Captivating Sense, etc.).
+
+2. **Claude-authored card definition blocks** (import required): Named exports like `BLUE_STARTER_CARDS` that store card definitions in code. These are **not** automatically loaded into the app — they must be imported into the Supabase-backed collection via the dev tool importer (Card Collection screen → "Import from Code" panel). All blocks are registered in `CARD_DEF_BLOCKS` so the importer discovers them automatically. When Claude authors new card blocks (e.g. `ORANGE_STARTER_CARDS`), add them to `CARD_DEF_BLOCKS` and the importer picks them up.
 
 ### Persistence
 
