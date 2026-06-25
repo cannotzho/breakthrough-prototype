@@ -385,41 +385,39 @@ export default function CombatScreen({ onExit, encounterConfig, playerDeckDefs }
             {/* Field — Impressions, Traps, and Tokens (bottom of play area) */}
             {(state.fieldImpressions.length > 0 || state.fieldTraps.length > 0 || state.fieldTokens.length > 0) && (
               <div className="flex justify-center gap-4 flex-wrap relative z-10 pb-2">
-                <AnimatePresence>
-                  {state.fieldImpressions.map(c => (
-                    <div key={c.instanceId} className="flex flex-col items-center gap-1">
-                      <CardView card={c} label="Impression" onClick={() => setDetailCard(c)} />
-                      {c.definition.activatedAbilities?.map(ab => (
-                        <button key={ab.id}
-                          onClick={() => dispatch({ type: 'ACTIVATE_ABILITY', cardInstanceId: c.instanceId, abilityId: ab.id })}
-                          disabled={state.phase !== 'PlayerPending'}
-                          className="text-[10px] px-2 py-0.5 rounded border border-amber-600 text-amber-400 hover:bg-amber-900/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                        >
-                          {ab.name} {formatAbilityCost(ab.cost)}
-                        </button>
-                      ))}
-                    </div>
-                  ))}
-                  {state.fieldTraps.map(t => (
-                    <div key={t.card.instanceId} className="flex flex-col items-center gap-1">
-                      <CardView card={t.card} label="Trap" onClick={() => setDetailCard(t.card)} />
-                    </div>
-                  ))}
-                  {state.fieldTokens.map(c => (
-                    <div key={c.instanceId} className="flex flex-col items-center gap-1">
-                      <CardView card={c} label="Token" onClick={() => setDetailCard(c)} />
-                      {c.definition.activatedAbilities?.map(ab => (
-                        <button key={ab.id}
-                          onClick={() => dispatch({ type: 'ACTIVATE_ABILITY', cardInstanceId: c.instanceId, abilityId: ab.id })}
-                          disabled={state.phase !== 'PlayerPending'}
-                          className="text-[10px] px-2 py-0.5 rounded border border-amber-600 text-amber-400 hover:bg-amber-900/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                        >
-                          {ab.name} {formatAbilityCost(ab.cost)}
-                        </button>
-                      ))}
-                    </div>
-                  ))}
-                </AnimatePresence>
+                {state.fieldImpressions.map(c => (
+                  <div key={c.instanceId} className="flex flex-col items-center gap-1">
+                    <CardView card={c} label="Impression" onClick={() => setDetailCard(c)} />
+                    {c.definition.activatedAbilities?.map(ab => (
+                      <button key={ab.id}
+                        onClick={() => dispatch({ type: 'ACTIVATE_ABILITY', cardInstanceId: c.instanceId, abilityId: ab.id })}
+                        disabled={state.phase !== 'PlayerPending'}
+                        className="text-[10px] px-2 py-0.5 rounded border border-amber-600 text-amber-400 hover:bg-amber-900/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {ab.name} {formatAbilityCost(ab.cost)}
+                      </button>
+                    ))}
+                  </div>
+                ))}
+                {state.fieldTraps.map(t => (
+                  <div key={t.card.instanceId} className="flex flex-col items-center gap-1">
+                    <CardView card={t.card} label="Trap" onClick={() => setDetailCard(t.card)} />
+                  </div>
+                ))}
+                {state.fieldTokens.map(c => (
+                  <div key={c.instanceId} className="flex flex-col items-center gap-1">
+                    <CardView card={c} label="Token" onClick={() => setDetailCard(c)} />
+                    {c.definition.activatedAbilities?.map(ab => (
+                      <button key={ab.id}
+                        onClick={() => dispatch({ type: 'ACTIVATE_ABILITY', cardInstanceId: c.instanceId, abilityId: ab.id })}
+                        disabled={state.phase !== 'PlayerPending'}
+                        className="text-[10px] px-2 py-0.5 rounded border border-amber-600 text-amber-400 hover:bg-amber-900/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {ab.name} {formatAbilityCost(ab.cost)}
+                      </button>
+                    ))}
+                  </div>
+                ))}
               </div>
             )}
 
