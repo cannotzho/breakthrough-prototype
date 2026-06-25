@@ -123,6 +123,7 @@ export interface CardDefinition {
   activatedAbilities?: ActivatedAbility[];
   triggeredAbilities?: TriggeredAbility[];
   leavesTriggerEffects?: CardEffect[];
+  shieldTriggerEffects?: CardEffect[];
   /** @deprecated Use effectText/longDescription instead */
   description?: string;
 }

@@ -583,7 +583,8 @@ export function resolveFieldTriggerCheck(state: CombatState): CombatState {
     }
     s = addLog(s, `Shield Trigger: ${trigger.card.definition.name}`);
     s = { ...s, triggerDepth: s.triggerDepth + 1 };
-    for (const effect of trigger.card.definition.effects) {
+    const shieldEffects = trigger.card.definition.shieldTriggerEffects ?? trigger.card.definition.effects;
+    for (const effect of shieldEffects) {
       s = applyEffect(s, effect, trigger.card.controller, trigger.card);
       if (s.pendingReveal) break;
     }
