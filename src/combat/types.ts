@@ -28,7 +28,9 @@ export type CardEffectType =
   | 'DESTROY_SELF'
   | 'TRANSFORM_TOKEN'
   | 'DESTROY_TOKENS'
-  | 'APPLY_RESTRICTION';
+  | 'APPLY_RESTRICTION'
+  | 'DESTROY_IMPRESSION'
+  | 'APPLY_REPLACEMENT';
 
 export interface CardEffect {
   type: CardEffectType;
@@ -45,6 +47,8 @@ export interface CardEffect {
   restrictionTarget?: CardOwner;
   restrictionDuration?: number;
   condition?: EffectCondition;
+  replacementOriginalId?: string;
+  replacementTargetId?: string;
 }
 
 // ─── Game Events (for passive triggered abilities) ───────────
@@ -243,6 +247,7 @@ export const MAX_TRIGGER_DEPTH = 20;
 // ─── Active Restrictions ─────────────────────────────────────
 export type RestrictionType =
   | 'PREVENT_SHIELD_BREAK'
+  | 'PREVENT_DRAW'
   | 'MAX_CARD_COST'
   | 'INCREASE_CARD_COST';
 
@@ -251,6 +256,13 @@ export interface ActiveRestriction {
   restrictionType: RestrictionType;
   target: CardOwner;
   value?: number;
+  turnsRemaining: number;
+}
+
+export interface ActiveReplacement {
+  id: string;
+  originalTokenId: string;
+  replacementTokenId: string;
   turnsRemaining: number;
 }
 
@@ -323,6 +335,7 @@ export interface CombatState {
 
   activeTurn: 'player' | 'npc';
   activeRestrictions: ActiveRestriction[];
+  activeReplacements: ActiveReplacement[];
   npcCardsPlayedThisTurn: number;
 
   manualEnemyMode: boolean;

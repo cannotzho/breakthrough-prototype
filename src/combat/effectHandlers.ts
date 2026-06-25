@@ -1,6 +1,6 @@
 import {
   CombatState, CardEffect, CardInstance, CardOwner, FieldTrap,
-  TrapTriggerCondition, TrapTriggerType, GameEvent, MAX_TRIGGER_DEPTH, ActiveRestriction, EffectCondition,
+  TrapTriggerCondition, TrapTriggerType, GameEvent, MAX_TRIGGER_DEPTH, ActiveRestriction, ActiveReplacement, EffectCondition,
 } from './types';
 
 export function clampPriority(value: number): number {
@@ -50,12 +50,19 @@ export function drawCards(state: CombatState, count: number): CombatState {
 }
 
 export function tickRestrictions(state: CombatState): CombatState {
-  const updated = state.activeRestrictions
+  const updatedR = state.activeRestrictions
     .map(r => ({ ...r, turnsRemaining: r.turnsRemaining - 1 }))
     .filter(r => r.turnsRemaining > 0);
-  const expired = state.activeRestrictions.length - updated.length;
-  let s: CombatState = { ...state, activeRestrictions: updated };
-  if (expired > 0) s = addLog(s, `${expired} restriction(s) expired`);
+  const expiredR = state.activeRestrictions.length - updatedR.length;
+
+  const updatedRep = state.activeReplacements
+    .map(r => ({ ...r, turnsRemaining: r.turnsRemaining - 1 }))
+    .filter(r => r.turnsRemaining > 0);
+  const expiredRep = state.activeReplacements.length - updatedRep.length;
+
+  let s: CombatState = { ...state, activeRestrictions: updatedR, activeReplacements: updatedRep };
+  const totalExpired = expiredR + expiredRep;
+  if (totalExpired > 0) s = addLog(s, `${totalExpired} restriction/replacement(s) expired`);
   return s;
 }
 
@@ -337,6 +344,10 @@ export function applyEffect(state: CombatState, effect: CardEffect, controller: 
       return { ...s, patience: s.patience + delta };
     }
     case 'DRAW_CARDS': {
+      const drawBlocked = state.activeRestrictions.some(
+        r => r.restrictionType === 'PREVENT_DRAW' && r.target === controller
+      );
+      if (drawBlocked) return addLog(state, `Draw prevented by active restriction`);
       const count = effect.value ?? 1;
       return drawCards(state, count);
     }
@@ -379,11 +390,17 @@ export function applyEffect(state: CombatState, effect: CardEffect, controller: 
     case 'PLACE_IMPRESSION':
       return state;
     case 'CREATE_TOKEN': {
-      const tokenDef = effect.tokenDefinitionId
-        ? state.tokenRegistry[effect.tokenDefinitionId]
-        : undefined;
+      let tokenId = effect.tokenDefinitionId;
+      const replacement = state.activeReplacements.find(r => r.originalTokenId === tokenId);
+      if (replacement) {
+        tokenId = replacement.replacementTokenId;
+      }
+      const tokenDef = tokenId ? state.tokenRegistry[tokenId] : undefined;
       if (!tokenDef) {
-        return addLog(state, `[ERROR] CREATE_TOKEN: no token definition found for "${effect.tokenDefinitionId}"`);
+        return addLog(state, `[ERROR] CREATE_TOKEN: no token definition found for "${tokenId}"`);
+      }
+      if (replacement) {
+        state = addLog(state, `Replacement: ${effect.tokenDefinitionId} → ${tokenDef.name}`);
       }
       const count = effect.value ?? 1;
       const newTokens: CardInstance[] = [];
@@ -470,6 +487,31 @@ export function applyEffect(state: CombatState, effect: CardEffect, controller: 
       return addLog(
         { ...state, activeRestrictions: [...state.activeRestrictions, restriction] },
         `Restriction applied: ${restrictionType} on ${target} (${restriction.turnsRemaining} turn${restriction.turnsRemaining !== 1 ? 's' : ''})`
+      );
+    }
+    case 'DESTROY_IMPRESSION': {
+      const impressions = state.fieldImpressions.filter(i => i.controller === controller);
+      if (impressions.length === 0) return addLog(state, `No impressions to destroy`);
+      const target = impressions[0];
+      return addLog(
+        { ...state, fieldImpressions: state.fieldImpressions.filter(i => i.instanceId !== target.instanceId) },
+        `Destroyed impression: ${target.definition.name}`
+      );
+    }
+    case 'APPLY_REPLACEMENT': {
+      const { replacementOriginalId, replacementTargetId, restrictionDuration } = effect;
+      if (!replacementOriginalId || !replacementTargetId) {
+        return addLog(state, '[ERROR] APPLY_REPLACEMENT: missing originalId or targetId');
+      }
+      const rep: ActiveReplacement = {
+        id: crypto.randomUUID(),
+        originalTokenId: replacementOriginalId,
+        replacementTokenId: replacementTargetId,
+        turnsRemaining: restrictionDuration ?? 1,
+      };
+      return addLog(
+        { ...state, activeReplacements: [...state.activeReplacements, rep] },
+        `Replacement active: ${replacementOriginalId} → ${replacementTargetId} (${rep.turnsRemaining} turn${rep.turnsRemaining !== 1 ? 's' : ''})`
       );
     }
     case 'DESTROY_TOKENS': {

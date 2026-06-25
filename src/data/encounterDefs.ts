@@ -130,6 +130,7 @@ export function buildInitialCombatState(config: EncounterConfig): CombatState {
     discoveredNuggetIds: [],
     activeTurn: 'player',
     activeRestrictions: [],
+    activeReplacements: [],
     npcCardsPlayedThisTurn: 0,
     manualEnemyMode: false,
     tokenRegistry: { ...DEV_TOKEN_DEFINITIONS },
