@@ -547,7 +547,10 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
     case 'RESOLVE_ENEMY_CARD': {
       if (state.phase !== 'EnemyPlay' || !state.stagedEnemyCard) return state;
       const card = state.stagedEnemyCard;
-      let s: CombatState = addLog(state, `NPC played ${card.definition.name}`);
+      let s: CombatState = addLog(
+        { ...state, npcCardsPlayedThisTurn: state.npcCardsPlayedThisTurn + 1 },
+        `NPC played ${card.definition.name}`
+      );
 
       if (s.config.priorityMode === 'frame') {
         // Frame mode: enemy card cost pushes priority toward positive (self-limiting)

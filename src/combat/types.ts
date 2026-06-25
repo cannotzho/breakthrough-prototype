@@ -4,6 +4,17 @@ export type ColorIdentity = 'Red' | 'Blue' | 'Green' | 'White' | 'Black' | 'Oran
 // ─── Keywords ──────────────────────────────────────────────────
 export type Keyword = 'Safety' | 'Assemble' | 'Shield Trigger' | 'Lie' | 'Trap';
 
+// ─── Effect Conditions ────────────────────────────────────────
+export type EffectConditionType =
+  | 'NPC_CARDS_PLAYED_GTE'
+  | 'FIELD_TOKEN_COUNT_GTE'
+  | 'HAS_FIELD_IMPRESSION';
+
+export interface EffectCondition {
+  type: EffectConditionType;
+  value?: number;
+}
+
 // ─── Card Effects ──────────────────────────────────────────────
 export type CardEffectType =
   | 'BREAK_OPPONENT_SHIELD'
@@ -33,6 +44,7 @@ export interface CardEffect {
   restrictionType?: RestrictionType;
   restrictionTarget?: CardOwner;
   restrictionDuration?: number;
+  condition?: EffectCondition;
 }
 
 // ─── Game Events (for passive triggered abilities) ───────────
@@ -311,6 +323,7 @@ export interface CombatState {
 
   activeTurn: 'player' | 'npc';
   activeRestrictions: ActiveRestriction[];
+  npcCardsPlayedThisTurn: number;
 
   manualEnemyMode: boolean;
 

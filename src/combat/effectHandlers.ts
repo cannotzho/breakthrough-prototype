@@ -1,6 +1,6 @@
 import {
   CombatState, CardEffect, CardInstance, CardOwner, FieldTrap,
-  TrapTriggerCondition, TrapTriggerType, GameEvent, MAX_TRIGGER_DEPTH, ActiveRestriction,
+  TrapTriggerCondition, TrapTriggerType, GameEvent, MAX_TRIGGER_DEPTH, ActiveRestriction, EffectCondition,
 } from './types';
 
 export function clampPriority(value: number): number {
@@ -71,6 +71,7 @@ export function priorityRestore(state: CombatState): CombatState {
   s = drawCards(s, toDraw);
   s = expireTraps(s);
   s = tickRestrictions(s);
+  s = { ...s, npcCardsPlayedThisTurn: 0 };
   return s;
 }
 
@@ -94,6 +95,7 @@ export function classicTurnStart(state: CombatState): CombatState {
   s = drawCards(s, toDraw);
   s = expireTraps(s);
   s = tickRestrictions(s);
+  s = { ...s, npcCardsPlayedThisTurn: 0 };
   return addLog(s, 'Classic Turn Start — player\'s turn begins');
 }
 
@@ -283,7 +285,23 @@ export function breakPlayerShieldAutomatic(state: CombatState): ShieldBreakResul
   };
 }
 
+function checkCondition(state: CombatState, condition: EffectCondition): boolean {
+  switch (condition.type) {
+    case 'NPC_CARDS_PLAYED_GTE':
+      return state.npcCardsPlayedThisTurn >= (condition.value ?? 1);
+    case 'FIELD_TOKEN_COUNT_GTE':
+      return state.fieldTokens.length >= (condition.value ?? 1);
+    case 'HAS_FIELD_IMPRESSION':
+      return state.fieldImpressions.length > 0;
+    default:
+      return true;
+  }
+}
+
 export function applyEffect(state: CombatState, effect: CardEffect, controller: CardOwner = 'player', sourceCard?: CardInstance): CombatState {
+  if (effect.condition && !checkCondition(state, effect.condition)) {
+    return addLog(state, `Condition not met: ${effect.condition.type} (skipped ${effect.type})`);
+  }
   switch (effect.type) {
     case 'MODIFY_PRIORITY': {
       if (state.config.priorityMode === 'frame') {
