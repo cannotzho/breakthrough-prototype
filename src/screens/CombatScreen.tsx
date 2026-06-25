@@ -30,17 +30,22 @@ function formatAbilityCost(cost: ActivatedAbilityCost): string {
 interface CombatScreenProps {
   onExit: () => void;
   encounterConfig?: EncounterConfig;
+  playerDeckDefs?: import('../combat/types').CardDefinition[];
 }
 
-export default function CombatScreen({ onExit, encounterConfig }: CombatScreenProps) {
+export default function CombatScreen({ onExit, encounterConfig, playerDeckDefs }: CombatScreenProps) {
   const initialEncounter = encounterConfig ?? TEST_ENCOUNTER;
-  const [state, dispatch] = useReducer(combatReducer, initialEncounter, buildInitialCombatState);
+  const [state, dispatch] = useReducer(
+    combatReducer,
+    undefined,
+    () => buildInitialCombatState(initialEncounter, playerDeckDefs),
+  );
   const [activeEncounter, setActiveEncounter] = useState(initialEncounter);
 
   const loadEncounter = useCallback((config: EncounterConfig) => {
     setActiveEncounter(config);
-    dispatch({ type: 'DEV_RESET', state: buildInitialCombatState(config) });
-  }, []);
+    dispatch({ type: 'DEV_RESET', state: buildInitialCombatState(config, playerDeckDefs) });
+  }, [playerDeckDefs]);
   const [devOpen, setDevOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ cardId: string; x: number; y: number; source: 'hand' | 'botm' } | null>(null);
   const [priorityRestoreFlash, setPriorityRestoreFlash] = useState(false);

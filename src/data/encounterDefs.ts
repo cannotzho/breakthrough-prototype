@@ -1,4 +1,4 @@
-import { EncounterConfig, CombatState, DEFAULT_COMBAT_CONFIG, PlayerShieldSlot } from '../combat/types';
+import { EncounterConfig, CombatState, DEFAULT_COMBAT_CONFIG, PlayerShieldSlot, CardDefinition } from '../combat/types';
 import { makeInstance, shuffle } from '../combat/effectHandlers';
 import { DEV_SKILL_CARDS, DEV_ENEMY_CARDS, DEV_TOKEN_DEFINITIONS } from './devCards';
 
@@ -54,11 +54,14 @@ export const CLASSIC_TEST_ENCOUNTER: EncounterConfig = {
   enemyDeckCardIds: ['dev_enemy_dismiss', 'dev_enemy_deflect', 'dev_enemy_deflect'],
 };
 
-export function buildInitialCombatState(config: EncounterConfig): CombatState {
+export function buildInitialCombatState(
+  config: EncounterConfig,
+  playerDeckDefs?: CardDefinition[],
+): CombatState {
   const allEnemyDefs = [...DEV_ENEMY_CARDS];
 
-  const playerDeckDefs = [...DEV_SKILL_CARDS, ...DEV_SKILL_CARDS];
-  const shuffledPlayer = shuffle([...playerDeckDefs]);
+  const resolvedPlayerDeck = playerDeckDefs ?? [...DEV_SKILL_CARDS, ...DEV_SKILL_CARDS];
+  const shuffledPlayer = shuffle([...resolvedPlayerDeck]);
   const playerInstances = shuffledPlayer.map(def => makeInstance(def, 'player'));
   const initialHand = playerInstances.slice(0, DEFAULT_COMBAT_CONFIG.handLimit);
   const initialDeck = playerInstances.slice(DEFAULT_COMBAT_CONFIG.handLimit);

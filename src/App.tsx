@@ -5,16 +5,18 @@ import CardCollectionScreen from './screens/CardCollectionScreen';
 import EncounterGalleryScreen from './screens/EncounterGalleryScreen';
 import DeckBuilderScreen from './screens/DeckBuilderScreen';
 import IssueSubmitButton from './components/dev/IssueSubmitButton';
-import { EncounterConfig } from './combat/types';
+import { EncounterConfig, CardDefinition } from './combat/types';
 
 type Screen = 'title' | 'combat' | 'cardCollection' | 'encounterGallery' | 'deckBuilder';
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('title');
   const [encounterConfig, setEncounterConfig] = useState<EncounterConfig | null>(null);
+  const [playerDeckDefs, setPlayerDeckDefs] = useState<CardDefinition[] | undefined>(undefined);
 
-  const startPlaytest = useCallback((config?: EncounterConfig) => {
+  const startPlaytest = useCallback((config?: EncounterConfig, deckDefs?: CardDefinition[]) => {
     setEncounterConfig(config ?? null);
+    setPlayerDeckDefs(deckDefs);
     setScreen('combat');
   }, []);
 
@@ -23,7 +25,7 @@ export default function App() {
     case 'title':
       content = (
         <TitleScreen
-          onStart={() => startPlaytest()}
+          onStart={(deckDefs) => startPlaytest(undefined, deckDefs)}
           onCardCollection={() => setScreen('cardCollection')}
           onEncounterGallery={() => setScreen('encounterGallery')}
           onDeckBuilder={() => setScreen('deckBuilder')}
@@ -35,6 +37,7 @@ export default function App() {
         <CombatScreen
           onExit={() => setScreen('title')}
           encounterConfig={encounterConfig ?? undefined}
+          playerDeckDefs={playerDeckDefs}
         />
       );
       break;

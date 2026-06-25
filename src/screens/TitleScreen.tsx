@@ -1,13 +1,39 @@
+import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
+import { CardDefinition } from '../combat/types';
+import { useDeckStore } from '../stores/deckStore';
+import { useDevCardStore } from '../stores/collectionStore';
 
 interface TitleScreenProps {
-  onStart: () => void;
+  onStart: (deckDefs?: CardDefinition[]) => void;
   onCardCollection?: () => void;
   onEncounterGallery?: () => void;
   onDeckBuilder?: () => void;
 }
 
 export default function TitleScreen({ onStart, onCardCollection, onEncounterGallery, onDeckBuilder }: TitleScreenProps) {
+  const decks = useDeckStore(s => s.decks);
+  const allDecks = useMemo(() => Object.values(decks), [decks]);
+  const getCard = useDevCardStore(s => s.getCard);
+  const [selectedDeckId, setSelectedDeckId] = useState<string>('');
+
+  const handlePlaytest = () => {
+    if (!selectedDeckId) {
+      onStart();
+      return;
+    }
+    const deck = decks[selectedDeckId];
+    if (!deck) { onStart(); return; }
+    const defs: CardDefinition[] = [];
+    for (const entry of deck.cards) {
+      const card = getCard(entry.cardId);
+      if (card) {
+        for (let i = 0; i < entry.quantity; i++) defs.push(card);
+      }
+    }
+    onStart(defs.length > 0 ? defs : undefined);
+  };
+
   return (
     <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center text-white">
       <motion.div
@@ -29,9 +55,27 @@ export default function TitleScreen({ onStart, onCardCollection, onEncounterGall
           </p>
         </div>
 
+        {allDecks.length > 0 && (
+          <div className="flex flex-col items-center gap-2">
+            <label className="text-xs text-zinc-500 uppercase tracking-widest">Player Deck</label>
+            <select
+              value={selectedDeckId}
+              onChange={e => setSelectedDeckId(e.target.value)}
+              className="text-sm bg-zinc-800 border border-zinc-600 rounded px-4 py-2 text-white min-w-[240px] text-center"
+            >
+              <option value="">Default (dev cards)</option>
+              {allDecks.map(d => (
+                <option key={d.id} value={d.id}>
+                  {d.name} ({d.cards.reduce((n, e) => n + e.quantity, 0)} cards)
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <motion.button
-          onClick={onStart}
-          className="mt-6 px-16 py-4 border-2 border-white text-white uppercase tracking-widest text-lg hover:bg-white hover:text-zinc-950 transition-colors duration-200 rounded-lg"
+          onClick={handlePlaytest}
+          className="mt-2 px-16 py-4 border-2 border-white text-white uppercase tracking-widest text-lg hover:bg-white hover:text-zinc-950 transition-colors duration-200 rounded-lg"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
         >
