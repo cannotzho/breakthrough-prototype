@@ -379,13 +379,16 @@ export default function CombatScreen({ onExit, encounterConfig, playerDeckDefs }
               </AnimatePresence>
             </div>
 
-            {/* Field — Impressions and Traps (top of play area) */}
-            {(state.fieldImpressions.length > 0 || state.fieldTraps.length > 0) && (
-              <div className="flex justify-center gap-4 relative z-10">
+            {/* Spacer pushes field cards to bottom of play area */}
+            <div className="flex-1" />
+
+            {/* Field — Impressions, Traps, and Tokens (bottom of play area) */}
+            {(state.fieldImpressions.length > 0 || state.fieldTraps.length > 0 || state.fieldTokens.length > 0) && (
+              <div className="flex justify-center gap-4 flex-wrap relative z-10 pb-2">
                 <AnimatePresence>
                   {state.fieldImpressions.map(c => (
                     <div key={c.instanceId} className="flex flex-col items-center gap-1">
-                      <CardView card={c} label="Impression" />
+                      <CardView card={c} label="Impression" onClick={() => setDetailCard(c)} />
                       {c.definition.activatedAbilities?.map(ab => (
                         <button key={ab.id}
                           onClick={() => dispatch({ type: 'ACTIVATE_ABILITY', cardInstanceId: c.instanceId, abilityId: ab.id })}
@@ -398,22 +401,13 @@ export default function CombatScreen({ onExit, encounterConfig, playerDeckDefs }
                     </div>
                   ))}
                   {state.fieldTraps.map(t => (
-                    <CardView key={t.card.instanceId} card={t.card} label="Trap" />
+                    <div key={t.card.instanceId} className="flex flex-col items-center gap-1">
+                      <CardView card={t.card} label="Trap" onClick={() => setDetailCard(t.card)} />
+                    </div>
                   ))}
-                </AnimatePresence>
-              </div>
-            )}
-
-            {/* Spacer pushes tokens to bottom of play area */}
-            <div className="flex-1" />
-
-            {/* Field — Tokens (bottom of play area) */}
-            {state.fieldTokens.length > 0 && (
-              <div className="flex justify-center gap-4 relative z-10 pb-2">
-                <AnimatePresence>
                   {state.fieldTokens.map(c => (
                     <div key={c.instanceId} className="flex flex-col items-center gap-1">
-                      <CardView card={c} label="Token" />
+                      <CardView card={c} label="Token" onClick={() => setDetailCard(c)} />
                       {c.definition.activatedAbilities?.map(ab => (
                         <button key={ab.id}
                           onClick={() => dispatch({ type: 'ACTIVATE_ABILITY', cardInstanceId: c.instanceId, abilityId: ab.id })}
@@ -887,6 +881,23 @@ export default function CombatScreen({ onExit, encounterConfig, playerDeckDefs }
                   <p className="text-base text-zinc-300 leading-relaxed">
                     {detailCard.definition.longDescription}
                   </p>
+                </div>
+              )}
+              {detailCard.definition.activatedAbilities && detailCard.definition.activatedAbilities.length > 0 && (
+                <div>
+                  <div className="text-xs uppercase tracking-widest text-zinc-500 mb-1">Activated Abilities</div>
+                  {detailCard.definition.activatedAbilities.map(ab => (
+                    <div key={ab.id} className="flex items-center gap-2 text-sm text-amber-400">
+                      <span className="font-medium">{ab.name}</span>
+                      <span className="text-zinc-500">{formatAbilityCost(ab.cost)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {detailCard.definition.leavesTriggerEffects && detailCard.definition.leavesTriggerEffects.length > 0 && (
+                <div>
+                  <div className="text-xs uppercase tracking-widest text-zinc-500 mb-1">Leaves Battlefield</div>
+                  <p className="text-sm text-zinc-400">Triggers when this card leaves the field</p>
                 </div>
               )}
             </motion.div>
