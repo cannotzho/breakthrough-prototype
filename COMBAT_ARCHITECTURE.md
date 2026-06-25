@@ -63,6 +63,8 @@ flowchart TD
 | `TRANSFORM_TOKEN` | Replace token(s) of one type with another — uses `removeTokenRaw` (no triggers) |
 | `DESTROY_TOKENS` | Destroy multiple tokens by definition ID or instance IDs — reveal-aware looping |
 | `APPLY_RESTRICTION` | Apply a temporary restriction on a player/NPC (e.g., prevent shield breaks) |
+| `DESTROY_IMPRESSION` | Remove first impression controlled by the acting player |
+| `APPLY_REPLACEMENT` | Set a token creation replacement (e.g., "create X instead of Y this turn") |
 
 ## Active Restrictions
 
@@ -71,7 +73,7 @@ Restrictions are temporary rules that modify or prevent certain actions. Stored 
 ```typescript
 interface ActiveRestriction {
   id: string;
-  restrictionType: RestrictionType;  // 'PREVENT_SHIELD_BREAK' | 'MAX_CARD_COST' | 'INCREASE_CARD_COST'
+  restrictionType: RestrictionType;  // 'PREVENT_SHIELD_BREAK' | 'PREVENT_DRAW' | 'MAX_CARD_COST' | 'INCREASE_CARD_COST'
   target: CardOwner;                 // who is restricted
   value?: number;                    // parameter (e.g., max cost, extra cost amount)
   turnsRemaining: number;            // decrements each turn cycle; removed at 0
@@ -79,8 +81,45 @@ interface ActiveRestriction {
 ```
 
 - **Applied** via `APPLY_RESTRICTION` effect (restrictionType, restrictionTarget, restrictionDuration, value)
-- **Enforced** inline — e.g., `BREAK_OPPONENT_SHIELD` checks for `PREVENT_SHIELD_BREAK` before executing
+- **Enforced** inline — e.g., `BREAK_OPPONENT_SHIELD` checks for `PREVENT_SHIELD_BREAK`; `DRAW_CARDS` checks `PREVENT_DRAW`
 - **Expired** by `tickRestrictions()`, called at `priorityRestore` (frame) and `classicTurnStart` (classic)
+
+## Effect Conditions
+
+Effects can have an optional `condition: EffectCondition` field. If the condition is not met, the effect is skipped with a log message.
+
+```typescript
+type EffectConditionType = 'NPC_CARDS_PLAYED_GTE' | 'FIELD_TOKEN_COUNT_GTE' | 'HAS_FIELD_IMPRESSION';
+interface EffectCondition { type: EffectConditionType; value?: number; }
+```
+
+- `NPC_CARDS_PLAYED_GTE` — checks `npcCardsPlayedThisTurn >= value` (for Cold Hard Facts, Find Fallacy)
+- `npcCardsPlayedThisTurn` is incremented on `RESOLVE_ENEMY_CARD` and reset at turn boundaries
+
+## Token Creation Replacements
+
+Replacements intercept `CREATE_TOKEN` at resolution time, swapping the created token type. Stored as `activeReplacements: ActiveReplacement[]`.
+
+```typescript
+interface ActiveReplacement {
+  id: string;
+  originalTokenId: string;    // intercepted token definition ID
+  replacementTokenId: string; // substitute token definition ID
+  turnsRemaining: number;
+}
+```
+
+- **Applied** via `APPLY_REPLACEMENT` effect (replacementOriginalId, replacementTargetId, restrictionDuration)
+- **Intercepted** inside `CREATE_TOKEN` handler — if a matching replacement exists, the token type is swapped before creation
+- **Expired** alongside restrictions by `tickRestrictions()`
+
+## Shield Trigger Alt Effects
+
+Cards with the `Shield Trigger` keyword can define `shieldTriggerEffects?: CardEffect[]` for effects that fire on shield break instead of their normal `effects`. Resolution uses `shieldTriggerEffects ?? effects` as fallback.
+
+## NPC Card-Play Counter
+
+`npcCardsPlayedThisTurn: number` tracks how many cards the NPC has played in the current turn cycle. Incremented on `RESOLVE_ENEMY_CARD`, reset at `priorityRestore` (frame) and `classicTurnStart` (classic). Used by `NPC_CARDS_PLAYED_GTE` condition.
 
 ## Token Lifecycle
 
