@@ -2,6 +2,18 @@ import { EncounterConfig, CombatState, DEFAULT_COMBAT_CONFIG, PlayerShieldSlot, 
 import { makeInstance, shuffle } from '../combat/effectHandlers';
 import { DEV_SKILL_CARDS, DEV_ENEMY_CARDS, DEV_TOKEN_DEFINITIONS } from './devCards';
 
+const DUMMY_SHIELD_DEF: CardDefinition = {
+  id: 'dummy_shield',
+  name: 'Dummy Shield',
+  cost: 0,
+  keywords: [],
+  effects: [],
+  color: 'Colorless',
+  supertype: 'Skill',
+  subtype: null,
+  effectText: 'A basic shield. Costs 1 Patience when broken.',
+};
+
 export const TEST_ENCOUNTER: EncounterConfig = {
   id: 'test_encounter',
   displayName: 'The Informant',
@@ -71,16 +83,19 @@ export function buildInitialCombatState(
     return makeInstance(def, 'npc');
   });
 
-  // Build shield slots: dummy slots first, then core shields
-  const dummySlots: (PlayerShieldSlot | null)[] = Array(config.playerDummyShieldSlots).fill(null);
+  // Build shield slots: dummy slots auto-filled, then core shields
+  const dummySlots: PlayerShieldSlot[] = Array.from(
+    { length: config.playerDummyShieldSlots },
+    () => ({
+      card: makeInstance(DUMMY_SHIELD_DEF, 'player'),
+      shieldType: 'dummy' as const,
+      patienceCostOnBreak: 1,
+    }),
+  );
 
-  // Core shields are auto-placed if the player's collection contains the required cards
-  // For now, since there's no collection system, core shields from allowedCoreShields
-  // would be auto-placed if matching cards exist in the deck
   const coreSlots: (PlayerShieldSlot | null)[] = [];
-  // (Core shield auto-placement will be implemented when the collection system is ready)
 
-  const shieldSlots = [...dummySlots, ...coreSlots];
+  const shieldSlots: (PlayerShieldSlot | null)[] = [...dummySlots, ...coreSlots];
 
   const npcDummyCount = config.npcDummyShieldSlots ?? 0;
   const adjustedConfig = npcDummyCount > 0 && config.shieldBreakOrder
@@ -104,7 +119,7 @@ export function buildInitialCombatState(
     playerDiscard: [],
     backOfMind: [],
     playerShields: shieldSlots,
-    shieldsEverPlaced: 0,
+    shieldsEverPlaced: dummySlots.length,
     opponentShields: [
       ...Array.from({ length: npcDummyCount }, (_, i) => ({
         cardId: `npc_dummy_${i}`,
