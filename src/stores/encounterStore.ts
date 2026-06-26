@@ -29,6 +29,12 @@ export const useDevEncounterStore = create<DevEncounterStore>()((set, get) => {
     fromRow: (row) => {
       const enc = (row as { data: EncounterConfig }).data;
       if (!enc.nuggetOverrides) enc.nuggetOverrides = [];
+      if (!enc.traits) enc.traits = [];
+      if (enc.npcDummyShieldSlots == null) enc.npcDummyShieldSlots = 10;
+      if (enc.playerDummyShieldSlots == null) enc.playerDummyShieldSlots = 10;
+      if (!enc.allowedCoreShields) enc.allowedCoreShields = [];
+      if (!enc.enemyDeckCardIds) enc.enemyDeckCardIds = [];
+      if (enc.priorityMode == null) enc.priorityMode = 'frame';
       return enc;
     },
     importConfig: {

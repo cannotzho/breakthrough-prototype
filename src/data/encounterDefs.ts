@@ -97,7 +97,7 @@ export function buildInitialCombatState(
 
   const shieldSlots: (PlayerShieldSlot | null)[] = [...dummySlots, ...coreSlots];
 
-  const npcDummyCount = config.npcDummyShieldSlots ?? 0;
+  const npcDummyCount = config.npcDummyShieldSlots ?? 10;
   const adjustedConfig = npcDummyCount > 0 && config.shieldBreakOrder
     ? {
         ...config,
