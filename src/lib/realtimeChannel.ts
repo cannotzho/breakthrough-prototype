@@ -40,6 +40,7 @@ export function createRoom(): DualSession {
   });
 
   channel.on('broadcast', { event: 'action' }, ({ payload }) => {
+    console.log('[Dual:Host] received action:', (payload.action as CombatAction).type);
     callbacks.current.onAction?.(payload.action as CombatAction);
   });
 
@@ -47,7 +48,9 @@ export function createRoom(): DualSession {
     callbacks.current.onGuestJoined?.();
   });
 
-  channel.subscribe();
+  channel.subscribe((status) => {
+    console.log('[Dual:Host] channel status:', status);
+  });
 
   return {
     channel,
@@ -55,9 +58,11 @@ export function createRoom(): DualSession {
     role: 'player',
     callbacks,
     broadcastAction: (action: CombatAction) => {
+      console.log('[Dual:Host] broadcasting action:', action.type);
       channel.send({ type: 'broadcast', event: 'action', payload: { action } });
     },
     broadcastStart: (initialState: CombatState) => {
+      console.log('[Dual:Host] broadcasting start');
       channel.send({ type: 'broadcast', event: 'start', payload: { state: initialState } });
     },
     broadcastConfig: (config: unknown) => {
@@ -77,10 +82,12 @@ export function joinRoom(roomCode: string): DualSession {
   });
 
   channel.on('broadcast', { event: 'action' }, ({ payload }) => {
+    console.log('[Dual:Guest] received action:', (payload.action as CombatAction).type);
     callbacks.current.onAction?.(payload.action as CombatAction);
   });
 
   channel.on('broadcast', { event: 'start' }, ({ payload }) => {
+    console.log('[Dual:Guest] received start');
     callbacks.current.onStart?.(payload.state as CombatState);
   });
 
@@ -89,6 +96,7 @@ export function joinRoom(roomCode: string): DualSession {
   });
 
   channel.subscribe((status) => {
+    console.log('[Dual:Guest] channel status:', status);
     if (status === 'SUBSCRIBED') {
       channel.send({ type: 'broadcast', event: 'join', payload: {} });
     }

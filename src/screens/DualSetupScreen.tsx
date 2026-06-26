@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { EncounterConfig, CardDefinition, CombatState } from '../combat/types';
 import { useDevCardStore } from '../stores/collectionStore';
@@ -60,8 +60,11 @@ export default function DualSetupScreen({ onBack, onStartCombat, onGuestStartCom
   const patch = useCallback((partial: Partial<EncounterConfig>) =>
     setConfig(c => ({ ...c, ...partial })), []);
 
+  const handedOffRef = useRef(false);
   useEffect(() => {
-    return () => { session?.disconnect(); };
+    return () => {
+      if (!handedOffRef.current) session?.disconnect();
+    };
   }, [session]);
 
   const handleHost = useCallback(() => {
@@ -79,6 +82,7 @@ export default function DualSetupScreen({ onBack, onStartCombat, onGuestStartCom
       setConfig(cfg as EncounterConfig);
     };
     s.callbacks.current.onStart = (initialState: CombatState) => {
+      handedOffRef.current = true;
       onGuestStartCombat(s, initialState);
     };
     setSession(s);
@@ -102,6 +106,7 @@ export default function DualSetupScreen({ onBack, onStartCombat, onGuestStartCom
 
   const handleStartCombat = useCallback(() => {
     if (!session) return;
+    handedOffRef.current = true;
     const playerDeckDefs = resolvePlayerDeck();
     session.broadcastConfig(config);
     onStartCombat(session, config, playerDeckDefs);
