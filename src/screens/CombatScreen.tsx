@@ -2,8 +2,10 @@ import { useReducer, useEffect, useLayoutEffect, useCallback, useState, useRef }
 import { motion, AnimatePresence } from 'framer-motion';
 import { combatReducer } from '../combat/combatReducer';
 import { buildInitialCombatState, TEST_ENCOUNTER } from '../data/encounterDefs';
-import { CardInstance, EncounterConfig, SHIELD_PLACEMENT_COST, ActivatedAbilityCost } from '../combat/types';
+import { CardInstance, CombatState, CombatAction, EncounterConfig, SHIELD_PLACEMENT_COST, ActivatedAbilityCost } from '../combat/types';
 import DevPanel from '../components/dev/DevPanel';
+import CombatConsole from '../components/dev/CombatConsole';
+import { DualSession, shouldBroadcast, isActionAllowed } from '../lib/realtimeChannel';
 import PriorityBar from '../components/combat/PriorityBar';
 import PatienceDisplay from '../components/combat/PatienceDisplay';
 import CardView from '../components/combat/CardView';
@@ -31,16 +33,43 @@ interface CombatScreenProps {
   onExit: () => void;
   encounterConfig?: EncounterConfig;
   playerDeckDefs?: import('../combat/types').CardDefinition[];
+  dualSession?: DualSession;
+  initialCombatState?: CombatState;
 }
 
-export default function CombatScreen({ onExit, encounterConfig, playerDeckDefs }: CombatScreenProps) {
+export default function CombatScreen({ onExit, encounterConfig, playerDeckDefs, dualSession, initialCombatState }: CombatScreenProps) {
   const initialEncounter = encounterConfig ?? TEST_ENCOUNTER;
-  const [state, dispatch] = useReducer(
+  const [state, rawDispatch] = useReducer(
     combatReducer,
     undefined,
-    () => buildInitialCombatState(initialEncounter, playerDeckDefs),
+    () => initialCombatState ?? buildInitialCombatState(initialEncounter, playerDeckDefs),
   );
   const [activeEncounter, setActiveEncounter] = useState(initialEncounter);
+
+  const isDual = !!dualSession;
+  const dualRole = dualSession?.role ?? 'player';
+
+  const dispatch = useCallback((action: CombatAction) => {
+    if (dualSession && !isActionAllowed(action, dualSession.role)) return;
+    rawDispatch(action);
+    if (dualSession && shouldBroadcast(action)) {
+      dualSession.broadcastAction(action);
+    }
+  }, [dualSession, rawDispatch]);
+
+  useEffect(() => {
+    if (!dualSession) return;
+    dualSession.callbacks.current.onAction = (action: CombatAction) => {
+      rawDispatch(action);
+    };
+    return () => { dualSession.callbacks.current.onAction = undefined; };
+  }, [dualSession, rawDispatch]);
+
+  useEffect(() => {
+    if (isDual && !state.manualEnemyMode) {
+      rawDispatch({ type: 'DEV_SET_MANUAL_ENEMY', enabled: true });
+    }
+  }, [isDual]);
 
   const loadEncounter = useCallback((config: EncounterConfig) => {
     setActiveEncounter(config);
@@ -318,12 +347,18 @@ export default function CombatScreen({ onExit, encounterConfig, playerDeckDefs }
             ← Exit
           </button>
           <PhaseBar phase={phase} />
-          <button
-            onClick={() => setDevOpen(v => !v)}
-            className="text-sm bg-zinc-800 border border-zinc-600 text-zinc-400 hover:text-white px-4 py-2 rounded transition-colors"
-          >
-            DEV
-          </button>
+          {isDual ? (
+            <span className={`text-sm px-4 py-2 rounded border font-bold ${dualRole === 'player' ? 'border-blue-600 text-blue-400' : 'border-red-600 text-red-400'}`}>
+              {dualRole === 'player' ? 'PLAYER' : 'NPC'}
+            </span>
+          ) : (
+            <button
+              onClick={() => setDevOpen(v => !v)}
+              className="text-sm bg-zinc-800 border border-zinc-600 text-zinc-400 hover:text-white px-4 py-2 rounded transition-colors"
+            >
+              DEV
+            </button>
+          )}
         </div>
 
         {/* Main layout: top area (opponent + play zone) expands, stats + hand anchored bottom */}
@@ -577,12 +612,41 @@ export default function CombatScreen({ onExit, encounterConfig, playerDeckDefs }
               isBotMSelect ? 'animate-indigo-pulse' : 'bg-zinc-950/60'
             }`}>
               <div className="flex items-end gap-4">
-                {/* Hand cards */}
+                {/* Hand cards — hidden for NPC role in dual mode */}
+                {isDual && dualRole === 'npc' ? (
+                  <div className="flex-1 min-w-0 h-[140px] lg:h-[160px] flex flex-col items-center justify-center gap-3">
+                    <div className="text-zinc-500 text-sm">Player Hand: {playerHand.length} cards</div>
+                    {state.phase === 'EnemyPending' && state.enemyDeck.length > 0 && (
+                      <div className="w-full max-w-md border border-red-700 rounded-lg p-3 bg-red-950/30">
+                        <div className="text-xs text-red-400 font-bold mb-2">Pick enemy card to play ({state.enemyDeck.length} in deck)</div>
+                        <div className="flex flex-col gap-1 max-h-40 overflow-y-auto">
+                          {state.enemyDeck.map((inst, i) => (
+                            <button key={inst.instanceId}
+                              onClick={() => dispatch({ type: 'DEV_PICK_ENEMY_FROM_DECK', instanceId: inst.instanceId })}
+                              className="text-left text-xs px-2 py-1.5 rounded border border-zinc-700 text-zinc-200 hover:border-red-400 hover:text-red-300 hover:bg-red-950/50 transition-colors flex justify-between items-center"
+                            >
+                              <span>{i === 0 && <span className="text-zinc-500 mr-1">[top]</span>}{inst.definition.name}</span>
+                              <span className="text-zinc-500 text-[10px]">cost {inst.definition.cost} · {inst.definition.color}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {state.phase === 'EnemyPending' && state.enemyDeck.length === 0 && (
+                      <div className="text-amber-500/60 text-xs">No cards in enemy deck</div>
+                    )}
+                    {state.phase !== 'EnemyPending' && (
+                      <div className="text-zinc-600 text-xs">
+                        {state.phase === 'PlayerPending' ? 'Waiting for player...' : `Phase: ${state.phase}`}
+                      </div>
+                    )}
+                  </div>
+                ) : (
                 <div className="flex-1 min-w-0 h-[140px] lg:h-[160px] overflow-visible relative">
                   <div ref={handContainerRef} className="flex gap-2 lg:gap-4 flex-wrap justify-center absolute bottom-0 left-0 right-0 translate-y-[40%] lg:translate-y-[35%]">
                     <AnimatePresence mode="popLayout">
                       {playerHand.map(card => {
-                        const canDrag = isPlayerTurn;
+                        const canDrag = isPlayerTurn && !(isDual && dualRole === 'npc');
                         const isBotMSelected = isBotMSelect && backOfMind.some(c => c.instanceId === card.instanceId);
                         return (
                           <HandCard
@@ -615,6 +679,7 @@ export default function CombatScreen({ onExit, encounterConfig, playerDeckDefs }
                     </AnimatePresence>
                   </div>
                 </div>
+                )}
 
                 {/* Action buttons */}
                 <div className="flex flex-col gap-2 shrink-0 pb-2">
@@ -903,14 +968,18 @@ export default function CombatScreen({ onExit, encounterConfig, playerDeckDefs }
         )}
       </AnimatePresence>
 
-      {/* Dev panel */}
-      <DevPanel
-        open={devOpen}
-        onClose={() => setDevOpen(false)}
-        state={state}
-        dispatch={dispatch}
-        onLoadEncounter={loadEncounter}
-      />
+      {/* Dev panel / Combat console */}
+      {isDual ? (
+        <CombatConsole state={state} role={dualRole} />
+      ) : (
+        <DevPanel
+          open={devOpen}
+          onClose={() => setDevOpen(false)}
+          state={state}
+          dispatch={dispatch}
+          onLoadEncounter={loadEncounter}
+        />
+      )}
     </div>
   );
 }

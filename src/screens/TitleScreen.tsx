@@ -9,9 +9,10 @@ interface TitleScreenProps {
   onCardCollection?: () => void;
   onEncounterGallery?: () => void;
   onDeckBuilder?: () => void;
+  onDualPlaytest?: () => void;
 }
 
-export default function TitleScreen({ onStart, onCardCollection, onEncounterGallery, onDeckBuilder }: TitleScreenProps) {
+export default function TitleScreen({ onStart, onCardCollection, onEncounterGallery, onDeckBuilder, onDualPlaytest }: TitleScreenProps) {
   const decks = useDeckStore(s => s.decks);
   const allDecks = useMemo(() => Object.values(decks), [decks]);
   const getCard = useDevCardStore(s => s.getCard);
@@ -81,6 +82,17 @@ export default function TitleScreen({ onStart, onCardCollection, onEncounterGall
         >
           Playtest
         </motion.button>
+
+        {onDualPlaytest && (
+          <motion.button
+            onClick={onDualPlaytest}
+            className="px-12 py-3 border-2 border-zinc-600 text-zinc-400 uppercase tracking-widest text-sm hover:border-zinc-400 hover:text-white transition-colors duration-200 rounded-lg"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            Dual Playtest
+          </motion.button>
+        )}
 
         {(onCardCollection || onEncounterGallery || onDeckBuilder) && (
           <div className="flex gap-6 mt-4 flex-wrap justify-center">
