@@ -274,7 +274,9 @@ export function breakPlayerShieldAutomatic(state: CombatState): ShieldBreakResul
     ...state,
     playerShields: newShields,
     patience: state.patience - patienceCost,
-    playerDiscard: [...state.playerDiscard, card],
+    playerDiscard: shield.shieldType === 'dummy'
+      ? state.playerDiscard
+      : [...state.playerDiscard, card],
   };
 
   const breakType = shield.shieldType === 'core' ? 'Core' : 'Dummy';
