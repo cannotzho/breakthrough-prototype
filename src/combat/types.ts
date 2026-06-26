@@ -284,6 +284,7 @@ export interface FieldTrap {
   card: CardInstance;
   triggerCondition: TrapTriggerCondition;
   playOrder: number;
+  turnsRemaining: number;
 }
 
 // ─── Pending Shield Trigger ────────────────────────────────────

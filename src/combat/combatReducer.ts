@@ -1,4 +1,4 @@
-import { CombatState, CombatAction, CardInstance, CardEffect, CardOwner, NuggetOverride, SHIELD_PLACEMENT_COST, ActivatedAbilityCost } from './types';
+import { CombatState, CombatAction, CardInstance, CardEffect, CardOwner, NuggetOverride, SHIELD_PLACEMENT_COST, ActivatedAbilityCost, FieldTrap } from './types';
 import { applyEffect, selectEnemyCard, makeInstance, clampPriority, applyTurnHandoffBonus, priorityRestore, shuffle, resolveFieldTriggerCheck, classicTurnStart, npcTurnStart, addLog, destroyToken } from './effectHandlers';
 import { COMBINATIONS } from '../data/combinations';
 import { PONDER_DEFINITION } from '../data/devCards';
@@ -154,10 +154,11 @@ function completePlayerPlay(state: CombatState, card: CardInstance, isPonderConv
   const isCombined = !!card.combinedFrom;
 
   if (isTrap && card.definition.trapTrigger) {
-    const trap = {
+    const trap: FieldTrap = {
       card,
       triggerCondition: card.definition.trapTrigger,
       playOrder: s.trapPlayCounter,
+      turnsRemaining: 2,
     };
     s = {
       ...s,
@@ -182,7 +183,7 @@ function completePlayerPlay(state: CombatState, card: CardInstance, isPonderConv
     };
   }
 
-  // Field Trigger Check after Player Play
+  // Field Trigger Check after Player Play (no trap event — traps watch opponent actions)
   s = resolveFieldTriggerCheck(s);
 
   // Frame mode: if priority ≤ 0 and hand is empty, BotM will be skipped
@@ -551,6 +552,9 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
         { ...state, npcCardsPlayedThisTurn: state.npcCardsPlayedThisTurn + 1 },
         `NPC played ${card.definition.name}`
       );
+
+      // Check traps right after count increment, before priority cost resets it
+      s = resolveFieldTriggerCheck(s, 'OPPONENT_PLAYS_CARD');
 
       if (s.config.priorityMode === 'frame') {
         // Frame mode: enemy card cost pushes priority toward positive (self-limiting)

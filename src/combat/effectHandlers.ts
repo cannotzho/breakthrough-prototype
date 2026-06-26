@@ -118,15 +118,21 @@ export function npcTurnStart(state: CombatState): CombatState {
 
 export function expireTraps(state: CombatState): CombatState {
   if (state.fieldTraps.length === 0) return state;
-  const expired = state.fieldTraps;
-  const expiredCards = expired.map(t => t.card);
+  const surviving: FieldTrap[] = [];
+  const expiredCards: CardInstance[] = [];
   const log = [...state.actionLog];
-  for (const t of expired) {
-    log.push(`Trap expired: ${t.card.definition.name}`);
+  for (const t of state.fieldTraps) {
+    const remaining = (t.turnsRemaining ?? 1) - 1;
+    if (remaining <= 0) {
+      expiredCards.push(t.card);
+      log.push(`Trap expired: ${t.card.definition.name}`);
+    } else {
+      surviving.push({ ...t, turnsRemaining: remaining });
+    }
   }
   return {
     ...state,
-    fieldTraps: [],
+    fieldTraps: surviving,
     playerDiscard: [...state.playerDiscard, ...expiredCards],
     actionLog: log,
   };
@@ -608,16 +614,16 @@ export function evaluateTrapCondition(
   }
 }
 
-export function resolveFieldTriggerCheck(state: CombatState): CombatState {
+export function resolveFieldTriggerCheck(state: CombatState, event?: TrapTriggerType): CombatState {
   let s = state;
 
   if (s.triggerDepth >= MAX_TRIGGER_DEPTH) {
     return addLog(s, `[ERROR] Trigger depth cap (${MAX_TRIGGER_DEPTH}) reached — halting resolution`);
   }
 
-  const triggeredTraps: FieldTrap[] = s.fieldTraps.filter(trap =>
-    evaluateTrapCondition(trap.triggerCondition, 'OPPONENT_PLAYS_CARD')
-  );
+  const triggeredTraps: FieldTrap[] = event
+    ? s.fieldTraps.filter(trap => evaluateTrapCondition(trap.triggerCondition, event))
+    : [];
 
   const sortedTraps = [...triggeredTraps].sort((a, b) => a.playOrder - b.playOrder);
 
@@ -626,6 +632,12 @@ export function resolveFieldTriggerCheck(state: CombatState): CombatState {
       s = addLog(s, `[ERROR] Trigger depth cap reached during trap resolution`);
       break;
     }
+
+    const allSkipped = trap.card.definition.effects.every(e =>
+      e.condition && !checkCondition(s, e.condition)
+    );
+    if (allSkipped) continue;
+
     s = addLog(s, `Trap triggered: ${trap.card.definition.name}`);
     s = { ...s, triggerDepth: s.triggerDepth + 1 };
     for (const effect of trap.card.definition.effects) {
@@ -636,7 +648,7 @@ export function resolveFieldTriggerCheck(state: CombatState): CombatState {
       fieldTraps: s.fieldTraps.filter(t => t !== trap),
       playerDiscard: [...s.playerDiscard, trap.card],
     };
-    s = resolveFieldTriggerCheck(s);
+    s = resolveFieldTriggerCheck(s, event);
     s = { ...s, triggerDepth: s.triggerDepth - 1 };
   }
 
@@ -655,7 +667,7 @@ export function resolveFieldTriggerCheck(state: CombatState): CombatState {
       s = applyEffect(s, effect, trigger.card.controller, trigger.card);
       if (s.pendingReveal) break;
     }
-    s = resolveFieldTriggerCheck(s);
+    s = resolveFieldTriggerCheck(s, event);
     s = { ...s, triggerDepth: s.triggerDepth - 1 };
   }
 
