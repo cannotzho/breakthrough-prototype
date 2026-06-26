@@ -20,6 +20,24 @@ import useCardDrag from '../components/combat/useCardDrag';
 import { COLOR_BORDER } from '../components/combat/cardColors';
 import { useNuggetDiscoveryStore } from '../stores/nuggetDiscoveryStore';
 
+function formatTrapCondition(cond: import('../combat/types').TrapTriggerCondition): string {
+  switch (cond.triggerType) {
+    case 'OPPONENT_PLAYS_CARD': return 'Triggers when opponent plays a card';
+    case 'OPPONENT_BREAKS_SHIELD': return 'Triggers when opponent breaks a shield';
+    case 'PATIENCE_CHANGE': {
+      if (!cond.comparator || cond.value === undefined) return 'Triggers on patience change';
+      const op = { eq: '=', gt: '>', lt: '<', gte: '≥', lte: '≤' }[cond.comparator];
+      return `Triggers when patience ${op} ${cond.value}`;
+    }
+    case 'PRIORITY_CHANGE': {
+      if (!cond.comparator || cond.value === undefined) return 'Triggers on priority change';
+      const op = { eq: '=', gt: '>', lt: '<', gte: '≥', lte: '≤' }[cond.comparator];
+      return `Triggers when priority ${op} ${cond.value}`;
+    }
+    default: return 'Trap';
+  }
+}
+
 function formatAbilityCost(cost: ActivatedAbilityCost): string {
   const parts: string[] = [];
   if (cost.priority) parts.push(`${cost.priority}P`);
@@ -82,6 +100,9 @@ export default function CombatScreen({ onExit, encounterConfig, playerDeckDefs, 
   const [enemyPanelCollapsed, setEnemyPanelCollapsed] = useState(false);
   const [detailCard, setDetailCard] = useState<CardInstance | null>(null);
   const [playedCardAnim, setPlayedCardAnim] = useState<CardInstance | null>(null);
+  const [reorderDragIdx, setReorderDragIdx] = useState(-1);
+  const [shieldTriggerAnim, setShieldTriggerAnim] = useState<string | null>(null);
+  const prevLogLenRef = useRef(0);
   const playedCardContainerRef = useRef<HTMLDivElement | null>(null);
   const [discardExitOffset, setDiscardExitOffset] = useState<{ x: number; y: number }>({ x: 80, y: 0 });
   const playZoneRef = useRef<HTMLDivElement | null>(null);
@@ -155,6 +176,22 @@ export default function CombatScreen({ onExit, encounterConfig, playerDeckDefs, 
     }
   }, [playedCardAnim]);
 
+  useEffect(() => {
+    const log = state.actionLog;
+    const prevLen = prevLogLenRef.current;
+    prevLogLenRef.current = log.length;
+    if (log.length > prevLen) {
+      for (let i = prevLen; i < log.length; i++) {
+        const match = log[i].match(/^Shield Trigger: (.+)$/);
+        if (match) {
+          setShieldTriggerAnim(match[1]);
+          const t = setTimeout(() => setShieldTriggerAnim(null), 1800);
+          return () => clearTimeout(t);
+        }
+      }
+    }
+  }, [state.actionLog]);
+
   const recordDiscovery = useNuggetDiscoveryStore(s => s.recordDiscovery);
   const prevDiscoveredRef = useRef(state.discoveredNuggetIds.length);
   useEffect(() => {
@@ -198,6 +235,15 @@ export default function CombatScreen({ onExit, encounterConfig, playerDeckDefs, 
     }
   }, [state.phase, state.stagedEnemyCard]);
 
+  const handleShieldReorderDrop = useCallback((targetIdx: number) => {
+    if (reorderDragIdx === -1 || reorderDragIdx === targetIdx) return;
+    const newOrder = state.playerShields.map((_s, i) => i);
+    const [removed] = newOrder.splice(reorderDragIdx, 1);
+    newOrder.splice(targetIdx, 0, removed);
+    dispatch({ type: 'RESEQUENCE_SHIELDS', newOrder });
+    setReorderDragIdx(-1);
+  }, [reorderDragIdx, state.playerShields, dispatch]);
+
   const openContextMenu = useCallback((cardId: string, x: number, y: number, source: 'hand' | 'botm') => {
     if (dragOccurredRef.current) return;
     setContextMenu({ cardId, x, y, source });
@@ -236,6 +282,30 @@ export default function CombatScreen({ onExit, encounterConfig, playerDeckDefs, 
             transition={{ duration: 1.3 }}
             className="fixed inset-0 z-15 pointer-events-none bg-blue-400/10"
           />
+        )}
+      </AnimatePresence>
+
+      {/* Shield Trigger activation toast */}
+      <AnimatePresence>
+        {shieldTriggerAnim && (
+          <motion.div
+            key="shield-trigger-toast"
+            initial={{ opacity: 0, y: 30, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            transition={{ duration: 0.3 }}
+            className="fixed bottom-48 left-1/2 -translate-x-1/2 z-40 pointer-events-none"
+          >
+            <div className="bg-blue-950/90 border-2 border-blue-400 rounded-xl px-8 py-4 shadow-[0_0_30px_rgba(96,165,250,0.4)] flex items-center gap-3">
+              <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5 text-blue-400 shrink-0">
+                <path fillRule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clipRule="evenodd" />
+              </svg>
+              <div>
+                <div className="text-[10px] uppercase tracking-widest text-blue-400">Shield Trigger</div>
+                <div className="text-sm font-semibold text-white">{shieldTriggerAnim}</div>
+              </div>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
 
@@ -435,8 +505,13 @@ export default function CombatScreen({ onExit, encounterConfig, playerDeckDefs, 
                   </div>
                 ))}
                 {state.fieldTraps.map(t => (
-                  <div key={t.card.instanceId} className="flex flex-col items-center gap-1">
+                  <div key={t.card.instanceId} className="flex flex-col items-center gap-1 group/trap relative">
                     <CardView card={t.card} label="Trap" onClick={() => setDetailCard(t.card)} />
+                    <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 opacity-0 group-hover/trap:opacity-100 transition-opacity pointer-events-none z-20 whitespace-nowrap">
+                      <span className="text-[10px] bg-zinc-800 border border-zinc-600 text-zinc-300 px-2 py-1 rounded shadow-lg">
+                        {formatTrapCondition(t.triggerCondition)}
+                      </span>
+                    </div>
                   </div>
                 ))}
                 {state.fieldTokens.map(c => (
@@ -544,6 +619,10 @@ export default function CombatScreen({ onExit, encounterConfig, playerDeckDefs, 
                             isDropTarget={isPlayerTurn && isDragging}
                             isDragHovered={hoveredShieldIdx === i}
                             onDrop={() => handleShieldDrop(i)}
+                            reorderable={isPlayerTurn && !isDragging}
+                            onReorderDragStart={() => setReorderDragIdx(i)}
+                            onReorderDrop={() => handleShieldReorderDrop(i)}
+                            triggerFlash={shieldTriggerAnim !== null && slot?.card.definition.keywords.includes('Shield Trigger')}
                             onSelect={() => {
                               if (state.pendingPlaceAsShield && slot === null) {
                                 dispatch({ type: 'CONFIRM_PLACE_AS_SHIELD', slotIdx: i });
