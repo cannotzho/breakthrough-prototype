@@ -26,10 +26,10 @@ export default function PlayerShieldSlot({ slot, idx, selectable, selected, onSe
         layout
         draggable={reorderable}
         onDragStart={reorderable ? (e) => {
-          (e as React.DragEvent).dataTransfer.effectAllowed = 'move';
+          (e as unknown as React.DragEvent).dataTransfer.effectAllowed = 'move';
           onReorderDragStart?.();
         } : undefined}
-        onDragOver={reorderable ? (e) => { e.preventDefault(); (e as React.DragEvent).dataTransfer.dropEffect = 'move'; setReorderDragOver(true); } : undefined}
+        onDragOver={reorderable ? (e) => { e.preventDefault(); (e as unknown as React.DragEvent).dataTransfer.dropEffect = 'move'; setReorderDragOver(true); } : undefined}
         onDragLeave={reorderable ? () => setReorderDragOver(false) : undefined}
         onDrop={reorderable ? (e) => { e.preventDefault(); setReorderDragOver(false); onReorderDrop?.(); } : undefined}
         className={`w-4 lg:w-5 h-10 lg:h-12 rounded border-2 cursor-pointer transition-all
@@ -51,7 +51,7 @@ export default function PlayerShieldSlot({ slot, idx, selectable, selected, onSe
         onDragOver={(e) => {
           e.preventDefault();
           if (isDropTarget) setDragOver(true);
-          if (reorderable) { (e as React.DragEvent).dataTransfer.dropEffect = 'move'; setReorderDragOver(true); }
+          if (reorderable) { (e as unknown as React.DragEvent).dataTransfer.dropEffect = 'move'; setReorderDragOver(true); }
         }}
         onDragLeave={() => { setDragOver(false); setReorderDragOver(false); }}
         onDrop={(e) => {
@@ -80,10 +80,10 @@ export default function PlayerShieldSlot({ slot, idx, selectable, selected, onSe
       layout
       draggable={reorderable}
       onDragStart={reorderable ? (e) => {
-        (e as React.DragEvent).dataTransfer.effectAllowed = 'move';
+        (e as unknown as React.DragEvent).dataTransfer.effectAllowed = 'move';
         onReorderDragStart?.();
       } : undefined}
-      onDragOver={reorderable ? (e) => { e.preventDefault(); (e as React.DragEvent).dataTransfer.dropEffect = 'move'; setReorderDragOver(true); } : undefined}
+      onDragOver={reorderable ? (e) => { e.preventDefault(); (e as unknown as React.DragEvent).dataTransfer.dropEffect = 'move'; setReorderDragOver(true); } : undefined}
       onDragLeave={reorderable ? () => setReorderDragOver(false) : undefined}
       onDrop={reorderable ? (e) => { e.preventDefault(); setReorderDragOver(false); onReorderDrop?.(); } : undefined}
       className={`w-32 lg:w-36 h-10 lg:h-12 rounded-lg border-2 flex items-center px-2 cursor-pointer transition-all
