@@ -76,8 +76,17 @@ export function priorityRestore(state: CombatState): CombatState {
   }
   const toDraw = Math.max(0, s.combatConfig.handLimit - s.playerHand.length);
   s = drawCards(s, toDraw);
-  s = expireTraps(s);
-  s = tickRestrictions(s);
+  // Turn-based expiry (traps, restrictions) must tick only on a genuine
+  // opponent→player handoff — i.e. when the opponent actually took a turn.
+  // priorityRestore is ALSO invoked mid-player-turn whenever a player's own
+  // MODIFY_PRIORITY effect crosses priority 0 upward (cost is deducted first,
+  // dropping priority to ≤0, then the effect pushes it back >0). Ticking expiry
+  // there would prematurely burn down traps the player just placed, making them
+  // "not persist". Gate on whether the opponent played a card this turn.
+  if (state.npcCardsPlayedThisTurn > 0) {
+    s = expireTraps(s);
+    s = tickRestrictions(s);
+  }
   s = { ...s, npcCardsPlayedThisTurn: 0 };
   return s;
 }
