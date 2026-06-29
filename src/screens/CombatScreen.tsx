@@ -329,79 +329,73 @@ export default function CombatScreen({ onExit, encounterConfig, playerDeckDefs, 
             className="fixed z-40 bg-zinc-900 border border-zinc-700 rounded-lg shadow-2xl py-2 min-w-[240px]"
             style={{ left: contextMenu.x, top: contextMenu.y, transform: 'translate(-50%, -100%)' }}
           >
-            {/* Header */}
             {(() => {
               const ctxCard = contextMenu.source === 'botm'
                 ? backOfMind.find(c => c.instanceId === contextMenu.cardId)
                 : playerHand.find(c => c.instanceId === contextMenu.cardId);
               if (!ctxCard) return null;
               return (
-                <div className="px-4 py-2 border-b border-zinc-700">
-                  <div className="text-white text-sm font-semibold">{ctxCard.definition.name}</div>
-                  <div className="text-zinc-500 text-xs">{ctxCard.definition.supertype} · cost {ctxCard.definition.cost}</div>
-                </div>
-              );
-            })()}
+                <>
+                  {/* Header */}
+                  <div className="px-4 py-2 border-b border-zinc-700">
+                    <div className="text-white text-sm font-semibold">{ctxCard.definition.name}</div>
+                    <div className="text-zinc-500 text-xs">{ctxCard.definition.supertype} · cost {ctxCard.definition.cost}</div>
+                  </div>
 
-            {/* Play action */}
-            {isPlayerTurn && (
-              <button
-                className="w-full text-left px-5 py-3 text-base text-zinc-200 hover:bg-zinc-700 transition-colors"
-                onClick={() => {
-                  capturePlayedCard(contextMenu.cardId);
-                  dispatch({ type: 'PLAY_CARD', cardInstanceId: contextMenu.cardId });
-                  setContextMenu(null);
-                }}
-              >
-                Play
-              </button>
-            )}
+                  {/* Play action */}
+                  {isPlayerTurn && (
+                    <button
+                      className="w-full text-left px-5 py-3 text-base text-zinc-200 hover:bg-zinc-700 transition-colors"
+                      onClick={() => {
+                        capturePlayedCard(contextMenu.cardId);
+                        dispatch({ type: 'PLAY_CARD', cardInstanceId: contextMenu.cardId });
+                        setContextMenu(null);
+                      }}
+                    >
+                      Play
+                    </button>
+                  )}
 
-            {/* Place as Shield */}
-            {isPlayerTurn && hasEmptyShieldSlot && (
-              <button
-                className="w-full text-left px-5 py-3 text-base text-amber-300 hover:bg-zinc-700 transition-colors"
-                onClick={() => {
-                  const emptySlotIdx = playerShields.findIndex(s => s === null);
-                  if (emptySlotIdx !== -1) {
-                    dispatch({ type: 'PLACE_SHIELD', cardInstanceId: contextMenu.cardId, slotIdx: emptySlotIdx });
-                  }
-                  setContextMenu(null);
-                }}
-              >
-                Place as Shield ({SHIELD_PLACEMENT_COST} priority)
-              </button>
-            )}
+                  {/* Place as Shield */}
+                  {isPlayerTurn && hasEmptyShieldSlot && (
+                    <button
+                      className="w-full text-left px-5 py-3 text-base text-amber-300 hover:bg-zinc-700 transition-colors"
+                      onClick={() => {
+                        const emptySlotIdx = playerShields.findIndex(s => s === null);
+                        if (emptySlotIdx !== -1) {
+                          dispatch({ type: 'PLACE_SHIELD', cardInstanceId: contextMenu.cardId, slotIdx: emptySlotIdx });
+                        }
+                        setContextMenu(null);
+                      }}
+                    >
+                      Place as Shield ({SHIELD_PLACEMENT_COST} priority)
+                    </button>
+                  )}
 
-            {/* BotM selection */}
-            {isBotMSelect && (
-              <button
-                className="w-full text-left px-5 py-3 text-base text-zinc-200 hover:bg-zinc-700 transition-colors"
-                onClick={() => {
-                  dispatch({ type: 'SELECT_BOTM', cardInstanceId: contextMenu.cardId });
-                  setContextMenu(null);
-                }}
-              >
-                Keep
-              </button>
-            )}
+                  {/* BotM selection */}
+                  {isBotMSelect && (
+                    <button
+                      className="w-full text-left px-5 py-3 text-base text-zinc-200 hover:bg-zinc-700 transition-colors"
+                      onClick={() => {
+                        dispatch({ type: 'SELECT_BOTM', cardInstanceId: contextMenu.cardId });
+                        setContextMenu(null);
+                      }}
+                    >
+                      Keep
+                    </button>
+                  )}
 
-            {/* Details */}
-            {(() => {
-              const ctxCard = contextMenu.source === 'botm'
-                ? backOfMind.find(c => c.instanceId === contextMenu.cardId)
-                : playerHand.find(c => c.instanceId === contextMenu.cardId);
-              if (!ctxCard) return null;
-              return (
-                <button
-                  className="w-full text-left px-5 py-3 text-base text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-colors border-t border-zinc-800"
-                  onClick={() => {
-                    setDetailCard(ctxCard);
-                    setContextMenu(null);
-                  }}
-                >
-                  Details
-                </button>
+                  {/* Details */}
+                  <button
+                    className="w-full text-left px-5 py-3 text-base text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-colors border-t border-zinc-800"
+                    onClick={() => {
+                      setDetailCard(ctxCard);
+                      setContextMenu(null);
+                    }}
+                  >
+                    Details
+                  </button>
+                </>
               );
             })()}
           </motion.div>
