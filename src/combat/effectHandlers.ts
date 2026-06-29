@@ -317,6 +317,8 @@ function checkCondition(state: CombatState, condition: EffectCondition): boolean
       return state.fieldTokens.length >= (condition.value ?? 1);
     case 'HAS_FIELD_IMPRESSION':
       return state.fieldImpressions.length > 0;
+    case 'PATIENCE_LT':
+      return state.patience < (condition.value ?? 0);
     default:
       return true;
   }
@@ -382,11 +384,13 @@ export function applyEffect(state: CombatState, effect: CardEffect, controller: 
         const newShields = state.opponentShields.map((s, i) =>
           i === idx ? { ...s, broken: true } : s
         );
-        return {
+        let s: CombatState = {
           ...state,
           opponentShields: newShields,
           pendingReveal: newShields[idx],
         };
+        s = dispatchGameEvent(s, { type: 'SHIELD_BROKEN', sourceCard });
+        return s;
       } else {
         const result = breakPlayerShieldAutomatic(state);
         let s = result.state;

@@ -8,7 +8,8 @@ export type Keyword = 'Safety' | 'Assemble' | 'Shield Trigger' | 'Lie' | 'Trap';
 export type EffectConditionType =
   | 'NPC_CARDS_PLAYED_GTE'
   | 'FIELD_TOKEN_COUNT_GTE'
-  | 'HAS_FIELD_IMPRESSION';
+  | 'HAS_FIELD_IMPRESSION'
+  | 'PATIENCE_LT';
 
 export interface EffectCondition {
   type: EffectConditionType;
