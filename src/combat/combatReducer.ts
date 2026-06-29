@@ -3,10 +3,6 @@ import { applyEffect, selectEnemyCard, makeInstance, clampPriority, applyTurnHan
 import { COMBINATIONS } from '../data/combinations';
 import { PONDER_DEFINITION } from '../data/devCards';
 
-function computeCost(cost: number, _priority: number, _isFrame: boolean) {
-  return { priorityCovered: cost, patienceCost: 0 };
-}
-
 function checkState(state: CombatState): CombatState {
   const isFrame = state.config.priorityMode === 'frame';
 
@@ -257,12 +253,10 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       }
 
       const cost = effectiveCost;
-      const { priorityCovered, patienceCost } = computeCost(cost, state.priority, isFrame);
 
       let s: CombatState = {
         ...state,
-        priority: isFrame ? state.priority - priorityCovered : Math.max(0, state.priority - priorityCovered),
-        patience: state.patience - patienceCost,
+        priority: isFrame ? state.priority - cost : Math.max(0, state.priority - cost),
         playerHand: state.playerHand.filter(c => c.instanceId !== action.cardInstanceId),
         pendingEffects: [],
         pendingEffectCard: null,
@@ -275,7 +269,7 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
         };
         s = addLog(s, `Played ${card.definition.name} (non-relevant) → Ponder (cost ${PONDER_COST}, draw 1)`);
       } else {
-        s = addLog(s, `Played ${card.definition.name} (cost ${cost}${patienceCost > 0 ? `, −${patienceCost} Patience` : ''})`);
+        s = addLog(s, `Played ${card.definition.name} (cost ${cost})`);
       }
 
       if (discoveryEvent) {
@@ -333,15 +327,12 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
         return addLog(state, `Cannot place shield — cost ${SHIELD_PLACEMENT_COST} exceeds priority ${state.priority}`);
       }
 
-      const { priorityCovered, patienceCost } = computeCost(SHIELD_PLACEMENT_COST, state.priority, isFrame);
-
       const newShields = [...state.playerShields];
       newShields[action.slotIdx] = { card, shieldType: 'dummy', patienceCostOnBreak: 1 };
 
       let s: CombatState = {
         ...state,
-        priority: isFrame ? state.priority - priorityCovered : Math.max(0, state.priority - priorityCovered),
-        patience: state.patience - patienceCost,
+        priority: isFrame ? state.priority - SHIELD_PLACEMENT_COST : Math.max(0, state.priority - SHIELD_PLACEMENT_COST),
         playerHand: state.playerHand.filter(c => c.instanceId !== action.cardInstanceId),
         playerShields: newShields,
         shieldsEverPlaced: state.shieldsEverPlaced + 1,
