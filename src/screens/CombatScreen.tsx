@@ -177,8 +177,6 @@ export default function CombatScreen({ onExit, encounterConfig, playerDeckDefs, 
   const isPlayerTurn = phase === 'PlayerPending';
   const isBotMSelect = phase === 'BotMSelect';
   const isReveal = phase === 'RevealPending';
-  const isTerminal = phase === 'WIN' || phase === 'LOSE';
-
   const hasEmptyShieldSlot = playerShields.some(s => s === null);
   const showPlayZone = isPlayerTurn;
   const isDragging = draggingCardId !== null;
