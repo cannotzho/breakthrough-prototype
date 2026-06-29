@@ -2,7 +2,7 @@ import { useReducer, useEffect, useLayoutEffect, useCallback, useState, useRef }
 import { motion, AnimatePresence } from 'framer-motion';
 import { combatReducer } from '../combat/combatReducer';
 import { buildInitialCombatState, TEST_ENCOUNTER } from '../data/encounterDefs';
-import { CardInstance, CombatState, CombatAction, EncounterConfig, SHIELD_PLACEMENT_COST, ActivatedAbilityCost } from '../combat/types';
+import { CardInstance, CombatState, CombatAction, EncounterConfig, SHIELD_PLACEMENT_COST } from '../combat/types';
 import DevPanel from '../components/dev/DevPanel';
 import CombatConsole from '../components/dev/CombatConsole';
 import { DualSession, shouldBroadcast, isActionAllowed } from '../lib/realtimeChannel';
@@ -15,14 +15,14 @@ import PlayerShieldSlot from '../components/combat/PlayerShieldSlot';
 import TraitZone from '../components/combat/TraitZone';
 import PhaseBar from '../components/combat/PhaseBar';
 import PlayZone from '../components/combat/PlayZone';
-import KeywordBadge from '../components/combat/KeywordBadge';
 import useCardDrag from '../components/combat/useCardDrag';
-import { COLOR_BORDER } from '../components/combat/cardColors';
 import { useNuggetDiscoveryStore } from '../stores/nuggetDiscoveryStore';
 import DiscoveryModal from '../components/combat/DiscoveryModal';
 import RevealModal from '../components/combat/RevealModal';
 import TerminalScreen from '../components/combat/TerminalScreen';
 import PileViewerModal from '../components/combat/PileViewerModal';
+import CardDetailModal from '../components/combat/CardDetailModal';
+import { formatAbilityCost } from '../components/combat/formatters';
 
 function formatTrapCondition(cond: import('../combat/types').TrapTriggerCondition): string {
   switch (cond.triggerType) {
@@ -40,15 +40,6 @@ function formatTrapCondition(cond: import('../combat/types').TrapTriggerConditio
     }
     default: return 'Trap';
   }
-}
-
-function formatAbilityCost(cost: ActivatedAbilityCost): string {
-  const parts: string[] = [];
-  if (cost.priority) parts.push(`${cost.priority}P`);
-  if (cost.patience) parts.push(`${cost.patience}Pat`);
-  if (cost.shields) parts.push(`${cost.shields}S`);
-  if (cost.discard) parts.push(`${cost.discard}D`);
-  return parts.length > 0 ? `[${parts.join('/')}]` : '[Free]';
 }
 
 interface CombatScreenProps {
@@ -817,84 +808,7 @@ export default function CombatScreen({ onExit, encounterConfig, playerDeckDefs, 
         playerDiscard={state.playerDiscard}
       />
 
-      {/* Card detail modal */}
-      <AnimatePresence>
-        {detailCard && (
-          <motion.div
-            key="card-detail-backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
-            onClick={() => setDetailCard(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-zinc-900/95 backdrop-blur-md border border-zinc-700 rounded-xl p-8 max-w-md w-full mx-4 flex flex-col gap-4"
-              onClick={e => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-white">{detailCard.definition.name}</h2>
-                <button
-                  onClick={() => setDetailCard(null)}
-                  className="text-zinc-500 hover:text-white transition-colors text-2xl leading-none"
-                >
-                  ✕
-                </button>
-              </div>
-              <div className="flex gap-2 flex-wrap text-sm">
-                <span className={`px-2 py-1 rounded border ${COLOR_BORDER[detailCard.definition.color]} text-zinc-300`}>
-                  {detailCard.definition.color}
-                </span>
-                <span className="px-2 py-1 rounded border border-zinc-600 text-zinc-400">
-                  {detailCard.definition.supertype}
-                </span>
-                <span className="px-2 py-1 rounded border border-zinc-600 text-zinc-400">
-                  Cost {detailCard.definition.cost}
-                </span>
-                {detailCard.definition.keywords.map(kw => (
-                  <KeywordBadge key={kw} keyword={kw} />
-                ))}
-              </div>
-              {(detailCard.definition.effectText ?? detailCard.definition.description) && (
-                <div>
-                  <div className="text-xs uppercase tracking-widest text-zinc-500 mb-1">Effect</div>
-                  <p className="text-base text-zinc-200 leading-relaxed">
-                    {detailCard.definition.effectText ?? detailCard.definition.description}
-                  </p>
-                </div>
-              )}
-              {detailCard.definition.longDescription && (
-                <div>
-                  <div className="text-xs uppercase tracking-widest text-zinc-500 mb-1">Description</div>
-                  <p className="text-base text-zinc-300 leading-relaxed">
-                    {detailCard.definition.longDescription}
-                  </p>
-                </div>
-              )}
-              {detailCard.definition.activatedAbilities && detailCard.definition.activatedAbilities.length > 0 && (
-                <div>
-                  <div className="text-xs uppercase tracking-widest text-zinc-500 mb-1">Activated Abilities</div>
-                  {detailCard.definition.activatedAbilities.map(ab => (
-                    <div key={ab.id} className="flex items-center gap-2 text-sm text-amber-400">
-                      <span className="font-medium">{ab.name}</span>
-                      <span className="text-zinc-500">{formatAbilityCost(ab.cost)}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {detailCard.definition.leavesTriggerEffects && detailCard.definition.leavesTriggerEffects.length > 0 && (
-                <div>
-                  <div className="text-xs uppercase tracking-widest text-zinc-500 mb-1">Leaves Battlefield</div>
-                  <p className="text-sm text-zinc-400">Triggers when this card leaves the field</p>
-                </div>
-              )}
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <CardDetailModal card={detailCard} onClose={() => setDetailCard(null)} />
 
       {/* Dev panel / Combat console */}
       {isDual ? (
