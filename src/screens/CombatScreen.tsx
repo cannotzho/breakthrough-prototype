@@ -16,13 +16,13 @@ import TraitZone from '../components/combat/TraitZone';
 import PhaseBar from '../components/combat/PhaseBar';
 import PlayZone from '../components/combat/PlayZone';
 import useCardDrag from '../components/combat/useCardDrag';
-import { useNuggetDiscoveryStore } from '../stores/nuggetDiscoveryStore';
 import DiscoveryModal from '../components/combat/DiscoveryModal';
 import RevealModal from '../components/combat/RevealModal';
 import TerminalScreen from '../components/combat/TerminalScreen';
 import PileViewerModal from '../components/combat/PileViewerModal';
 import CardDetailModal from '../components/combat/CardDetailModal';
 import { formatAbilityCost } from '../components/combat/formatters';
+import useCombatEffects from '../components/combat/useCombatEffects';
 
 function formatTrapCondition(cond: import('../combat/types').TrapTriggerCondition): string {
   switch (cond.triggerType) {
@@ -90,14 +90,11 @@ export default function CombatScreen({ onExit, encounterConfig, playerDeckDefs, 
   }, [playerDeckDefs]);
   const [devOpen, setDevOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ cardId: string; x: number; y: number; source: 'hand' | 'botm' } | null>(null);
-  const [priorityRestoreFlash, setPriorityRestoreFlash] = useState(false);
   const [viewingPile, setViewingPile] = useState<'draw' | 'discard' | null>(null);
   const [enemyPanelCollapsed, setEnemyPanelCollapsed] = useState(false);
   const [detailCard, setDetailCard] = useState<CardInstance | null>(null);
   const [playedCardAnim, setPlayedCardAnim] = useState<CardInstance | null>(null);
   const [reorderDragIdx, setReorderDragIdx] = useState(-1);
-  const [shieldTriggerAnim, setShieldTriggerAnim] = useState<string | null>(null);
-  const prevLogLenRef = useRef(0);
   const playedCardContainerRef = useRef<HTMLDivElement | null>(null);
   const [discardExitOffset, setDiscardExitOffset] = useState<{ x: number; y: number }>({ x: 80, y: 0 });
   const playZoneRef = useRef<HTMLDivElement | null>(null);
@@ -106,7 +103,6 @@ export default function CombatScreen({ onExit, encounterConfig, playerDeckDefs, 
   const handContainerRef = useRef<HTMLDivElement | null>(null);
   const drawPileOffset = useRef<{ x: number; y: number } | undefined>(undefined);
   const shieldSlotRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const prevPriorityRef = useRef(state.priority);
   const handRef = useRef(state.playerHand);
   const botmRef = useRef(state.backOfMind);
   handRef.current = state.playerHand;
@@ -154,81 +150,12 @@ export default function CombatScreen({ onExit, encounterConfig, playerDeckDefs, 
     }
   });
 
-  useEffect(() => {
-    const prev = prevPriorityRef.current;
-    prevPriorityRef.current = state.priority;
-    if (prev <= 0 && state.priority > 0) {
-      setPriorityRestoreFlash(true);
-      const t = setTimeout(() => setPriorityRestoreFlash(false), 1300);
-      return () => clearTimeout(t);
-    }
-  }, [state.priority]);
-
-  useEffect(() => {
-    if (playedCardAnim) {
-      const t = setTimeout(() => setPlayedCardAnim(null), 1300);
-      return () => clearTimeout(t);
-    }
-  }, [playedCardAnim]);
-
-  useEffect(() => {
-    const log = state.actionLog;
-    const prevLen = prevLogLenRef.current;
-    prevLogLenRef.current = log.length;
-    if (log.length > prevLen) {
-      for (let i = prevLen; i < log.length; i++) {
-        const match = log[i].match(/^Shield Trigger: (.+)$/);
-        if (match) {
-          setShieldTriggerAnim(match[1]);
-          const t = setTimeout(() => setShieldTriggerAnim(null), 1800);
-          return () => clearTimeout(t);
-        }
-      }
-    }
-  }, [state.actionLog]);
-
-  const recordDiscovery = useNuggetDiscoveryStore(s => s.recordDiscovery);
-  const prevDiscoveredRef = useRef(state.discoveredNuggetIds.length);
-  useEffect(() => {
-    const ids = state.discoveredNuggetIds;
-    if (ids.length > prevDiscoveredRef.current) {
-      for (let i = prevDiscoveredRef.current; i < ids.length; i++) {
-        recordDiscovery(state.config.id, ids[i]);
-      }
-    }
-    prevDiscoveredRef.current = ids.length;
-  }, [state.discoveredNuggetIds, state.config.id, recordDiscovery]);
-
-  useEffect(() => {
-    if (state.phase === 'Check') {
-      dispatch({ type: 'CHECK' });
-    }
-  }, [state.phase]);
-
-  useEffect(() => {
-    if (state.phase === 'EnemyPending' && !state.manualEnemyMode) {
-      const t = setTimeout(() => dispatch({ type: 'TRIGGER_ENEMY_ACTION' }), 1100);
-      return () => clearTimeout(t);
-    }
-  }, [state.phase, state.manualEnemyMode]);
-
-  useEffect(() => {
-    if (state.phase === 'FieldTriggerCheck') {
-      const t = setTimeout(() => {
-        dispatch({ type: 'RESOLVE_FIELD_TRIGGERS' });
-      }, 400);
-      return () => clearTimeout(t);
-    }
-  }, [state.phase]);
-
-  useEffect(() => {
-    if (state.phase === 'EnemyPlay' && state.stagedEnemyCard) {
-      const t = setTimeout(() => {
-        dispatch({ type: 'RESOLVE_ENEMY_CARD' });
-      }, 1000);
-      return () => clearTimeout(t);
-    }
-  }, [state.phase, state.stagedEnemyCard]);
+  const { priorityRestoreFlash, shieldTriggerAnim } = useCombatEffects({
+    state,
+    dispatch,
+    playedCardAnim,
+    setPlayedCardAnim,
+  });
 
   const handleShieldReorderDrop = useCallback((targetIdx: number) => {
     if (reorderDragIdx === -1 || reorderDragIdx === targetIdx) return;
