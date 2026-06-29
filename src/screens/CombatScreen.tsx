@@ -19,6 +19,9 @@ import KeywordBadge from '../components/combat/KeywordBadge';
 import useCardDrag from '../components/combat/useCardDrag';
 import { COLOR_BORDER } from '../components/combat/cardColors';
 import { useNuggetDiscoveryStore } from '../stores/nuggetDiscoveryStore';
+import DiscoveryModal from '../components/combat/DiscoveryModal';
+import RevealModal from '../components/combat/RevealModal';
+import TerminalScreen from '../components/combat/TerminalScreen';
 
 function formatTrapCondition(cond: import('../combat/types').TrapTriggerCondition): string {
   switch (cond.triggerType) {
@@ -793,105 +796,18 @@ export default function CombatScreen({ onExit, encounterConfig, playerDeckDefs, 
 
       {/* ── Modals ── */}
 
-      {/* Discovery modal */}
-      <AnimatePresence>
-        {state.pendingDiscovery && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
-          >
-            <motion.div
-              initial={{ scale: 0.85, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.85, opacity: 0 }}
-              className="bg-zinc-900 border border-amber-600 rounded-xl p-10 max-w-md w-full mx-4 text-center"
-            >
-              <div className="text-sm uppercase tracking-widest text-amber-500 mb-3">
-                Information Discovered
-              </div>
-              <div className="text-lg font-semibold text-amber-300 mb-2">
-                {state.pendingDiscovery.nuggetName}
-              </div>
-              <motion.p
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3, duration: 0.9 }}
-                className="text-white text-xl leading-relaxed mb-8"
-              >
-                {state.pendingDiscovery.effectDescription}
-              </motion.p>
-              <button
-                onClick={() => dispatch({ type: 'DISMISS_DISCOVERY' })}
-                className="px-10 py-3 border border-amber-500 text-amber-400 hover:bg-amber-900 text-base uppercase tracking-widest rounded-lg transition-colors"
-              >
-                Continue
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <DiscoveryModal
+        pendingDiscovery={state.pendingDiscovery}
+        onDismiss={() => dispatch({ type: 'DISMISS_DISCOVERY' })}
+      />
 
-      {/* Reveal modal */}
-      <AnimatePresence>
-        {isReveal && pendingReveal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
-          >
-            <motion.div
-              initial={{ scale: 0.85, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.85, opacity: 0 }}
-              className="bg-zinc-900 border border-zinc-600 rounded-xl p-10 max-w-md w-full mx-4 text-center"
-            >
-              <div className="text-sm uppercase tracking-widest text-zinc-500 mb-3">
-                {pendingReveal.isHint ? 'Hint Revealed' : 'Shield Broken'}
-              </div>
-              <motion.p
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3, duration: 0.9 }}
-                className="text-white text-xl leading-relaxed mb-8"
-              >
-                {pendingReveal.loreDescription ?? pendingReveal.hintText}
-              </motion.p>
-              <button
-                onClick={() => dispatch({ type: 'DISMISS_REVEAL' })}
-                className="px-10 py-3 border border-white text-white hover:bg-white hover:text-zinc-950 text-base uppercase tracking-widest rounded-lg transition-colors"
-              >
-                Continue
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <RevealModal
+        visible={isReveal}
+        pendingReveal={pendingReveal}
+        onDismiss={() => dispatch({ type: 'DISMISS_REVEAL' })}
+      />
 
-      {/* Terminal screen */}
-      <AnimatePresence>
-        {isTerminal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="fixed inset-0 bg-black/80 flex items-center justify-center z-50"
-          >
-            <div className="text-center">
-              <div className={`text-8xl font-bold tracking-widest mb-8 ${phase === 'WIN' ? 'text-green-400' : 'text-red-500'}`}>
-                {phase === 'WIN' ? 'BREAKTHROUGH' : 'FAILED'}
-              </div>
-              <button
-                onClick={onExit}
-                className="px-12 py-4 border-2 border-white text-white hover:bg-white hover:text-zinc-950 uppercase tracking-widest text-lg transition-colors rounded-lg"
-              >
-                Exit
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <TerminalScreen phase={phase} onExit={onExit} />
 
       {/* Pile viewer modal */}
       <AnimatePresence>
