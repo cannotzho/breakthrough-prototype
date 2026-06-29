@@ -313,11 +313,159 @@ export const BLUE_STARTER_CARDS: CardDefinition[] = [
   },
 ];
 
+// ─── Red Starter Deck (Wave 1 — 8 cards) ──────────────────────
+// Wave 2 (Overwhelming Onslaught, Magnetic Rhetoric, Passionate Persuasion, Vindication)
+// and Wave 3 (Submit, Commanding Aura, Ultimatum, Intimidating Presence) pending engine work.
+export const RED_STARTER_CARDS: CardDefinition[] = [
+  // ── Fully supported ───────────────────────────────────────────
+  {
+    id: 'red_baleful_shout',
+    name: 'Baleful Shout',
+    cost: 1,
+    keywords: [],
+    effects: [
+      { type: 'MODIFY_PATIENCE', value: -3 },
+      { type: 'BREAK_OPPONENT_SHIELD' },
+      { type: 'BREAK_OPPONENT_SHIELD' },
+      { type: 'BREAK_OPPONENT_SHIELD' },
+    ],
+    color: 'Red',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: '-3 Patience. Break 3 dummy shields.',
+    longDescription: 'The room goes quiet. Three arguments collapse under the weight of a single, undeniable roar of authority.',
+  },
+  {
+    id: 'red_violent_intent',
+    name: 'Violent Intent',
+    cost: 2,
+    keywords: [],
+    effects: [
+      { type: 'MODIFY_PATIENCE', value: -3 },
+      { type: 'BREAK_OPPONENT_SHIELD' },
+      { type: 'DRAW_CARDS', value: 1 },
+    ],
+    color: 'Red',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: '-3 Patience. Break 1 dummy shield. Draw a card.',
+    longDescription: 'Make your intentions unmistakably clear. One defense crumbles, and the shock of it opens your next angle of attack.',
+  },
+  {
+    id: 'red_exude_authority',
+    name: 'Exude Authority',
+    cost: 1,
+    keywords: [],
+    effects: [
+      { type: 'MODIFY_PATIENCE', value: -1 },
+      { type: 'DRAW_CARDS', value: 1 },
+      { type: 'MODIFY_PRIORITY', value: 1 },
+    ],
+    color: 'Red',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: '-1 Patience. Draw a card. +1 Priority.',
+    longDescription: 'A subtle shift in posture, a measured look. You need say almost nothing — the room does the work for you.',
+  },
+  {
+    id: 'red_rally',
+    name: 'Rally',
+    cost: 5,
+    keywords: [],
+    effects: [
+      { type: 'MODIFY_PATIENCE', value: -2 },
+      { type: 'MODIFY_PATIENCE', value: 3 },
+      { type: 'DRAW_CARDS', value: 2 },
+    ],
+    color: 'Red',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: '-2 Patience. Restore 3 patience. Draw 2 cards.',
+    longDescription: 'Pull back, regroup, breathe. The interrogation is a marathon, not a sprint — and you just found your second wind.',
+  },
+  {
+    id: 'red_reframed_perspective',
+    name: 'Reframed Perspective',
+    cost: 3,
+    keywords: ['Trap'],
+    effects: [
+      // Both effects share the condition: trap holds until NPC plays 2nd card,
+      // then fires and consumes. Net patience: -1 (cost) + 3 (benefit) = +2.
+      { type: 'MODIFY_PATIENCE', value: -1, condition: { type: 'NPC_CARDS_PLAYED_GTE', value: 2 } },
+      { type: 'MODIFY_PATIENCE', value: 3, condition: { type: 'NPC_CARDS_PLAYED_GTE', value: 2 } },
+    ],
+    color: 'Red',
+    supertype: 'Skill',
+    subtype: 'Trap',
+    trapTrigger: { triggerType: 'OPPONENT_PLAYS_CARD' },
+    effectText: 'Trap: When the enemy plays their 2nd card this turn, restore 3 patience.',
+    longDescription: 'Let them overcommit. When they exhaust their second line of attack, you reframe the entire conversation from a position of calm.',
+  },
+
+  // ── Need PATIENCE_LT condition (Wave 1 engine addition) ───────
+  {
+    id: 'red_press_the_attack',
+    name: 'Press the Attack',
+    cost: 2,
+    keywords: [],
+    effects: [
+      { type: 'MODIFY_PATIENCE', value: -4 },
+      { type: 'MODIFY_PRIORITY', value: 4, condition: { type: 'PATIENCE_LT', value: 5 } },
+    ],
+    color: 'Red',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: '-4 Patience. If patience is below 5, +4 Priority.',
+    longDescription: 'The encounter is slipping away — time to throw everything at it. Desperation becomes momentum when you refuse to back down.',
+  },
+  {
+    id: 'red_charismatic_conviction',
+    name: 'Charismatic Conviction',
+    cost: 5,
+    keywords: [],
+    effects: [
+      { type: 'MODIFY_PATIENCE', value: -1 },
+      { type: 'BREAK_OPPONENT_SHIELD' },
+      { type: 'MODIFY_PATIENCE', value: 3 },
+      { type: 'MODIFY_PRIORITY', value: 3, condition: { type: 'PATIENCE_LT', value: 7 } },
+    ],
+    color: 'Red',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: '-1 Patience. Break 1 dummy shield. Restore 3 patience. If patience is below 7, +3 Priority.',
+    longDescription: 'Tear one wall down, rebuild your composure, then press harder. Under pressure, your conviction is its own argument.',
+  },
+
+  // ── Need SHIELD_BROKEN dispatch (Wave 1 engine addition) ──────
+  {
+    id: 'red_gravitas',
+    name: 'Gravitas',
+    cost: 5,
+    keywords: [],
+    effects: [
+      { type: 'MODIFY_PATIENCE', value: -2 },
+      { type: 'PLACE_IMPRESSION' },
+    ],
+    color: 'Red',
+    supertype: 'Skill',
+    subtype: 'Impression',
+    triggeredAbilities: [{
+      id: 'gravitas_shield_break_priority',
+      trigger: 'SHIELD_BROKEN',
+      controllerFilter: 'player',
+      effects: [{ type: 'MODIFY_PRIORITY', value: 1 }],
+    }],
+    effectText: '-2 Patience. Impression: Whenever you break a shield, +1 Priority.',
+    longDescription: 'Your presence becomes the argument. Each defense you shatter earns you a moment longer in control of the room.',
+  },
+];
+
 // ─── Card Definition Block Registry ──────────────────────────
 // When Claude authors new card blocks (e.g. ORANGE_STARTER_CARDS),
 // add them here so the dev tool importer discovers them automatically.
 export const CARD_DEF_BLOCKS: Record<string, CardDefinition[]> = {
   'Blue Starter Deck': BLUE_STARTER_CARDS,
+  'Red Starter Deck': RED_STARTER_CARDS,
 };
 
 export const PONDER_DEFINITION: CardDefinition = {
