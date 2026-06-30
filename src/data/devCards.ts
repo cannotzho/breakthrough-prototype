@@ -458,6 +458,68 @@ export const RED_STARTER_CARDS: CardDefinition[] = [
     effectText: '-2 Patience. Impression: Whenever you break a shield, +1 Priority.',
     longDescription: 'Your presence becomes the argument. Each defense you shatter earns you a moment longer in control of the room.',
   },
+
+  // ── Wave 2 ──────────────────────────────────────────────────
+  {
+    id: 'red_overwhelming_onslaught',
+    name: 'Overwhelming Onslaught',
+    cost: 3,
+    keywords: [],
+    effects: [
+      { type: 'MODIFY_PATIENCE', value: -1 },
+      { type: 'BREAK_OPPONENT_SHIELDS_SCALED', scale: 'PLAYER_CARDS_PLAYED_THIS_TURN' },
+    ],
+    color: 'Red',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: '-1 Patience. Break 1 dummy shield for each card you\'ve played this turn (including this one).',
+    longDescription: 'Each word lands harder than the last. Your momentum becomes a battering ram.',
+  },
+  {
+    id: 'red_magnetic_rhetoric',
+    name: 'Magnetic Rhetoric',
+    cost: 2,
+    keywords: [],
+    effects: [
+      { type: 'MODIFY_PATIENCE', value: -1 },
+      { type: 'MODIFY_PATIENCE', value: 1, scale: 'PLAYER_CARDS_PLAYED_THIS_TURN' },
+    ],
+    color: 'Red',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: '-1 Patience. Restore 1 Patience for each card played this turn (including this one).',
+    longDescription: 'The longer you\'ve been talking, the more persuasive you become. Your argument builds on itself.',
+  },
+  {
+    id: 'red_passionate_persuasion',
+    name: 'Passionate Persuasion',
+    cost: 2,
+    keywords: [],
+    effects: [
+      { type: 'MODIFY_PATIENCE', value: -2 },
+      { type: 'MODIFY_PATIENCE', value: 1, scale: 'CURRENT_PRIORITY' },
+    ],
+    color: 'Red',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: '-2 Patience. Restore 1 Patience for each Priority point remaining after playing this card.',
+    longDescription: 'Raw conviction poured into every word. The more momentum you carry, the harder you hit.',
+  },
+  {
+    id: 'red_vindication',
+    name: 'Vindication',
+    cost: 3,
+    keywords: [],
+    effects: [
+      { type: 'MODIFY_PATIENCE', value: -1 },
+      { type: 'MODIFY_PRIORITY', value: 1, scale: 'PLAYER_SHIELDS_BROKEN_PREV_TURN' },
+    ],
+    color: 'Red',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: '-1 Patience. +1 Priority for each shield you broke last turn.',
+    longDescription: 'Yesterday\'s victories become today\'s fuel. Every defense you dismantled hands you another opening.',
+  },
 ];
 
 // ─── Card Definition Block Registry ──────────────────────────
