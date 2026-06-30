@@ -1,6 +1,6 @@
 import {
   CombatState, CardEffect, CardInstance, CardOwner, FieldTrap,
-  TrapTriggerCondition, TrapTriggerType, GameEvent, MAX_TRIGGER_DEPTH, ActiveRestriction, ActiveReplacement, EffectCondition,
+  TrapTriggerCondition, TrapTriggerType, GameEvent, MAX_TRIGGER_DEPTH, ActiveRestriction, ActiveReplacement, EffectCondition, EffectScaleSource,
 } from './types';
 
 export function clampPriority(value: number): number {
@@ -86,6 +86,12 @@ export function priorityRestore(state: CombatState): CombatState {
   if (state.npcCardsPlayedThisTurn > 0) {
     s = expireTraps(s);
     s = tickRestrictions(s);
+    s = {
+      ...s,
+      playerCardsPlayedThisTurn: 0,
+      playerShieldsBrokenPrevTurn: s.playerShieldsBrokenThisTurn,
+      playerShieldsBrokenThisTurn: 0,
+    };
   }
   s = { ...s, npcCardsPlayedThisTurn: 0 };
   return s;
@@ -111,7 +117,13 @@ export function classicTurnStart(state: CombatState): CombatState {
   s = drawCards(s, toDraw);
   s = expireTraps(s);
   s = tickRestrictions(s);
-  s = { ...s, npcCardsPlayedThisTurn: 0 };
+  s = {
+    ...s,
+    npcCardsPlayedThisTurn: 0,
+    playerCardsPlayedThisTurn: 0,
+    playerShieldsBrokenPrevTurn: s.playerShieldsBrokenThisTurn,
+    playerShieldsBrokenThisTurn: 0,
+  };
   return addLog(s, 'Classic Turn Start — player\'s turn begins');
 }
 
@@ -309,6 +321,14 @@ export function breakPlayerShieldAutomatic(state: CombatState): ShieldBreakResul
   };
 }
 
+function getScaleValue(state: CombatState, source: EffectScaleSource): number {
+  switch (source) {
+    case 'PLAYER_CARDS_PLAYED_THIS_TURN': return state.playerCardsPlayedThisTurn;
+    case 'CURRENT_PRIORITY': return state.priority;
+    case 'PLAYER_SHIELDS_BROKEN_PREV_TURN': return state.playerShieldsBrokenPrevTurn;
+  }
+}
+
 function checkCondition(state: CombatState, condition: EffectCondition): boolean {
   switch (condition.type) {
     case 'NPC_CARDS_PLAYED_GTE':
@@ -330,9 +350,12 @@ export function applyEffect(state: CombatState, effect: CardEffect, controller: 
   }
   switch (effect.type) {
     case 'MODIFY_PRIORITY': {
+      const priorityDelta = effect.scale
+        ? (effect.value ?? 1) * getScaleValue(state, effect.scale)
+        : (effect.value ?? 0);
       if (state.config.priorityMode === 'frame') {
         const oldPriority = state.priority;
-        const newPriority = clampPriority(state.priority + (effect.value ?? 0));
+        const newPriority = clampPriority(state.priority + priorityDelta);
         let s: CombatState = { ...state, priority: newPriority };
         if (oldPriority <= 0 && newPriority > 0) {
           s = priorityRestore(s);
@@ -340,11 +363,13 @@ export function applyEffect(state: CombatState, effect: CardEffect, controller: 
         return s;
       } else {
         // Classic mode: modify the player's priority meter; does NOT flip activeTurn
-        return { ...state, priority: Math.max(0, state.priority + (effect.value ?? 0)) };
+        return { ...state, priority: Math.max(0, state.priority + priorityDelta) };
       }
     }
     case 'MODIFY_PATIENCE': {
-      let delta = effect.value ?? 0;
+      let delta = effect.scale
+        ? (effect.value ?? 1) * getScaleValue(state, effect.scale)
+        : (effect.value ?? 0);
       let s = state;
       if (delta < 0) {
         const sensitiveTrait = s.config.traits.find(
@@ -388,6 +413,7 @@ export function applyEffect(state: CombatState, effect: CardEffect, controller: 
           ...state,
           opponentShields: newShields,
           pendingReveal: newShields[idx],
+          playerShieldsBrokenThisTurn: state.playerShieldsBrokenThisTurn + 1,
         };
         s = dispatchGameEvent(s, { type: 'SHIELD_BROKEN', sourceCard });
         return s;
@@ -405,6 +431,30 @@ export function applyEffect(state: CombatState, effect: CardEffect, controller: 
         }
         return s;
       }
+    }
+    case 'BREAK_OPPONENT_SHIELDS_SCALED': {
+      const n = effect.scale ? getScaleValue(state, effect.scale) : (effect.value ?? 0);
+      if (n <= 0) return addLog(state, `${effect.scale ?? 'scale'}: 0 — no shields to break`);
+      let s = state;
+      for (let i = 0; i < n; i++) {
+        const prevReveal = s.pendingReveal;
+        s = applyEffect(s, { type: 'BREAK_OPPONENT_SHIELD' }, controller, sourceCard);
+        if (s.pendingReveal !== prevReveal) {
+          const remaining = n - 1 - i;
+          if (remaining > 0) {
+            s = {
+              ...s,
+              pendingEffects: [
+                ...Array(remaining).fill({ type: 'BREAK_OPPONENT_SHIELD' }),
+                ...s.pendingEffects,
+              ],
+              pendingEffectCard: s.pendingEffectCard ?? sourceCard ?? null,
+            };
+          }
+          return s;
+        }
+      }
+      return s;
     }
     case 'PLACE_AS_SHIELD':
       return { ...state, pendingPlaceAsShield: true };

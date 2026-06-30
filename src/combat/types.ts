@@ -16,9 +16,16 @@ export interface EffectCondition {
   value?: number;
 }
 
+// ─── Effect Scale Sources ──────────────────────────────────────
+export type EffectScaleSource =
+  | 'PLAYER_CARDS_PLAYED_THIS_TURN'
+  | 'CURRENT_PRIORITY'
+  | 'PLAYER_SHIELDS_BROKEN_PREV_TURN';
+
 // ─── Card Effects ──────────────────────────────────────────────
 export type CardEffectType =
   | 'BREAK_OPPONENT_SHIELD'
+  | 'BREAK_OPPONENT_SHIELDS_SCALED'
   | 'MODIFY_PRIORITY'
   | 'MODIFY_PATIENCE'
   | 'DRAW_CARDS'
@@ -36,6 +43,7 @@ export type CardEffectType =
 export interface CardEffect {
   type: CardEffectType;
   value?: number;
+  scale?: EffectScaleSource;
   tokenDefinitionId?: string;
   transformSourceId?: string;
   transformTargetId?: string;
@@ -339,6 +347,9 @@ export interface CombatState {
   activeRestrictions: ActiveRestriction[];
   activeReplacements: ActiveReplacement[];
   npcCardsPlayedThisTurn: number;
+  playerCardsPlayedThisTurn: number;
+  playerShieldsBrokenThisTurn: number;
+  playerShieldsBrokenPrevTurn: number;
 
   manualEnemyMode: boolean;
 

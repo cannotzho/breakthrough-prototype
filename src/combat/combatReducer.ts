@@ -286,6 +286,8 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
         s = { ...s, lieCounter: s.lieCounter + 1 };
       }
 
+      s = { ...s, playerCardsPlayedThisTurn: s.playerCardsPlayedThisTurn + 1 };
+
       // Trap cards: skip effect resolution, go straight to field placement
       if (card.definition.subtype === 'Trap') {
         return completePlayerPlay(s, card, isPonderConversion);
