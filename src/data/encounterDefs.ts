@@ -153,6 +153,8 @@ export function buildInitialCombatState(
     playerCardsPlayedThisTurn: 0,
     playerShieldsBrokenThisTurn: 0,
     playerShieldsBrokenPrevTurn: 0,
+    abilitiesFiredThisPlay: [],
+    turnAbilityFireCounts: {},
     manualEnemyMode: false,
     tokenRegistry: { ...DEV_TOKEN_DEFINITIONS },
     actionLog: ['Encounter started.'],

@@ -1,5 +1,5 @@
 import { CombatState, CombatAction, CardInstance, CardEffect, CardOwner, NuggetOverride, SHIELD_PLACEMENT_COST, ActivatedAbilityCost, FieldTrap } from './types';
-import { applyEffect, selectEnemyCard, makeInstance, clampPriority, applyTurnHandoffBonus, priorityRestore, shuffle, resolveFieldTriggerCheck, classicTurnStart, npcTurnStart, addLog, destroyToken } from './effectHandlers';
+import { applyEffect, selectEnemyCard, makeInstance, clampPriority, applyTurnHandoffBonus, priorityRestore, shuffle, resolveFieldTriggerCheck, classicTurnStart, npcTurnStart, addLog, destroyToken, dispatchGameEvent } from './effectHandlers';
 import { COMBINATIONS } from '../data/combinations';
 import { PONDER_DEFINITION } from '../data/devCards';
 
@@ -155,6 +155,7 @@ function completePlayerPlay(state: CombatState, card: CardInstance, isPonderConv
       triggerCondition: card.definition.trapTrigger,
       playOrder: s.trapPlayCounter,
       turnsRemaining: 2,
+      persistent: card.definition.trapPersistent ?? false,
     };
     s = {
       ...s,
@@ -286,7 +287,11 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
         s = { ...s, lieCounter: s.lieCounter + 1 };
       }
 
-      s = { ...s, playerCardsPlayedThisTurn: s.playerCardsPlayedThisTurn + 1 };
+      s = {
+        ...s,
+        playerCardsPlayedThisTurn: s.playerCardsPlayedThisTurn + 1,
+        abilitiesFiredThisPlay: [],
+      };
 
       // Trap cards: skip effect resolution, go straight to field placement
       if (card.definition.subtype === 'Trap') {
@@ -548,6 +553,8 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
 
       // Check traps right after count increment, before priority cost resets it
       s = resolveFieldTriggerCheck(s, 'OPPONENT_PLAYS_CARD');
+      // Dispatch CARD_PLAYED for triggered abilities (e.g. Intimidating Presence)
+      s = dispatchGameEvent(s, { type: 'CARD_PLAYED', sourceCard: card });
 
       if (s.config.priorityMode === 'frame') {
         // Frame mode: enemy card cost pushes priority toward positive (self-limiting)

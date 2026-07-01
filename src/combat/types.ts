@@ -20,7 +20,8 @@ export interface EffectCondition {
 export type EffectScaleSource =
   | 'PLAYER_CARDS_PLAYED_THIS_TURN'
   | 'CURRENT_PRIORITY'
-  | 'PLAYER_SHIELDS_BROKEN_PREV_TURN';
+  | 'PLAYER_SHIELDS_BROKEN_PREV_TURN'
+  | 'OPPONENT_MISSING_PATIENCE';
 
 // ─── Card Effects ──────────────────────────────────────────────
 export type CardEffectType =
@@ -73,6 +74,8 @@ export interface TriggeredAbility {
   trigger: GameEventType;
   controllerFilter?: CardOwner;
   effects: CardEffect[];
+  maxTimesPerPlay?: number;
+  maxTimesPerTurn?: number;
 }
 
 // ─── Activated Abilities ──────────────────────────────────────
@@ -145,6 +148,7 @@ export interface CardDefinition {
   imageUrl?: string;
   nuggetId?: string;
   trapTrigger?: TrapTriggerCondition;
+  trapPersistent?: boolean;
   activatedAbilities?: ActivatedAbility[];
   triggeredAbilities?: TriggeredAbility[];
   leavesTriggerEffects?: CardEffect[];
@@ -258,7 +262,8 @@ export type RestrictionType =
   | 'PREVENT_SHIELD_BREAK'
   | 'PREVENT_DRAW'
   | 'MAX_CARD_COST'
-  | 'INCREASE_CARD_COST';
+  | 'INCREASE_CARD_COST'
+  | 'PREVENT_PATIENCE_GAIN';
 
 export interface ActiveRestriction {
   id: string;
@@ -294,6 +299,7 @@ export interface FieldTrap {
   triggerCondition: TrapTriggerCondition;
   playOrder: number;
   turnsRemaining: number;
+  persistent?: boolean;
 }
 
 // ─── Pending Shield Trigger ────────────────────────────────────
@@ -350,6 +356,8 @@ export interface CombatState {
   playerCardsPlayedThisTurn: number;
   playerShieldsBrokenThisTurn: number;
   playerShieldsBrokenPrevTurn: number;
+  abilitiesFiredThisPlay: string[];
+  turnAbilityFireCounts: Record<string, number>;
 
   manualEnemyMode: boolean;
 

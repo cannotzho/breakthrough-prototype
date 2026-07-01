@@ -91,6 +91,8 @@ export function priorityRestore(state: CombatState): CombatState {
       playerCardsPlayedThisTurn: 0,
       playerShieldsBrokenPrevTurn: s.playerShieldsBrokenThisTurn,
       playerShieldsBrokenThisTurn: 0,
+      abilitiesFiredThisPlay: [],
+      turnAbilityFireCounts: {},
     };
   }
   s = { ...s, npcCardsPlayedThisTurn: 0 };
@@ -123,6 +125,8 @@ export function classicTurnStart(state: CombatState): CombatState {
     playerCardsPlayedThisTurn: 0,
     playerShieldsBrokenPrevTurn: s.playerShieldsBrokenThisTurn,
     playerShieldsBrokenThisTurn: 0,
+    abilitiesFiredThisPlay: [],
+    turnAbilityFireCounts: {},
   };
   return addLog(s, 'Classic Turn Start — player\'s turn begins');
 }
@@ -218,6 +222,8 @@ export function destroyToken(state: CombatState, instanceId: string): CombatStat
 // dispatchGameEvent: scans field impressions and tokens for triggered abilities
 // matching the event, then resolves their effects. Uses triggerDepth for
 // recursion protection.
+// If pendingReveal is already set when an ability would fire, its effects are
+// queued in pendingEffects instead so the reveal isn't overwritten.
 export function dispatchGameEvent(state: CombatState, event: GameEvent): CombatState {
   let s = state;
   const fieldCards = [...s.fieldImpressions, ...s.fieldTokens];
@@ -229,8 +235,22 @@ export function dispatchGameEvent(state: CombatState, event: GameEvent): CombatS
     for (const ability of abilities) {
       if (ability.trigger !== event.type) continue;
 
+      // Filter by which side triggered the event (fixed: use ability.controllerFilter not card.controller)
       if (ability.controllerFilter && event.sourceCard) {
-        if (event.sourceCard.controller !== card.controller) continue;
+        if (event.sourceCard.controller !== ability.controllerFilter) continue;
+      }
+
+      // maxTimesPerPlay gate
+      if (ability.maxTimesPerPlay != null) {
+        if (s.abilitiesFiredThisPlay.includes(ability.id)) continue;
+        s = { ...s, abilitiesFiredThisPlay: [...s.abilitiesFiredThisPlay, ability.id] };
+      }
+
+      // maxTimesPerTurn gate
+      if (ability.maxTimesPerTurn != null) {
+        const fired = s.turnAbilityFireCounts[ability.id] ?? 0;
+        if (fired >= ability.maxTimesPerTurn) continue;
+        s = { ...s, turnAbilityFireCounts: { ...s.turnAbilityFireCounts, [ability.id]: fired + 1 } };
       }
 
       if (s.triggerDepth >= MAX_TRIGGER_DEPTH) {
@@ -238,8 +258,20 @@ export function dispatchGameEvent(state: CombatState, event: GameEvent): CombatS
         break;
       }
 
-      s = { ...s, triggerDepth: s.triggerDepth + 1 };
       s = addLog(s, `${card.definition.name} triggered: ${ability.id}`);
+
+      // If pendingReveal is already set, queue the ability's effects rather than
+      // executing immediately — prevents overwriting the current shield reveal.
+      if (s.pendingReveal) {
+        s = {
+          ...s,
+          pendingEffects: [...ability.effects, ...s.pendingEffects],
+          pendingEffectCard: s.pendingEffectCard ?? card,
+        };
+        continue;
+      }
+
+      s = { ...s, triggerDepth: s.triggerDepth + 1 };
       for (const effect of ability.effects) {
         s = applyEffect(s, effect, card.controller, card);
       }
@@ -326,6 +358,7 @@ function getScaleValue(state: CombatState, source: EffectScaleSource): number {
     case 'PLAYER_CARDS_PLAYED_THIS_TURN': return state.playerCardsPlayedThisTurn;
     case 'CURRENT_PRIORITY': return state.priority;
     case 'PLAYER_SHIELDS_BROKEN_PREV_TURN': return state.playerShieldsBrokenPrevTurn;
+    case 'OPPONENT_MISSING_PATIENCE': return Math.max(0, state.config.opponentPatience - state.patience);
   }
 }
 
@@ -370,6 +403,9 @@ export function applyEffect(state: CombatState, effect: CardEffect, controller: 
       let delta = effect.scale
         ? (effect.value ?? 1) * getScaleValue(state, effect.scale)
         : (effect.value ?? 0);
+      if (delta > 0 && state.activeRestrictions.some(r => r.restrictionType === 'PREVENT_PATIENCE_GAIN')) {
+        return addLog(state, `Patience gain blocked by active restriction (PREVENT_PATIENCE_GAIN)`);
+      }
       let s = state;
       if (delta < 0) {
         const sensitiveTrait = s.config.traits.find(
@@ -706,13 +742,22 @@ export function resolveFieldTriggerCheck(state: CombatState, event?: TrapTrigger
     for (const effect of trap.card.definition.effects) {
       s = applyEffect(s, effect, trap.card.controller, trap.card);
     }
-    s = {
-      ...s,
-      fieldTraps: s.fieldTraps.filter(t => t !== trap),
-      playerDiscard: [...s.playerDiscard, trap.card],
-    };
-    s = resolveFieldTriggerCheck(s, event);
-    s = { ...s, triggerDepth: s.triggerDepth - 1 };
+    if (trap.persistent) {
+      // Persistent traps stay on the field. Temporarily hide this trap during the
+      // recursive call so it can't fire again in the same resolution cycle.
+      s = { ...s, fieldTraps: s.fieldTraps.filter(t => t !== trap) };
+      s = resolveFieldTriggerCheck(s, event);
+      s = { ...s, triggerDepth: s.triggerDepth - 1 };
+      s = { ...s, fieldTraps: [...s.fieldTraps, trap] };
+    } else {
+      s = {
+        ...s,
+        fieldTraps: s.fieldTraps.filter(t => t !== trap),
+        playerDiscard: [...s.playerDiscard, trap.card],
+      };
+      s = resolveFieldTriggerCheck(s, event);
+      s = { ...s, triggerDepth: s.triggerDepth - 1 };
+    }
   }
 
   const triggers = [...s.pendingShieldTriggers].sort((a, b) => a.breakOrder - b.breakOrder);
