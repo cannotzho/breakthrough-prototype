@@ -520,6 +520,85 @@ export const RED_STARTER_CARDS: CardDefinition[] = [
     effectText: '-1 Patience. +1 Priority for each shield you broke last turn.',
     longDescription: 'Yesterday\'s victories become today\'s fuel. Every defense you dismantled hands you another opening.',
   },
+
+  // ── Wave 3 ──────────────────────────────────────────────────
+  {
+    id: 'red_submit',
+    name: 'Submit',
+    cost: 2,
+    keywords: [],
+    effects: [
+      { type: 'MODIFY_PATIENCE', value: -1 },
+      { type: 'BREAK_OPPONENT_SHIELDS_SCALED', scale: 'OPPONENT_MISSING_PATIENCE' },
+    ],
+    color: 'Red',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: '-1 Patience. Break X opponent shields, where X is how much Patience has been drained.',
+    longDescription: 'The cracks are already showing. You press into every gap their exhaustion has left open.',
+  },
+  {
+    id: 'red_commanding_aura',
+    name: 'Commanding Aura',
+    cost: 3,
+    keywords: [],
+    effects: [
+      { type: 'PLACE_IMPRESSION' },
+      { type: 'APPLY_RESTRICTION', restrictionType: 'PREVENT_PATIENCE_GAIN', restrictionDuration: 3 },
+    ],
+    color: 'Red',
+    supertype: 'Skill',
+    subtype: 'Impression',
+    triggeredAbilities: [
+      {
+        id: 'ca_bonus_break',
+        trigger: 'SHIELD_BROKEN',
+        maxTimesPerPlay: 1,
+        effects: [{ type: 'BREAK_OPPONENT_SHIELD' }],
+      },
+    ],
+    effectText: 'Place as Impression. Prevent all patience gains for 3 turns. Once per play: when you break a shield, break one more.',
+    longDescription: 'Your authority fills the room. Every attack lands harder and their attempts to recover fall flat.',
+  },
+  {
+    id: 'red_ultimatum',
+    name: 'Ultimatum',
+    cost: 2,
+    keywords: ['Trap'],
+    effects: [
+      { type: 'MODIFY_PATIENCE', value: -1 },
+    ],
+    color: 'Red',
+    supertype: 'Skill',
+    subtype: 'Trap',
+    trapTrigger: { triggerType: 'OPPONENT_PLAYS_CARD' },
+    trapPersistent: true,
+    effectText: 'Trap — persistent. Each time your opponent plays a card, deal -1 Patience. Stays on the field until it expires.',
+    longDescription: 'You\'ve laid your terms and you\'re not moving. Every word they speak digs them deeper.',
+  },
+  {
+    id: 'red_intimidating_presence',
+    name: 'Intimidating Presence',
+    cost: 2,
+    keywords: [],
+    effects: [
+      { type: 'PLACE_IMPRESSION' },
+    ],
+    color: 'Red',
+    supertype: 'Skill',
+    subtype: 'Impression',
+    triggeredAbilities: [
+      {
+        id: 'ip_npc_play',
+        trigger: 'CARD_PLAYED',
+        controllerFilter: 'npc',
+        maxTimesPerTurn: 1,
+        effects: [{ type: 'MODIFY_PATIENCE', value: -1 }],
+      },
+    ],
+    effectText: 'Place as Impression. Once per turn: when your opponent plays a card, deal -1 Patience.',
+    longDescription: 'You don\'t need to move. The weight of your presence makes every action they take cost them something.',
+  },
 ];
 
 // ─── Card Definition Block Registry ──────────────────────────
