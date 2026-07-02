@@ -293,7 +293,10 @@ export type RestrictionType =
   | 'INCREASE_CARD_COST'
   | 'PREVENT_PATIENCE_GAIN'
   | 'REPLACE_SHIELD_BREAK_WITH_PATIENCE'
-  | 'PRIORITY_PER_EXTRA_DRAW';
+  | 'PRIORITY_PER_EXTRA_DRAW'
+  | 'MAX_TURN_START_DRAW'
+  | 'MAX_PLAYS_PER_TURN'
+  | 'PATIENCE_PER_OPPONENT_CARD';
 
 export interface ActiveRestriction {
   id: string;

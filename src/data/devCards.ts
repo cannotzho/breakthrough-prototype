@@ -931,6 +931,50 @@ export const ORANGE_STARTER_CARDS: CardDefinition[] = [
     effectText: 'Normal: until end of next turn, gain 1 priority for every extra card the opponent draws. Heavy Hand (cost 4): gain 2 per extra draw instead.',
     longDescription: 'You plant a seed of suspicion. Every new piece of information the witness reaches for now costs them credibility.',
   },
+  {
+    id: 'orange_cognitive_burden',
+    name: 'Cognitive Burden',
+    cost: 2,
+    keywords: [],
+    effects: [
+      { type: 'APPLY_RESTRICTION', restrictionType: 'MAX_TURN_START_DRAW', restrictionTarget: 'player', value: 3, restrictionDuration: 99 },
+      { type: 'APPLY_RESTRICTION', restrictionType: 'MAX_TURN_START_DRAW', restrictionTarget: 'npc', value: 3, restrictionDuration: 99 },
+    ],
+    color: 'Orange',
+    supertype: 'Skill',
+    subtype: 'Impression',
+    effectText: 'Both players may only draw up to 3 cards at the start of each turn. Lasts while this impression is on the field.',
+    longDescription: 'The weight of what has been said settles over both sides. Thoughts come slower now, each one heavier than the last.',
+  },
+  {
+    id: 'orange_strict_compliance',
+    name: 'Strict Compliance',
+    cost: 5,
+    keywords: [],
+    effects: [
+      { type: 'APPLY_RESTRICTION', restrictionType: 'MAX_PLAYS_PER_TURN', restrictionTarget: 'player', value: 2, restrictionDuration: 99 },
+      { type: 'APPLY_RESTRICTION', restrictionType: 'MAX_PLAYS_PER_TURN', restrictionTarget: 'npc', value: 2, restrictionDuration: 99 },
+    ],
+    color: 'Orange',
+    supertype: 'Skill',
+    subtype: 'Impression',
+    effectText: 'Both players may only play up to 2 cards per turn. Lasts while this impression is on the field.',
+    longDescription: 'The rules are clear. Two statements, no more. Anything beyond that is out of order.',
+  },
+  {
+    id: 'orange_fair_provision',
+    name: 'Fair Provision',
+    cost: 3,
+    keywords: [],
+    effects: [
+      { type: 'APPLY_RESTRICTION', restrictionType: 'PATIENCE_PER_OPPONENT_CARD', restrictionTarget: 'player', value: 2, restrictionDuration: 2 },
+    ],
+    color: 'Orange',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: 'Until the end of your next turn, gain 2 patience for every card played by the opponent.',
+    longDescription: 'You establish a principle of fairness. Every word they speak now strengthens your position.',
+  },
 ];
 
 // ─── Card Definition Block Registry ──────────────────────────

@@ -84,7 +84,13 @@ export function priorityRestore(state: CombatState): CombatState {
   if (s.backOfMind.length > 0) {
     s = { ...s, playerHand: [...s.playerHand, ...s.backOfMind], backOfMind: [] as typeof s.backOfMind };
   }
-  const toDraw = Math.max(0, s.combatConfig.handLimit - s.playerHand.length);
+  let toDraw = Math.max(0, s.combatConfig.handLimit - s.playerHand.length);
+  const maxDrawRestriction = s.activeRestrictions.find(
+    r => r.restrictionType === 'MAX_TURN_START_DRAW' && r.target === 'player'
+  );
+  if (maxDrawRestriction && maxDrawRestriction.value != null) {
+    toDraw = Math.min(toDraw, maxDrawRestriction.value);
+  }
   s = drawCards(s, toDraw);
   s = applyEffect(s, { type: 'RAPPORT_SHIELD_BREAK' }, 'player');
   // Turn-based expiry (traps, restrictions) must tick only on a genuine
@@ -128,7 +134,13 @@ export function classicTurnStart(state: CombatState): CombatState {
   if (s.backOfMind.length > 0) {
     s = { ...s, playerHand: [...s.playerHand, ...s.backOfMind], backOfMind: [] };
   }
-  const toDraw = Math.max(0, s.combatConfig.handLimit - s.playerHand.length);
+  let toDraw = Math.max(0, s.combatConfig.handLimit - s.playerHand.length);
+  const maxDrawR = s.activeRestrictions.find(
+    r => r.restrictionType === 'MAX_TURN_START_DRAW' && r.target === 'player'
+  );
+  if (maxDrawR && maxDrawR.value != null) {
+    toDraw = Math.min(toDraw, maxDrawR.value);
+  }
   s = drawCards(s, toDraw);
   s = applyEffect(s, { type: 'RAPPORT_SHIELD_BREAK' }, 'player');
   s = expireTraps(s);
@@ -907,6 +919,16 @@ export function applyEffect(state: CombatState, effectRaw: CardEffect, controlle
 }
 
 export function selectEnemyCard(state: CombatState): CombatState {
+  const npcMaxPlays = state.activeRestrictions.find(
+    r => r.restrictionType === 'MAX_PLAYS_PER_TURN' && r.target === 'npc'
+  );
+  if (npcMaxPlays && npcMaxPlays.value != null && state.npcCardsPlayedThisTurn >= npcMaxPlays.value) {
+    if (state.config.priorityMode === 'frame') {
+      return priorityRestore(addLog(state, `NPC hit max ${npcMaxPlays.value} plays per turn — passing`));
+    }
+    return addLog({ ...state, npcPriority: 0, phase: 'Check' }, `NPC hit max ${npcMaxPlays.value} plays per turn — passing`);
+  }
+
   let deck = state.enemyDeck;
   let discard = state.enemyDiscard;
   const log = [...state.actionLog];

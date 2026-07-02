@@ -247,6 +247,13 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
         return addLog(state, `Cannot play ${card.definition.name} — Token cards cannot be played from hand`);
       }
 
+      const maxPlays = state.activeRestrictions.find(
+        r => r.restrictionType === 'MAX_PLAYS_PER_TURN' && r.target === 'player'
+      );
+      if (maxPlays && maxPlays.value != null && state.playerCardsPlayedThisTurn >= maxPlays.value) {
+        return addLog(state, `Cannot play ${card.definition.name} — max ${maxPlays.value} cards per turn`);
+      }
+
       const isFrame = state.config.priorityMode === 'frame';
 
       const isHeavyHand = action.heavyHand && card.definition.keywords.includes('Heavy Hand');
@@ -653,6 +660,18 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       s = resolveFieldTriggerCheck(s, 'OPPONENT_PLAYS_CARD');
       // Dispatch CARD_PLAYED for triggered abilities (e.g. Intimidating Presence)
       s = dispatchGameEvent(s, { type: 'CARD_PLAYED', sourceCard: card });
+
+      // PATIENCE_PER_OPPONENT_CARD: grant patience when NPC plays a card
+      const patiencePerCard = s.activeRestrictions.filter(
+        r => r.restrictionType === 'PATIENCE_PER_OPPONENT_CARD' && r.target === 'player'
+      );
+      for (const r of patiencePerCard) {
+        const gain = r.value ?? 0;
+        if (gain > 0) {
+          s = { ...s, patience: s.patience + gain };
+          s = addLog(s, `Fair Provision: +${gain} patience from opponent's play`);
+        }
+      }
 
       const npcCostIncrease = s.activeRestrictions
         .filter(r => r.restrictionType === 'INCREASE_CARD_COST' && r.target === 'npc')
