@@ -66,6 +66,16 @@ export function tickRestrictions(state: CombatState): CombatState {
   return s;
 }
 
+export function removeImpressionLinkedRestrictions(state: CombatState, impressionInstanceId: string): CombatState {
+  const before = state.activeRestrictions.length;
+  const remaining = state.activeRestrictions.filter(r => r.linkedImpressionId !== impressionInstanceId);
+  if (remaining.length === before) return state;
+  return addLog(
+    { ...state, activeRestrictions: remaining },
+    `${before - remaining.length} linked restriction(s) removed with impression`
+  );
+}
+
 export function priorityRestore(state: CombatState): CombatState {
   if (state.config.priorityMode !== 'frame') return state;
   const restoredPriority = applyTurnHandoffBonus(state.priority, 'player');
@@ -98,7 +108,7 @@ export function priorityRestore(state: CombatState): CombatState {
       turnAbilityFireCounts: {},
     };
   }
-  s = { ...s, npcCardsPlayedThisTurn: 0 };
+  s = { ...s, npcCardsPlayedThisTurn: 0, npcExtraDrawsThisTurn: 0 };
   return s;
 }
 
@@ -127,6 +137,7 @@ export function classicTurnStart(state: CombatState): CombatState {
   s = {
     ...s,
     npcCardsPlayedThisTurn: 0,
+    npcExtraDrawsThisTurn: 0,
     playerCardsPlayedThisTurn: 0,
     playerShieldsBrokenPrevTurn: s.playerShieldsBrokenThisTurn,
     playerShieldsBrokenThisTurn: 0,
@@ -188,6 +199,7 @@ export function expireImpressions(state: CombatState): CombatState {
         s = { ...s, playerDiscard: [...s.playerDiscard, fi.card] };
         log.push(`Impression expired: ${fi.card.definition.name}`);
       }
+      s = removeImpressionLinkedRestrictions(s, fi.card.instanceId);
       if (fi.card.definition.leavesTriggerEffects) {
         for (const eff of fi.card.definition.leavesTriggerEffects) {
           s = applyEffect(s, eff, fi.card.controller, fi.card);
@@ -208,6 +220,7 @@ export function checkDestroyBelowPatience(state: CombatState): CombatState {
     if (fi.destroyBelowPatience != null && s.patience < fi.destroyBelowPatience) {
       s = addLog(s, `${fi.card.definition.name} destroyed (patience ${s.patience} < ${fi.destroyBelowPatience})`);
       s = { ...s, playerDiscard: [...s.playerDiscard, fi.card] };
+      s = removeImpressionLinkedRestrictions(s, fi.card.instanceId);
       if (fi.card.definition.leavesTriggerEffects) {
         for (const eff of fi.card.definition.leavesTriggerEffects) {
           s = applyEffect(s, eff, fi.card.controller, fi.card);
@@ -683,6 +696,7 @@ export function applyEffect(state: CombatState, effectRaw: CardEffect, controlle
         target,
         value: effect.value,
         turnsRemaining: restrictionDuration ?? 1,
+        linkedImpressionId: sourceCard?.definition.subtype === 'Impression' ? sourceCard.instanceId : undefined,
       };
       return addLog(
         { ...state, activeRestrictions: [...state.activeRestrictions, restriction] },
@@ -693,10 +707,14 @@ export function applyEffect(state: CombatState, effectRaw: CardEffect, controlle
       const impressions = state.fieldImpressions.filter(fi => fi.card.controller === controller);
       if (impressions.length === 0) return addLog(state, `No impressions to destroy`);
       const target = impressions[0];
-      return addLog(
-        { ...state, fieldImpressions: state.fieldImpressions.filter(fi => fi.card.instanceId !== target.card.instanceId) },
-        `Destroyed impression: ${target.card.definition.name}`
-      );
+      let ds = removeImpressionLinkedRestrictions(state, target.card.instanceId);
+      ds = { ...ds, fieldImpressions: ds.fieldImpressions.filter(fi => fi.card.instanceId !== target.card.instanceId) };
+      if (target.card.definition.leavesTriggerEffects) {
+        for (const eff of target.card.definition.leavesTriggerEffects) {
+          ds = applyEffect(ds, eff, target.card.controller, target.card);
+        }
+      }
+      return addLog(ds, `Destroyed impression: ${target.card.definition.name}`);
     }
     case 'APPLY_REPLACEMENT': {
       const { replacementOriginalId, replacementTargetId, restrictionDuration } = effect;
@@ -908,7 +926,22 @@ export function selectEnemyCard(state: CombatState): CombatState {
   }
 
   const [card, ...rest] = deck;
-  return { ...state, stagedEnemyCard: card, enemyDeck: rest, enemyDiscard: discard, actionLog: log, phase: 'FieldTriggerCheck' };
+  let s: CombatState = { ...state, stagedEnemyCard: card, enemyDeck: rest, enemyDiscard: discard, actionLog: log, phase: 'FieldTriggerCheck' };
+
+  // Track NPC extra draws (any draw beyond the first this turn)
+  if (state.npcCardsPlayedThisTurn > 0) {
+    s = { ...s, npcExtraDrawsThisTurn: s.npcExtraDrawsThisTurn + 1 };
+    const perDrawRestrictions = s.activeRestrictions.filter(
+      r => r.restrictionType === 'PRIORITY_PER_EXTRA_DRAW' && r.target === 'player'
+    );
+    for (const r of perDrawRestrictions) {
+      const bonus = r.value ?? 1;
+      s = { ...s, priority: clampPriority(s.priority + bonus) };
+      s = addLog(s, `Mind Tax: +${bonus} priority from NPC extra draw`);
+    }
+  }
+
+  return s;
 }
 
 export function evaluateTrapCondition(

@@ -156,6 +156,7 @@ export function buildInitialCombatState(
     activeRestrictions: [],
     activeReplacements: [],
     npcCardsPlayedThisTurn: 0,
+    npcExtraDrawsThisTurn: 0,
     playerCardsPlayedThisTurn: 0,
     playerShieldsBrokenThisTurn: 0,
     playerShieldsBrokenPrevTurn: 0,

@@ -292,7 +292,8 @@ export type RestrictionType =
   | 'MAX_CARD_COST'
   | 'INCREASE_CARD_COST'
   | 'PREVENT_PATIENCE_GAIN'
-  | 'REPLACE_SHIELD_BREAK_WITH_PATIENCE';
+  | 'REPLACE_SHIELD_BREAK_WITH_PATIENCE'
+  | 'PRIORITY_PER_EXTRA_DRAW';
 
 export interface ActiveRestriction {
   id: string;
@@ -300,6 +301,7 @@ export interface ActiveRestriction {
   target: CardOwner;
   value?: number;
   turnsRemaining: number;
+  linkedImpressionId?: string;
 }
 
 export interface ActiveReplacement {
@@ -401,6 +403,7 @@ export interface CombatState {
   activeRestrictions: ActiveRestriction[];
   activeReplacements: ActiveReplacement[];
   npcCardsPlayedThisTurn: number;
+  npcExtraDrawsThisTurn: number;
   playerCardsPlayedThisTurn: number;
   playerShieldsBrokenThisTurn: number;
   playerShieldsBrokenPrevTurn: number;

@@ -895,6 +895,42 @@ export const ORANGE_STARTER_CARDS: CardDefinition[] = [
     effectText: 'Normal: -2 priority to opponent. Heavy Hand (cost 6): -2 priority to opponent and break one of your own shields. Shuffles back into your deck after use.',
     longDescription: 'The law is a blunt instrument. Swing it lightly, and it nudges. Swing it hard, and something breaks — maybe even something of yours.',
   },
+  {
+    id: 'orange_exacting_decree',
+    name: 'Exacting Decree',
+    cost: 3,
+    keywords: ['Heavy Hand'],
+    effects: [
+      { type: 'APPLY_RESTRICTION', restrictionType: 'INCREASE_CARD_COST', restrictionTarget: 'player', value: 1, restrictionDuration: 99 },
+      { type: 'APPLY_RESTRICTION', restrictionType: 'INCREASE_CARD_COST', restrictionTarget: 'npc', value: 1, restrictionDuration: 99 },
+    ],
+    heavyHandEffects: [
+      { type: 'APPLY_RESTRICTION', restrictionType: 'INCREASE_CARD_COST', restrictionTarget: 'player', value: 2, restrictionDuration: 99 },
+      { type: 'APPLY_RESTRICTION', restrictionType: 'INCREASE_CARD_COST', restrictionTarget: 'npc', value: 2, restrictionDuration: 99 },
+    ],
+    color: 'Orange',
+    supertype: 'Skill',
+    subtype: 'Impression',
+    effectText: 'Normal: all cards cost +1 priority to play (both players). Heavy Hand (cost 6): +2 instead. Lasts while this impression is on the field.',
+    longDescription: 'A decree from on high. Every word now carries a surcharge, every argument an added toll. The bureaucracy has arrived.',
+  },
+  {
+    id: 'orange_mind_tax',
+    name: 'Mind Tax',
+    cost: 2,
+    keywords: ['Heavy Hand'],
+    effects: [
+      { type: 'APPLY_RESTRICTION', restrictionType: 'PRIORITY_PER_EXTRA_DRAW', restrictionTarget: 'player', value: 1, restrictionDuration: 2 },
+    ],
+    heavyHandEffects: [
+      { type: 'APPLY_RESTRICTION', restrictionType: 'PRIORITY_PER_EXTRA_DRAW', restrictionTarget: 'player', value: 2, restrictionDuration: 2 },
+    ],
+    color: 'Orange',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: 'Normal: until end of next turn, gain 1 priority for every extra card the opponent draws. Heavy Hand (cost 4): gain 2 per extra draw instead.',
+    longDescription: 'You plant a seed of suspicion. Every new piece of information the witness reaches for now costs them credibility.',
+  },
 ];
 
 // ─── Card Definition Block Registry ──────────────────────────

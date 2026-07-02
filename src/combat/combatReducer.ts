@@ -281,6 +281,12 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
         }
       }
 
+      // Enforce INCREASE_CARD_COST restrictions
+      const costIncrease = state.activeRestrictions
+        .filter(r => r.restrictionType === 'INCREASE_CARD_COST' && r.target === 'player')
+        .reduce((sum, r) => sum + (r.value ?? 0), 0);
+      if (costIncrease > 0) effectiveCost += costIncrease;
+
       // Classic mode: cannot play if cost > current priority
       if (!isFrame && effectiveCost > state.priority) {
         return addLog(state, `Cannot play ${card.definition.name} — cost ${effectiveCost} exceeds priority ${state.priority}`);
@@ -648,23 +654,26 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       // Dispatch CARD_PLAYED for triggered abilities (e.g. Intimidating Presence)
       s = dispatchGameEvent(s, { type: 'CARD_PLAYED', sourceCard: card });
 
+      const npcCostIncrease = s.activeRestrictions
+        .filter(r => r.restrictionType === 'INCREASE_CARD_COST' && r.target === 'npc')
+        .reduce((sum, r) => sum + (r.value ?? 0), 0);
+      const npcEffectiveCost = card.definition.cost + npcCostIncrease;
+
       if (s.config.priorityMode === 'frame') {
-        // Frame mode: enemy card cost pushes priority toward positive (self-limiting)
-        if (card.definition.cost > 0) {
+        if (npcEffectiveCost > 0) {
           const oldPriority = s.priority;
-          const newPriority = clampPriority(s.priority + card.definition.cost);
+          const newPriority = clampPriority(s.priority + npcEffectiveCost);
           s = addLog({ ...s, priority: newPriority },
-            `NPC spent ${card.definition.cost} initiative (priority ${oldPriority} → ${newPriority})`);
+            `NPC spent ${npcEffectiveCost} initiative (priority ${oldPriority} → ${newPriority})`);
           if (oldPriority <= 0 && newPriority > 0) {
             s = priorityRestore(s);
           }
         }
       } else {
-        // Classic mode: deduct cost from npcPriority
-        if (card.definition.cost > 0) {
-          const newNpcPriority = Math.max(0, s.npcPriority - card.definition.cost);
+        if (npcEffectiveCost > 0) {
+          const newNpcPriority = Math.max(0, s.npcPriority - npcEffectiveCost);
           s = addLog({ ...s, npcPriority: newNpcPriority },
-            `NPC spent ${card.definition.cost} priority (npcPriority ${s.npcPriority} → ${newNpcPriority})`);
+            `NPC spent ${npcEffectiveCost} priority (npcPriority ${s.npcPriority} → ${newNpcPriority})`);
         }
       }
 
