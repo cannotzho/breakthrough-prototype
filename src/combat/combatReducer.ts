@@ -172,6 +172,7 @@ function completePlayerPlay(state: CombatState, card: CardInstance, isPonderConv
       playOrder: s.trapPlayCounter,
       turnsRemaining: 2,
       persistent: card.definition.trapPersistent ?? false,
+      rapportNumber: card.definition.keywords.includes('Rapport') ? (s.chosenNumber ?? undefined) : undefined,
     };
     s = {
       ...s,
@@ -192,7 +193,13 @@ function completePlayerPlay(state: CombatState, card: CardInstance, isPonderConv
     s = {
       ...s,
       playerDiscard: [...s.playerDiscard, ...discardAdditions],
-      fieldImpressions: isImpression ? [...s.fieldImpressions, { card, counters: 0 }] : s.fieldImpressions,
+      fieldImpressions: isImpression ? [...s.fieldImpressions, {
+        card,
+        counters: 0,
+        turnsRemaining: card.definition.impressionTurns,
+        returnToDeck: card.definition.impressionReturnToDeck,
+        destroyBelowPatience: card.definition.impressionDestroyBelowPatience,
+      }] : s.fieldImpressions,
     };
   }
 
@@ -317,7 +324,14 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       }
 
       // Trap cards: skip effect resolution, go straight to field placement
+      // Exception: Rapport traps resolve CHOOSE_NUMBER before placement
       if (card.definition.subtype === 'Trap') {
+        const setupEffects = effectiveEffects.filter(e => e.type === 'CHOOSE_NUMBER');
+        if (setupEffects.length > 0) {
+          return resolveEffectList(s, setupEffects, card, (resolved) => {
+            return completePlayerPlay(resolved, card, isPonderConversion);
+          });
+        }
         return completePlayerPlay(s, card, isPonderConversion);
       }
 

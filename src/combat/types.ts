@@ -53,7 +53,10 @@ export type CardEffectType =
   | 'REVEAL_NPC_DECK_TOP'
   | 'HIDE_NPC_HAND'
   | 'HIDE_NPC_DECK_TOP'
-  | 'PLACE_DUMMY_SHIELDS';
+  | 'PLACE_DUMMY_SHIELDS'
+  | 'CANCEL_STAGED_ENEMY_CARD'
+  | 'INCREMENT_RAPPORT_COUNTERS'
+  | 'RAPPORT_SHIELD_BREAK';
 
 export interface CardEffect {
   type: CardEffectType;
@@ -171,6 +174,9 @@ export interface CardDefinition {
   triggeredAbilities?: TriggeredAbility[];
   leavesTriggerEffects?: CardEffect[];
   shieldTriggerEffects?: CardEffect[];
+  impressionTurns?: number;
+  impressionReturnToDeck?: boolean;
+  impressionDestroyBelowPatience?: number;
   /** @deprecated Use effectText/longDescription instead */
   description?: string;
 }
@@ -282,7 +288,8 @@ export type RestrictionType =
   | 'PREVENT_DRAW'
   | 'MAX_CARD_COST'
   | 'INCREASE_CARD_COST'
-  | 'PREVENT_PATIENCE_GAIN';
+  | 'PREVENT_PATIENCE_GAIN'
+  | 'REPLACE_SHIELD_BREAK_WITH_PATIENCE';
 
 export interface ActiveRestriction {
   id: string;
@@ -330,6 +337,7 @@ export interface FieldTrap {
   playOrder: number;
   turnsRemaining: number;
   persistent?: boolean;
+  rapportNumber?: number;
 }
 
 // ─── Pending Shield Trigger ────────────────────────────────────

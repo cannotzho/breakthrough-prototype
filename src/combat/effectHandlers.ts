@@ -76,6 +76,7 @@ export function priorityRestore(state: CombatState): CombatState {
   }
   const toDraw = Math.max(0, s.combatConfig.handLimit - s.playerHand.length);
   s = drawCards(s, toDraw);
+  s = applyEffect(s, { type: 'RAPPORT_SHIELD_BREAK' }, 'player');
   // Turn-based expiry (traps, restrictions) must tick only on a genuine
   // opponent→player handoff — i.e. when the opponent actually took a turn.
   // priorityRestore is ALSO invoked mid-player-turn whenever a player's own
@@ -85,6 +86,7 @@ export function priorityRestore(state: CombatState): CombatState {
   // "not persist". Gate on whether the opponent played a card this turn.
   if (state.npcCardsPlayedThisTurn > 0) {
     s = expireTraps(s);
+    s = expireImpressions(s);
     s = tickRestrictions(s);
     s = {
       ...s,
@@ -118,7 +120,9 @@ export function classicTurnStart(state: CombatState): CombatState {
   }
   const toDraw = Math.max(0, s.combatConfig.handLimit - s.playerHand.length);
   s = drawCards(s, toDraw);
+  s = applyEffect(s, { type: 'RAPPORT_SHIELD_BREAK' }, 'player');
   s = expireTraps(s);
+  s = expireImpressions(s);
   s = tickRestrictions(s);
   s = {
     ...s,
@@ -163,6 +167,57 @@ export function expireTraps(state: CombatState): CombatState {
     playerDiscard: [...state.playerDiscard, ...expiredCards],
     actionLog: log,
   };
+}
+
+export function expireImpressions(state: CombatState): CombatState {
+  if (state.fieldImpressions.length === 0) return state;
+  const surviving: typeof state.fieldImpressions = [];
+  const log = [...state.actionLog];
+  let s = state;
+  for (const fi of state.fieldImpressions) {
+    if (fi.turnsRemaining == null) {
+      surviving.push(fi);
+      continue;
+    }
+    const remaining = fi.turnsRemaining - 1;
+    if (remaining <= 0) {
+      if (fi.returnToDeck) {
+        s = { ...s, playerDeck: shuffle([...s.playerDeck, fi.card]) };
+        log.push(`Impression returned to deck: ${fi.card.definition.name}`);
+      } else {
+        s = { ...s, playerDiscard: [...s.playerDiscard, fi.card] };
+        log.push(`Impression expired: ${fi.card.definition.name}`);
+      }
+      if (fi.card.definition.leavesTriggerEffects) {
+        for (const eff of fi.card.definition.leavesTriggerEffects) {
+          s = applyEffect(s, eff, fi.card.controller, fi.card);
+        }
+      }
+    } else {
+      surviving.push({ ...fi, turnsRemaining: remaining });
+    }
+  }
+  return { ...s, fieldImpressions: surviving, actionLog: log };
+}
+
+export function checkDestroyBelowPatience(state: CombatState): CombatState {
+  if (state.fieldImpressions.length === 0) return state;
+  const surviving: typeof state.fieldImpressions = [];
+  let s = state;
+  for (const fi of state.fieldImpressions) {
+    if (fi.destroyBelowPatience != null && s.patience < fi.destroyBelowPatience) {
+      s = addLog(s, `${fi.card.definition.name} destroyed (patience ${s.patience} < ${fi.destroyBelowPatience})`);
+      s = { ...s, playerDiscard: [...s.playerDiscard, fi.card] };
+      if (fi.card.definition.leavesTriggerEffects) {
+        for (const eff of fi.card.definition.leavesTriggerEffects) {
+          s = applyEffect(s, eff, fi.card.controller, fi.card);
+        }
+      }
+    } else {
+      surviving.push(fi);
+    }
+  }
+  return { ...s, fieldImpressions: surviving };
 }
 
 // ─── Token lifecycle ─────────────────────────────────────────
@@ -445,7 +500,7 @@ export function applyEffect(state: CombatState, effectRaw: CardEffect, controlle
           }
         }
       }
-      return { ...s, patience: s.patience + delta };
+      return checkDestroyBelowPatience({ ...s, patience: s.patience + delta });
     }
     case 'DRAW_CARDS': {
       const drawBlocked = state.activeRestrictions.some(
@@ -479,6 +534,14 @@ export function applyEffect(state: CombatState, effectRaw: CardEffect, controlle
         s = dispatchGameEvent(s, { type: 'SHIELD_BROKEN', sourceCard });
         return s;
       } else {
+        const genuineEnjoyment = state.fieldImpressions.find(
+          fi => fi.card.definition.id === 'green_genuine_enjoyment'
+        );
+        if (genuineEnjoyment) {
+          const cost = 5;
+          let s = checkDestroyBelowPatience({ ...state, patience: state.patience - cost });
+          return addLog(s, `Shield break replaced by Genuine Enjoyment: lost ${cost} Patience instead`);
+        }
         const result = breakPlayerShieldAutomatic(state);
         let s = result.state;
         if (result.hadShieldTrigger && result.triggerCard) {
@@ -676,7 +739,11 @@ export function applyEffect(state: CombatState, effectRaw: CardEffect, controlle
     }
     case 'COPY_FROM_NPC_DECK': {
       const count = effect.copyCount ?? 1;
+      const chosen = state.chosenNumber;
       let candidates = [...state.enemyDeck];
+      if (chosen != null) {
+        candidates = candidates.filter(c => c.definition.cost === chosen);
+      }
       if (effect.copyFilter === 'HAS_SHIELD_BREAK') {
         candidates = candidates.filter(c =>
           c.definition.effects.some(e => e.type === 'BREAK_OPPONENT_SHIELD' || e.type === 'BREAK_OPPONENT_SHIELDS_SCALED')
@@ -689,10 +756,11 @@ export function applyEffect(state: CombatState, effectRaw: CardEffect, controlle
         const costOverride = c.definition.cost;
         return { ...inst, patienceCostOverride: costOverride };
       });
-      return addLog(
+      let s = addLog(
         { ...state, playerHand: [...state.playerHand, ...newCards] },
         `Copied ${newCards.length} card(s) from NPC deck: ${newCards.map(c => c.definition.name).join(', ')}`
       );
+      return applyEffect(s, { type: 'INCREMENT_RAPPORT_COUNTERS' }, controller, sourceCard);
     }
     case 'PLACE_DUMMY_SHIELDS': {
       const count = effect.value ?? 1;
@@ -758,6 +826,45 @@ export function applyEffect(state: CombatState, effectRaw: CardEffect, controlle
       s = addLog(s, `Destroyed ${targets.length} token(s)`);
       return s;
     }
+    case 'CANCEL_STAGED_ENEMY_CARD': {
+      if (!state.stagedEnemyCard) return addLog(state, 'No staged enemy card to cancel');
+      const cancelled = state.stagedEnemyCard;
+      return addLog(
+        { ...state, stagedEnemyCard: null, enemyDiscard: [...state.enemyDiscard, cancelled] },
+        `Cancelled NPC card: ${cancelled.definition.name}`
+      );
+    }
+    case 'INCREMENT_RAPPORT_COUNTERS': {
+      const updated = state.fieldImpressions.map(fi =>
+        fi.card.definition.id === 'green_to_truly_know'
+          ? { ...fi, counters: fi.counters + 1 }
+          : fi
+      );
+      const changed = updated.some((fi, i) => fi !== state.fieldImpressions[i]);
+      if (!changed) return state;
+      return addLog({ ...state, fieldImpressions: updated },
+        `Rapport success — To Truly Know counters incremented`);
+    }
+    case 'RAPPORT_SHIELD_BREAK': {
+      const toTrulyKnow = state.fieldImpressions.find(fi => fi.card.definition.id === 'green_to_truly_know');
+      if (!toTrulyKnow) return state;
+      const c = toTrulyKnow.counters;
+      if (c < 3) return state;
+      let breakCount: number;
+      if (c >= 10) {
+        breakCount = state.opponentShields.filter(s => !s.broken).length;
+      } else if (c >= 5) {
+        breakCount = 5;
+      } else {
+        breakCount = 3;
+      }
+      let s = state;
+      for (let i = 0; i < breakCount; i++) {
+        s = applyEffect(s, { type: 'BREAK_OPPONENT_SHIELD' }, 'player');
+        if (s.pendingReveal) break;
+      }
+      return s;
+    }
     default:
       return state;
   }
@@ -813,7 +920,13 @@ export function resolveFieldTriggerCheck(state: CombatState, event?: TrapTrigger
   }
 
   const triggeredTraps: FieldTrap[] = event
-    ? s.fieldTraps.filter(trap => evaluateTrapCondition(trap.triggerCondition, event))
+    ? s.fieldTraps.filter(trap => {
+        if (!evaluateTrapCondition(trap.triggerCondition, event)) return false;
+        if (trap.rapportNumber != null && s.stagedEnemyCard) {
+          return s.stagedEnemyCard.definition.cost === trap.rapportNumber;
+        }
+        return true;
+      })
     : [];
 
   const sortedTraps = [...triggeredTraps].sort((a, b) => a.playOrder - b.playOrder);
