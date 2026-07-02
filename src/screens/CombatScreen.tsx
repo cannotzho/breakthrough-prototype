@@ -404,12 +404,12 @@ export default function CombatScreen({ onExit, encounterConfig, playerDeckDefs, 
             {/* Field — Impressions, Traps, and Tokens (bottom of play area) */}
             {(state.fieldImpressions.length > 0 || state.fieldTraps.length > 0 || state.fieldTokens.length > 0) && (
               <div className="flex justify-center gap-4 flex-wrap relative z-10 pb-2">
-                {state.fieldImpressions.map(c => (
-                  <div key={c.instanceId} className="flex flex-col items-center gap-1">
-                    <CardView card={c} label="Impression" onClick={() => setDetailCard(c)} />
-                    {c.definition.activatedAbilities?.map(ab => (
+                {state.fieldImpressions.map(fi => (
+                  <div key={fi.card.instanceId} className="flex flex-col items-center gap-1">
+                    <CardView card={fi.card} label="Impression" onClick={() => setDetailCard(fi.card)} />
+                    {fi.card.definition.activatedAbilities?.map(ab => (
                       <button key={ab.id}
-                        onClick={() => dispatch({ type: 'ACTIVATE_ABILITY', cardInstanceId: c.instanceId, abilityId: ab.id })}
+                        onClick={() => dispatch({ type: 'ACTIVATE_ABILITY', cardInstanceId: fi.card.instanceId, abilityId: ab.id })}
                         disabled={state.phase !== 'PlayerPending'}
                         className="text-[10px] px-2 py-0.5 rounded border border-amber-600 text-amber-400 hover:bg-amber-900/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                       >

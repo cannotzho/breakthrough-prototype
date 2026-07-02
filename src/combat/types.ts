@@ -2,14 +2,18 @@
 export type ColorIdentity = 'Red' | 'Blue' | 'Green' | 'White' | 'Black' | 'Orange' | 'Purple' | 'Colorless';
 
 // ─── Keywords ──────────────────────────────────────────────────
-export type Keyword = 'Safety' | 'Assemble' | 'Shield Trigger' | 'Lie' | 'Trap';
+export type Keyword = 'Safety' | 'Assemble' | 'Shield Trigger' | 'Lie' | 'Trap' | 'Rapport';
 
 // ─── Effect Conditions ────────────────────────────────────────
 export type EffectConditionType =
   | 'NPC_CARDS_PLAYED_GTE'
   | 'FIELD_TOKEN_COUNT_GTE'
   | 'HAS_FIELD_IMPRESSION'
-  | 'PATIENCE_LT';
+  | 'PATIENCE_LT'
+  | 'PATIENCE_GTE'
+  | 'NPC_DECK_COST_MATCH_GTE'
+  | 'NPC_DECK_COST_MATCH_LT'
+  | 'NPC_SHIELDS_BROKEN_GTE';
 
 export interface EffectCondition {
   type: EffectConditionType;
@@ -21,7 +25,9 @@ export type EffectScaleSource =
   | 'PLAYER_CARDS_PLAYED_THIS_TURN'
   | 'CURRENT_PRIORITY'
   | 'PLAYER_SHIELDS_BROKEN_PREV_TURN'
-  | 'OPPONENT_MISSING_PATIENCE';
+  | 'OPPONENT_MISSING_PATIENCE'
+  | 'CHOSEN_NUMBER'
+  | 'NPC_DECK_MATCHING_COST_COUNT';
 
 // ─── Card Effects ──────────────────────────────────────────────
 export type CardEffectType =
@@ -39,7 +45,15 @@ export type CardEffectType =
   | 'DESTROY_TOKENS'
   | 'APPLY_RESTRICTION'
   | 'DESTROY_IMPRESSION'
-  | 'APPLY_REPLACEMENT';
+  | 'APPLY_REPLACEMENT'
+  | 'CHOOSE_NUMBER'
+  | 'REVEAL_OPPONENT_DECK_TOP'
+  | 'COPY_FROM_NPC_DECK'
+  | 'REVEAL_NPC_HAND'
+  | 'REVEAL_NPC_DECK_TOP'
+  | 'HIDE_NPC_HAND'
+  | 'HIDE_NPC_DECK_TOP'
+  | 'PLACE_DUMMY_SHIELDS';
 
 export interface CardEffect {
   type: CardEffectType;
@@ -59,6 +73,10 @@ export interface CardEffect {
   condition?: EffectCondition;
   replacementOriginalId?: string;
   replacementTargetId?: string;
+  altValue?: number;
+  altCondition?: EffectCondition;
+  copyFilter?: 'HAS_SHIELD_BREAK';
+  copyCount?: number;
 }
 
 // ─── Game Events (for passive triggered abilities) ───────────
@@ -165,6 +183,7 @@ export interface CardInstance {
   owner: CardOwner;
   controller: CardOwner;
   combinedFrom?: CardInstance[];
+  patienceCostOverride?: number;
 }
 
 export interface CombinationRecipe {
@@ -290,8 +309,19 @@ export type CombatPhase =
   | 'EnemyPending'
   | 'FieldTriggerCheck'
   | 'EnemyPlay'
+  | 'ChooseNumberPending'
+  | 'DeckRevealPending'
   | 'WIN'
   | 'LOSE';
+
+// ─── Field Impression (active on the Field) ───────────────────
+export interface FieldImpression {
+  card: CardInstance;
+  counters: number;
+  turnsRemaining?: number;
+  returnToDeck?: boolean;
+  destroyBelowPatience?: number;
+}
 
 // ─── Field Trap (active on the Field) ──────────────────────────
 export interface FieldTrap {
@@ -331,7 +361,7 @@ export interface CombatState {
   enemyDiscard: CardInstance[];
   stagedEnemyCard: CardInstance | null;
 
-  fieldImpressions: CardInstance[];
+  fieldImpressions: FieldImpression[];
   fieldTokens: CardInstance[];
   fieldTraps: FieldTrap[];
   trapPlayCounter: number;
@@ -348,6 +378,13 @@ export interface CombatState {
   triggerDepth: number;
   pendingDiscovery: NuggetDiscoveryEvent | null;
   discoveredNuggetIds: string[];
+
+  pendingNumberChoice: { min: number; max: number } | null;
+  chosenNumber: number | null;
+  pendingDeckReveal: CardInstance[] | null;
+  npcHandRevealed: boolean;
+  npcDeckTopRevealed: boolean;
+  npcShieldsBrokenThisTurn: number;
 
   activeTurn: 'player' | 'npc';
   activeRestrictions: ActiveRestriction[];
@@ -395,4 +432,6 @@ export type CombatAction =
   | { type: 'DESTROY_TOKEN'; instanceId: string }
   | { type: 'DEV_RESET'; state: CombatState }
   | { type: 'DEV_SET_MANUAL_ENEMY'; enabled: boolean }
-  | { type: 'DEV_PICK_ENEMY_FROM_DECK'; instanceId: string };
+  | { type: 'DEV_PICK_ENEMY_FROM_DECK'; instanceId: string }
+  | { type: 'RESOLVE_NUMBER_CHOICE'; value: number }
+  | { type: 'DISMISS_DECK_REVEAL' };

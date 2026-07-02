@@ -176,7 +176,7 @@ function completePlayerPlay(state: CombatState, card: CardInstance, isPonderConv
     s = {
       ...s,
       playerDiscard: [...s.playerDiscard, ...discardAdditions],
-      fieldImpressions: isImpression ? [...s.fieldImpressions, card] : s.fieldImpressions,
+      fieldImpressions: isImpression ? [...s.fieldImpressions, { card, counters: 0 }] : s.fieldImpressions,
     };
   }
 
@@ -601,8 +601,8 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
     case 'ACTIVATE_ABILITY': {
       if (state.phase !== 'PlayerPending') return state;
 
-      const fieldCard =
-        state.fieldImpressions.find(c => c.instanceId === action.cardInstanceId) ??
+      const fieldImpression = state.fieldImpressions.find(fi => fi.card.instanceId === action.cardInstanceId);
+      const fieldCard = fieldImpression?.card ??
         state.fieldTokens.find(c => c.instanceId === action.cardInstanceId);
       if (!fieldCard) return addLog(state, 'Activate failed: card not found on field');
 

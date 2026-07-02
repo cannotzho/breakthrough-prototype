@@ -226,7 +226,7 @@ export function destroyToken(state: CombatState, instanceId: string): CombatStat
 // queued in pendingEffects instead so the reveal isn't overwritten.
 export function dispatchGameEvent(state: CombatState, event: GameEvent): CombatState {
   let s = state;
-  const fieldCards = [...s.fieldImpressions, ...s.fieldTokens];
+  const fieldCards = [...s.fieldImpressions.map(fi => fi.card), ...s.fieldTokens];
 
   for (const card of fieldCards) {
     const abilities = card.definition.triggeredAbilities;
@@ -528,10 +528,10 @@ export function applyEffect(state: CombatState, effect: CardEffect, controller: 
       if (state.fieldTokens.some(t => t.instanceId === sourceCard.instanceId)) {
         return destroyToken(state, sourceCard.instanceId);
       }
-      if (state.fieldImpressions.some(c => c.instanceId === sourceCard.instanceId)) {
+      if (state.fieldImpressions.some(fi => fi.card.instanceId === sourceCard.instanceId)) {
         let s: CombatState = {
           ...state,
-          fieldImpressions: state.fieldImpressions.filter(c => c.instanceId !== sourceCard.instanceId),
+          fieldImpressions: state.fieldImpressions.filter(fi => fi.card.instanceId !== sourceCard.instanceId),
           playerDiscard: [...state.playerDiscard, sourceCard],
         };
         return addLog(s, `${sourceCard.definition.name} destroyed itself`);
@@ -602,12 +602,12 @@ export function applyEffect(state: CombatState, effect: CardEffect, controller: 
       );
     }
     case 'DESTROY_IMPRESSION': {
-      const impressions = state.fieldImpressions.filter(i => i.controller === controller);
+      const impressions = state.fieldImpressions.filter(fi => fi.card.controller === controller);
       if (impressions.length === 0) return addLog(state, `No impressions to destroy`);
       const target = impressions[0];
       return addLog(
-        { ...state, fieldImpressions: state.fieldImpressions.filter(i => i.instanceId !== target.instanceId) },
-        `Destroyed impression: ${target.definition.name}`
+        { ...state, fieldImpressions: state.fieldImpressions.filter(fi => fi.card.instanceId !== target.card.instanceId) },
+        `Destroyed impression: ${target.card.definition.name}`
       );
     }
     case 'APPLY_REPLACEMENT': {
