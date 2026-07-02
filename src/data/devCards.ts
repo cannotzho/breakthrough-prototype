@@ -601,12 +601,191 @@ export const RED_STARTER_CARDS: CardDefinition[] = [
   },
 ];
 
+// ─── Green Starter Deck ───────────────────────────────────────
+export const GREEN_STARTER_CARDS: CardDefinition[] = [
+  // ── Tier 1 ────────────────────────────────────────────────────
+  {
+    id: 'green_listening_ear',
+    name: 'Listening Ear',
+    cost: 0,
+    keywords: [],
+    effects: [{ type: 'MODIFY_PATIENCE', value: 3 }],
+    color: 'Green',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: 'Restore 3 Patience.',
+    longDescription: 'Sometimes the most powerful thing you can do is simply listen. Your attentive silence puts them at ease.',
+  },
+  {
+    id: 'green_rally',
+    name: 'Rally',
+    cost: 2,
+    keywords: [],
+    effects: [
+      { type: 'MODIFY_PATIENCE', value: 3 },
+      { type: 'DRAW_CARDS', value: 2 },
+    ],
+    color: 'Green',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: 'Restore 3 Patience. Draw 2 cards.',
+    longDescription: 'A reassuring word, a moment of calm — your composure steadies everything around you.',
+  },
+  {
+    id: 'green_emotional_connection',
+    name: 'Emotional Connection',
+    cost: 0,
+    keywords: [],
+    effects: [
+      { type: 'MODIFY_PATIENCE', value: 2 },
+      { type: 'REVEAL_NPC_HAND' },
+    ],
+    color: 'Green',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: 'Restore 2 Patience. The opponent reveals their hand.',
+    longDescription: 'You reach them on a level that has nothing to do with facts. For a moment, their guard drops entirely.',
+  },
+  {
+    id: 'green_deep_understanding',
+    name: 'Deep Understanding',
+    cost: 0,
+    keywords: [],
+    effects: [
+      { type: 'MODIFY_PATIENCE', value: 3 },
+      { type: 'REVEAL_OPPONENT_DECK_TOP', value: 3 },
+    ],
+    color: 'Green',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: 'Restore 3 Patience. Look at the top 3 cards of the opponent\'s deck.',
+    longDescription: 'Your empathy runs so deep you can sense what they\'re about to say before they say it.',
+  },
+  {
+    id: 'green_display_of_benevolence',
+    name: 'Display of Benevolence',
+    cost: 2,
+    keywords: [],
+    effects: [
+      { type: 'MODIFY_PATIENCE', value: 10, altValue: 15, altCondition: { type: 'PATIENCE_LT' as const, value: 10 } },
+    ],
+    color: 'Green',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: 'Restore 10 Patience. If you have less than 10 Patience, restore 15 instead.',
+    longDescription: 'An act of genuine kindness — no strings attached. When things are at their worst, your generosity overwhelms.',
+  },
+  {
+    id: 'green_empathy',
+    name: 'Empathy',
+    cost: 3,
+    keywords: ['Rapport'],
+    effects: [
+      { type: 'CHOOSE_NUMBER', value: 1, altValue: 10 },
+      { type: 'COPY_FROM_NPC_DECK', copyCount: 1 },
+    ],
+    color: 'Green',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: '{Rapport} Choose a number from 1-10. Duplicate a card in the opponent\'s hand with that priority cost. That card costs that much patience to cast.',
+    longDescription: 'You understand them so completely that you can mirror their thoughts. Their strategy becomes your own.',
+  },
+  {
+    id: 'green_keeping_an_open_mind',
+    name: 'Keeping an Open Mind',
+    cost: 2,
+    keywords: ['Rapport'],
+    effects: [
+      { type: 'REVEAL_NPC_DECK_TOP' },
+      { type: 'CHOOSE_NUMBER', value: 1, altValue: 10 },
+      {
+        type: 'DRAW_CARDS',
+        scale: 'NPC_DECK_MATCHING_COST_COUNT',
+        value: 1,
+        condition: { type: 'NPC_DECK_COST_MATCH_GTE', value: 1 },
+      },
+    ],
+    color: 'Green',
+    supertype: 'Skill',
+    subtype: 'Impression',
+    effectText: 'The opponent plays with the top card of their deck revealed. {Rapport} Choose 1-10. If the opponent has 1+ cards with that cost, draw that many cards.',
+    longDescription: 'Stay open to what they\'re showing you. The more you understand their rhythm, the more ammunition you find.',
+    leavesTriggerEffects: [{ type: 'HIDE_NPC_DECK_TOP' }],
+  },
+  {
+    id: 'green_engaging_insight',
+    name: 'Engaging Insight',
+    cost: 2,
+    keywords: ['Rapport'],
+    effects: [
+      { type: 'CHOOSE_NUMBER', value: 1, altValue: 10 },
+      {
+        type: 'MODIFY_PATIENCE',
+        scale: 'NPC_DECK_MATCHING_COST_COUNT',
+        value: 3,
+        condition: { type: 'NPC_DECK_COST_MATCH_GTE', value: 1 },
+      },
+      {
+        type: 'MODIFY_PATIENCE',
+        value: -5,
+        condition: { type: 'NPC_DECK_COST_MATCH_LT', value: 1 },
+      },
+    ],
+    color: 'Green',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: '{Rapport} Choose 1-10. If the opponent has 1+ cards with that cost, restore that many × 3 Patience. Otherwise, lose 5 Patience.',
+    longDescription: 'A calculated read on their psyche. Get it right, and everything flows. Get it wrong, and the rapport backfires.',
+  },
+  {
+    id: 'green_like_an_open_book',
+    name: 'Like an Open Book',
+    cost: 3,
+    keywords: ['Rapport'],
+    effects: [
+      { type: 'CHOOSE_NUMBER', value: 1, altValue: 10 },
+      {
+        type: 'MODIFY_PATIENCE',
+        scale: 'NPC_DECK_MATCHING_COST_COUNT',
+        value: 5,
+        condition: { type: 'NPC_DECK_COST_MATCH_GTE', value: 2 },
+      },
+      {
+        type: 'MODIFY_PATIENCE',
+        value: -10,
+        condition: { type: 'NPC_DECK_COST_MATCH_LT', value: 2 },
+      },
+    ],
+    color: 'Green',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: '{Rapport} Choose 1-10. If the opponent has 2+ cards with that cost, restore that many × 5 Patience. Otherwise, lose 10 Patience.',
+    longDescription: 'You can read them like a book. But overconfidence is its own trap — miss, and they close off harder than before.',
+  },
+  {
+    id: 'green_sensitive_deflection',
+    name: 'Sensitive Deflection',
+    cost: 2,
+    keywords: ['Trap'],
+    effects: [
+      { type: 'PLACE_DUMMY_SHIELDS', value: 3, condition: { type: 'NPC_SHIELDS_BROKEN_GTE', value: 2 } },
+    ],
+    color: 'Green',
+    supertype: 'Skill',
+    subtype: 'Trap',
+    effectText: 'Trap: If the opponent has broken 2+ shields this turn, place 3 dummy shields.',
+    longDescription: 'When they push too hard, you softly redirect. Three new walls rise as naturally as a change of subject.',
+    trapTrigger: { triggerType: 'OPPONENT_BREAKS_SHIELD' },
+  },
+];
+
 // ─── Card Definition Block Registry ──────────────────────────
 // When Claude authors new card blocks (e.g. ORANGE_STARTER_CARDS),
 // add them here so the dev tool importer discovers them automatically.
 export const CARD_DEF_BLOCKS: Record<string, CardDefinition[]> = {
   'Blue Starter Deck': BLUE_STARTER_CARDS,
   'Red Starter Deck': RED_STARTER_CARDS,
+  'Green Starter Deck': GREEN_STARTER_CARDS,
 };
 
 export const PONDER_DEFINITION: CardDefinition = {
