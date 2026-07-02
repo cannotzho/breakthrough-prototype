@@ -121,6 +121,22 @@ function resolveEffectList(
         pendingEffectCard: s.pendingEffectCard ?? card,
       };
     }
+    if (s.pendingNumberChoice) {
+      return {
+        ...s,
+        phase: 'ChooseNumberPending',
+        pendingEffects: [...s.pendingEffects, ...effects.slice(i + 1)],
+        pendingEffectCard: s.pendingEffectCard ?? card,
+      };
+    }
+    if (s.pendingDeckReveal) {
+      return {
+        ...s,
+        phase: 'DeckRevealPending',
+        pendingEffects: [...s.pendingEffects, ...effects.slice(i + 1)],
+        pendingEffectCard: s.pendingEffectCard ?? card,
+      };
+    }
   }
   return onComplete(s);
 }
@@ -293,6 +309,13 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
         abilitiesFiredThisPlay: [],
       };
 
+      if (card.patienceCostOverride != null) {
+        effectiveEffects = [
+          ...effectiveEffects,
+          { type: 'MODIFY_PATIENCE' as const, value: -card.patienceCostOverride },
+        ];
+      }
+
       // Trap cards: skip effect resolution, go straight to field placement
       if (card.definition.subtype === 'Trap') {
         return completePlayerPlay(s, card, isPonderConversion);
@@ -444,6 +467,51 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
         if (final.stagedEnemyCard && card && final.stagedEnemyCard.instanceId === card.instanceId) {
           final = { ...final, enemyDiscard: [...final.enemyDiscard, final.stagedEnemyCard], stagedEnemyCard: null };
         }
+        final = resolveFieldTriggerCheck(final);
+        return checkState(final);
+      });
+    }
+
+    case 'RESOLVE_NUMBER_CHOICE': {
+      if (state.phase !== 'ChooseNumberPending') return state;
+      const range = state.pendingNumberChoice;
+      if (!range) return state;
+      const clamped = Math.max(range.min, Math.min(range.max, action.value));
+      const remainingEffects = state.pendingEffects;
+      const card = state.pendingEffectCard;
+      let s: CombatState = {
+        ...state,
+        pendingNumberChoice: null,
+        chosenNumber: clamped,
+        pendingEffects: [],
+        pendingEffectCard: null,
+      };
+      s = addLog(s, `Chose number: ${clamped}`);
+      if (!card || remainingEffects.length === 0) {
+        return checkState({ ...s, phase: 'Check' });
+      }
+      return resolveEffectList(s, remainingEffects, card, (resolved) => {
+        let final: CombatState = { ...resolved, phase: 'Check', pendingEffects: [], pendingEffectCard: null };
+        final = resolveFieldTriggerCheck(final);
+        return checkState(final);
+      });
+    }
+
+    case 'DISMISS_DECK_REVEAL': {
+      if (state.phase !== 'DeckRevealPending') return state;
+      const remainingEffects = state.pendingEffects;
+      const card = state.pendingEffectCard;
+      let s: CombatState = {
+        ...state,
+        pendingDeckReveal: null,
+        pendingEffects: [],
+        pendingEffectCard: null,
+      };
+      if (!card || remainingEffects.length === 0) {
+        return checkState(addLog({ ...s, phase: 'Check' }, 'Deck reveal dismissed'));
+      }
+      return resolveEffectList(s, remainingEffects, card, (resolved) => {
+        let final: CombatState = { ...resolved, phase: 'Check', pendingEffects: [], pendingEffectCard: null };
         final = resolveFieldTriggerCheck(final);
         return checkState(final);
       });

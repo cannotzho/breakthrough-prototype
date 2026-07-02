@@ -21,6 +21,8 @@ import RevealModal from '../components/combat/RevealModal';
 import TerminalScreen from '../components/combat/TerminalScreen';
 import PileViewerModal from '../components/combat/PileViewerModal';
 import CardDetailModal from '../components/combat/CardDetailModal';
+import NumberChoiceModal from '../components/combat/NumberChoiceModal';
+import DeckRevealModal from '../components/combat/DeckRevealModal';
 import { formatAbilityCost } from '../components/combat/formatters';
 import useCombatEffects from '../components/combat/useCombatEffects';
 
@@ -487,6 +489,8 @@ export default function CombatScreen({ onExit, encounterConfig, playerDeckDefs, 
                     <div className="flex gap-3 text-[10px] lg:text-xs text-zinc-500">
                       <span>Deck {state.enemyDeck.length}</span>
                       <span>Discard {state.enemyDiscard.length}</span>
+                      {state.npcHandRevealed && <span className="text-green-400">Hand Revealed</span>}
+                      {state.npcDeckTopRevealed && <span className="text-green-400">Top Revealed</span>}
                     </div>
                   </div>
                 )}
@@ -734,6 +738,18 @@ export default function CombatScreen({ onExit, encounterConfig, playerDeckDefs, 
       />
 
       <CardDetailModal card={detailCard} onClose={() => setDetailCard(null)} />
+
+      <NumberChoiceModal
+        visible={state.phase === 'ChooseNumberPending'}
+        range={state.pendingNumberChoice}
+        onChoose={(value) => dispatch({ type: 'RESOLVE_NUMBER_CHOICE', value })}
+      />
+
+      <DeckRevealModal
+        visible={state.phase === 'DeckRevealPending'}
+        cards={state.pendingDeckReveal}
+        onDismiss={() => dispatch({ type: 'DISMISS_DECK_REVEAL' })}
+      />
 
       {/* Dev panel / Combat console */}
       {isDual ? (

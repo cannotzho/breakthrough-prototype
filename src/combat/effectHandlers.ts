@@ -91,6 +91,7 @@ export function priorityRestore(state: CombatState): CombatState {
       playerCardsPlayedThisTurn: 0,
       playerShieldsBrokenPrevTurn: s.playerShieldsBrokenThisTurn,
       playerShieldsBrokenThisTurn: 0,
+      npcShieldsBrokenThisTurn: 0,
       abilitiesFiredThisPlay: [],
       turnAbilityFireCounts: {},
     };
@@ -125,6 +126,7 @@ export function classicTurnStart(state: CombatState): CombatState {
     playerCardsPlayedThisTurn: 0,
     playerShieldsBrokenPrevTurn: s.playerShieldsBrokenThisTurn,
     playerShieldsBrokenThisTurn: 0,
+    npcShieldsBrokenThisTurn: 0,
     abilitiesFiredThisPlay: [],
     turnAbilityFireCounts: {},
   };
@@ -359,6 +361,11 @@ function getScaleValue(state: CombatState, source: EffectScaleSource): number {
     case 'CURRENT_PRIORITY': return state.priority;
     case 'PLAYER_SHIELDS_BROKEN_PREV_TURN': return state.playerShieldsBrokenPrevTurn;
     case 'OPPONENT_MISSING_PATIENCE': return Math.max(0, state.config.opponentPatience - state.patience);
+    case 'CHOSEN_NUMBER': return state.chosenNumber ?? 0;
+    case 'NPC_DECK_MATCHING_COST_COUNT': {
+      const chosen = state.chosenNumber ?? 0;
+      return state.enemyDeck.filter(c => c.definition.cost === chosen).length;
+    }
   }
 }
 
@@ -372,15 +379,32 @@ function checkCondition(state: CombatState, condition: EffectCondition): boolean
       return state.fieldImpressions.length > 0;
     case 'PATIENCE_LT':
       return state.patience < (condition.value ?? 0);
+    case 'PATIENCE_GTE':
+      return state.patience >= (condition.value ?? 0);
+    case 'NPC_DECK_COST_MATCH_GTE': {
+      const chosen = state.chosenNumber ?? 0;
+      const matchCount = state.enemyDeck.filter(c => c.definition.cost === chosen).length;
+      return matchCount >= (condition.value ?? 1);
+    }
+    case 'NPC_DECK_COST_MATCH_LT': {
+      const chosen = state.chosenNumber ?? 0;
+      const matchCount = state.enemyDeck.filter(c => c.definition.cost === chosen).length;
+      return matchCount < (condition.value ?? 1);
+    }
+    case 'NPC_SHIELDS_BROKEN_GTE':
+      return state.npcShieldsBrokenThisTurn >= (condition.value ?? 1);
     default:
       return true;
   }
 }
 
-export function applyEffect(state: CombatState, effect: CardEffect, controller: CardOwner = 'player', sourceCard?: CardInstance): CombatState {
-  if (effect.condition && !checkCondition(state, effect.condition)) {
-    return addLog(state, `Condition not met: ${effect.condition.type} (skipped ${effect.type})`);
+export function applyEffect(state: CombatState, effectRaw: CardEffect, controller: CardOwner = 'player', sourceCard?: CardInstance): CombatState {
+  if (effectRaw.condition && !checkCondition(state, effectRaw.condition)) {
+    return addLog(state, `Condition not met: ${effectRaw.condition.type} (skipped ${effectRaw.type})`);
   }
+  const effect = (effectRaw.altCondition && effectRaw.altValue !== undefined && checkCondition(state, effectRaw.altCondition))
+    ? { ...effectRaw, value: effectRaw.altValue }
+    : effectRaw;
   switch (effect.type) {
     case 'MODIFY_PRIORITY': {
       const priorityDelta = effect.scale
@@ -450,6 +474,7 @@ export function applyEffect(state: CombatState, effect: CardEffect, controller: 
           opponentShields: newShields,
           pendingReveal: newShields[idx],
           playerShieldsBrokenThisTurn: state.playerShieldsBrokenThisTurn + 1,
+          npcShieldsBrokenThisTurn: state.npcShieldsBrokenThisTurn + 1,
         };
         s = dispatchGameEvent(s, { type: 'SHIELD_BROKEN', sourceCard });
         return s;
@@ -624,6 +649,73 @@ export function applyEffect(state: CombatState, effect: CardEffect, controller: 
       return addLog(
         { ...state, activeReplacements: [...state.activeReplacements, rep] },
         `Replacement active: ${replacementOriginalId} → ${replacementTargetId} (${rep.turnsRemaining} turn${rep.turnsRemaining !== 1 ? 's' : ''})`
+      );
+    }
+    case 'CHOOSE_NUMBER': {
+      const min = effect.value ?? 1;
+      const max = effect.altValue ?? 10;
+      return { ...state, pendingNumberChoice: { min, max } };
+    }
+    case 'REVEAL_NPC_HAND':
+      return { ...state, npcHandRevealed: true };
+    case 'HIDE_NPC_HAND':
+      return { ...state, npcHandRevealed: false };
+    case 'REVEAL_NPC_DECK_TOP': {
+      const count = effect.value ?? 1;
+      const revealed = state.enemyDeck.slice(0, count);
+      if (revealed.length === 0) return addLog(state, 'NPC deck is empty — nothing to reveal');
+      return { ...state, pendingDeckReveal: revealed, npcDeckTopRevealed: true };
+    }
+    case 'HIDE_NPC_DECK_TOP':
+      return { ...state, npcDeckTopRevealed: false };
+    case 'REVEAL_OPPONENT_DECK_TOP': {
+      const count = effect.value ?? 1;
+      const revealed = state.enemyDeck.slice(0, count);
+      if (revealed.length === 0) return addLog(state, 'NPC deck is empty — nothing to reveal');
+      return { ...state, pendingDeckReveal: revealed };
+    }
+    case 'COPY_FROM_NPC_DECK': {
+      const count = effect.copyCount ?? 1;
+      let candidates = [...state.enemyDeck];
+      if (effect.copyFilter === 'HAS_SHIELD_BREAK') {
+        candidates = candidates.filter(c =>
+          c.definition.effects.some(e => e.type === 'BREAK_OPPONENT_SHIELD' || e.type === 'BREAK_OPPONENT_SHIELDS_SCALED')
+        );
+      }
+      if (candidates.length === 0) return addLog(state, 'No matching NPC cards to copy');
+      const copied = candidates.slice(0, count);
+      const newCards = copied.map(c => {
+        const inst = makeInstance(c.definition, 'player');
+        const costOverride = c.definition.cost;
+        return { ...inst, patienceCostOverride: costOverride };
+      });
+      return addLog(
+        { ...state, playerHand: [...state.playerHand, ...newCards] },
+        `Copied ${newCards.length} card(s) from NPC deck: ${newCards.map(c => c.definition.name).join(', ')}`
+      );
+    }
+    case 'PLACE_DUMMY_SHIELDS': {
+      const count = effect.value ?? 1;
+      const dummyDef: CardDefinition = {
+        id: 'dummy_shield', name: 'Dummy Shield', cost: 0, keywords: [],
+        effects: [], color: 'Colorless', supertype: 'Skill', subtype: null,
+      };
+      const newShields = state.playerShields.map((slot, _i) => slot);
+      let placed = 0;
+      for (let i = 0; i < newShields.length && placed < count; i++) {
+        if (newShields[i] === null) {
+          newShields[i] = {
+            card: makeInstance(dummyDef, 'player'),
+            shieldType: 'dummy' as const,
+            patienceCostOnBreak: 1,
+          };
+          placed++;
+        }
+      }
+      if (placed === 0) return addLog(state, 'No empty shield slots available');
+      return addLog(
+        { ...state, playerShields: newShields, shieldsEverPlaced: state.shieldsEverPlaced + placed },
+        `Placed ${placed} dummy shield(s)`
       );
     }
     case 'DESTROY_TOKENS': {
