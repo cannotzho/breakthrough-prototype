@@ -859,13 +859,31 @@ export const GREEN_STARTER_CARDS: CardDefinition[] = [
   },
 ];
 
+// ─── Orange Starter Deck ─────────────────────────────────────
+export const ORANGE_STARTER_CARDS: CardDefinition[] = [
+  {
+    id: 'orange_appeal_to_authority',
+    name: 'Appeal to Authority',
+    cost: 2,
+    keywords: [],
+    effects: [
+      { type: 'APPLY_RESTRICTION', restrictionType: 'PREVENT_SHIELD_BREAK', restrictionTarget: 'player', restrictionDuration: 2 },
+      { type: 'APPLY_RESTRICTION', restrictionType: 'PREVENT_SHIELD_BREAK', restrictionTarget: 'npc', restrictionDuration: 2 },
+    ],
+    color: 'Orange',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: 'Until the end of your next turn, no shields can be broken.',
+    longDescription: 'You invoke a higher power — a regulation, a precedent, an unimpeachable name. For a moment, both sides are frozen in place.',
+  },
+];
+
 // ─── Card Definition Block Registry ──────────────────────────
-// When Claude authors new card blocks (e.g. ORANGE_STARTER_CARDS),
-// add them here so the dev tool importer discovers them automatically.
 export const CARD_DEF_BLOCKS: Record<string, CardDefinition[]> = {
   'Blue Starter Deck': BLUE_STARTER_CARDS,
   'Red Starter Deck': RED_STARTER_CARDS,
   'Green Starter Deck': GREEN_STARTER_CARDS,
+  'Orange Starter Deck': ORANGE_STARTER_CARDS,
 };
 
 export const PONDER_DEFINITION: CardDefinition = {
