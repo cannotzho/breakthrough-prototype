@@ -9,6 +9,7 @@ const KEYWORD_DEFINITIONS: Record<Keyword, string> = {
   Lie: 'Playing this card increments the Lie Counter. Exceeding the threshold loses the encounter.',
   Trap: 'When played from hand, this card is placed on the Field. It triggers when its condition is met during the opponent\'s turn.',
   Rapport: 'Choose a number from 1-10, then check the opponent\'s hand for cards with that priority cost. Effects vary based on whether a match is found.',
+  'Heavy Hand': 'When played, choose Normal (printed cost) or Heavy Hand (2× cost). Heavy Hand activates a stronger alternate set of effects.',
 };
 
 export default function KeywordBadge({ keyword }: { keyword: Keyword }) {

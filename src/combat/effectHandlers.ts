@@ -865,6 +865,24 @@ export function applyEffect(state: CombatState, effectRaw: CardEffect, controlle
       }
       return s;
     }
+    case 'BREAK_PLAYER_SHIELD': {
+      const blocked = state.activeRestrictions.some(
+        r => r.restrictionType === 'PREVENT_SHIELD_BREAK' && r.target === controller
+      );
+      if (blocked) return addLog(state, `Shield break prevented by active restriction`);
+      const result = breakPlayerShieldAutomatic(state);
+      let s = result.state;
+      if (result.hadShieldTrigger && result.triggerCard) {
+        s = {
+          ...s,
+          pendingShieldTriggers: [
+            ...s.pendingShieldTriggers,
+            { card: result.triggerCard, breakOrder: result.breakOrder },
+          ],
+        };
+      }
+      return s;
+    }
     default:
       return state;
   }

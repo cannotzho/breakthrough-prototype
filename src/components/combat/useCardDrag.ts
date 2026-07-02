@@ -7,6 +7,7 @@ export default function useCardDrag(
   state: CombatState,
   dispatch: React.Dispatch<import('../../combat/types').CombatAction>,
   capturePlayedCard: (instanceId: string) => void,
+  onHeavyHandPlay?: (instanceId: string) => void,
 ) {
   const [playZoneHovered, setPlayZoneHovered] = useState(false);
   const [draggingCardId, setDraggingCardId] = useState<string | null>(null);
@@ -61,8 +62,14 @@ export default function useCardDrag(
 
   const handleCardDragEnd = useCallback((instanceId: string, event: MouseEvent | TouchEvent | PointerEvent) => {
     if (isOverZone(event)) {
-      capturePlayedCard(instanceId);
-      dispatch({ type: 'PLAY_CARD', cardInstanceId: instanceId });
+      const card = state.playerHand.find(c => c.instanceId === instanceId)
+        ?? state.backOfMind.find(c => c.instanceId === instanceId);
+      if (card?.definition.keywords.includes('Heavy Hand') && onHeavyHandPlay) {
+        onHeavyHandPlay(instanceId);
+      } else {
+        capturePlayedCard(instanceId);
+        dispatch({ type: 'PLAY_CARD', cardInstanceId: instanceId });
+      }
     } else if (state.phase === 'PlayerPending') {
       const { clientX, clientY } = getClientPos(event);
       for (let i = 0; i < shieldSlotRefs.current.length; i++) {

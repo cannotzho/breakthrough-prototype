@@ -95,6 +95,7 @@ export default function CombatScreen({ onExit, encounterConfig, playerDeckDefs, 
   const [viewingPile, setViewingPile] = useState<'draw' | 'discard' | null>(null);
   const [enemyPanelCollapsed, setEnemyPanelCollapsed] = useState(false);
   const [detailCard, setDetailCard] = useState<CardInstance | null>(null);
+  const [heavyHandPending, setHeavyHandPending] = useState<string | null>(null);
   const [playedCardAnim, setPlayedCardAnim] = useState<CardInstance | null>(null);
   const [reorderDragIdx, setReorderDragIdx] = useState(-1);
   const playedCardContainerRef = useRef<HTMLDivElement | null>(null);
@@ -137,7 +138,7 @@ export default function CombatScreen({ onExit, encounterConfig, playerDeckDefs, 
     handleCardDrag,
     handleCardDragEnd,
     handleShieldDrop,
-  } = useCardDrag(playZoneRef, shieldSlotRefs, state, dispatch, capturePlayedCard);
+  } = useCardDrag(playZoneRef, shieldSlotRefs, state, dispatch, capturePlayedCard, setHeavyHandPending);
 
   useLayoutEffect(() => {
     const dp = drawPileRef.current;
@@ -266,16 +267,41 @@ export default function CombatScreen({ onExit, encounterConfig, playerDeckDefs, 
 
                   {/* Play action */}
                   {isPlayerTurn && (
-                    <button
-                      className="w-full text-left px-5 py-3 text-base text-zinc-200 hover:bg-zinc-700 transition-colors"
-                      onClick={() => {
-                        capturePlayedCard(contextMenu.cardId);
-                        dispatch({ type: 'PLAY_CARD', cardInstanceId: contextMenu.cardId });
-                        setContextMenu(null);
-                      }}
-                    >
-                      Play
-                    </button>
+                    ctxCard.definition.keywords.includes('Heavy Hand') ? (
+                      <>
+                        <button
+                          className="w-full text-left px-5 py-3 text-base text-zinc-200 hover:bg-zinc-700 transition-colors"
+                          onClick={() => {
+                            capturePlayedCard(contextMenu.cardId);
+                            dispatch({ type: 'PLAY_CARD', cardInstanceId: contextMenu.cardId });
+                            setContextMenu(null);
+                          }}
+                        >
+                          Play Normal (cost {ctxCard.definition.cost})
+                        </button>
+                        <button
+                          className="w-full text-left px-5 py-3 text-base text-orange-300 hover:bg-zinc-700 transition-colors"
+                          onClick={() => {
+                            capturePlayedCard(contextMenu.cardId);
+                            dispatch({ type: 'PLAY_CARD', cardInstanceId: contextMenu.cardId, heavyHand: true });
+                            setContextMenu(null);
+                          }}
+                        >
+                          Heavy Hand (cost {ctxCard.definition.cost * 2})
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        className="w-full text-left px-5 py-3 text-base text-zinc-200 hover:bg-zinc-700 transition-colors"
+                        onClick={() => {
+                          capturePlayedCard(contextMenu.cardId);
+                          dispatch({ type: 'PLAY_CARD', cardInstanceId: contextMenu.cardId });
+                          setContextMenu(null);
+                        }}
+                      >
+                        Play
+                      </button>
+                    )
                   )}
 
                   {/* Place as Shield */}
@@ -750,6 +776,66 @@ export default function CombatScreen({ onExit, encounterConfig, playerDeckDefs, 
         cards={state.pendingDeckReveal}
         onDismiss={() => dispatch({ type: 'DISMISS_DECK_REVEAL' })}
       />
+
+      {/* Heavy Hand choice modal */}
+      <AnimatePresence>
+        {heavyHandPending && (() => {
+          const hhCard = state.playerHand.find(c => c.instanceId === heavyHandPending)
+            ?? state.backOfMind.find(c => c.instanceId === heavyHandPending);
+          if (!hhCard) return null;
+          return (
+            <motion.div
+              key="heavy-hand-modal"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+              onClick={() => setHeavyHandPending(null)}
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="bg-zinc-900 border border-zinc-600 rounded-xl p-6 shadow-2xl max-w-sm w-full mx-4"
+                onClick={e => e.stopPropagation()}
+              >
+                <h3 className="text-white text-lg font-semibold mb-1">{hhCard.definition.name}</h3>
+                <p className="text-zinc-400 text-sm mb-4">Choose how to play this card:</p>
+                <div className="flex flex-col gap-3">
+                  <button
+                    className="w-full py-3 px-4 bg-zinc-700 hover:bg-zinc-600 text-zinc-200 rounded-lg transition-colors text-left"
+                    onClick={() => {
+                      capturePlayedCard(heavyHandPending);
+                      dispatch({ type: 'PLAY_CARD', cardInstanceId: heavyHandPending, heavyHand: false });
+                      setHeavyHandPending(null);
+                    }}
+                  >
+                    <span className="font-semibold">Normal</span>
+                    <span className="text-zinc-400 ml-2">— cost {hhCard.definition.cost}</span>
+                  </button>
+                  <button
+                    className="w-full py-3 px-4 bg-orange-900/50 hover:bg-orange-800/60 text-orange-200 border border-orange-700/50 rounded-lg transition-colors text-left"
+                    onClick={() => {
+                      capturePlayedCard(heavyHandPending);
+                      dispatch({ type: 'PLAY_CARD', cardInstanceId: heavyHandPending, heavyHand: true });
+                      setHeavyHandPending(null);
+                    }}
+                  >
+                    <span className="font-semibold">Heavy Hand</span>
+                    <span className="text-orange-300/70 ml-2">— cost {hhCard.definition.cost * 2}</span>
+                  </button>
+                </div>
+                <button
+                  className="mt-4 w-full py-2 text-zinc-500 hover:text-zinc-300 text-sm transition-colors"
+                  onClick={() => setHeavyHandPending(null)}
+                >
+                  Cancel
+                </button>
+              </motion.div>
+            </motion.div>
+          );
+        })()}
+      </AnimatePresence>
 
       {/* Dev panel / Combat console */}
       {isDual ? (

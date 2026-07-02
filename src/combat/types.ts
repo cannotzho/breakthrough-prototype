@@ -2,7 +2,7 @@
 export type ColorIdentity = 'Red' | 'Blue' | 'Green' | 'White' | 'Black' | 'Orange' | 'Purple' | 'Colorless';
 
 // ─── Keywords ──────────────────────────────────────────────────
-export type Keyword = 'Safety' | 'Assemble' | 'Shield Trigger' | 'Lie' | 'Trap' | 'Rapport';
+export type Keyword = 'Safety' | 'Assemble' | 'Shield Trigger' | 'Lie' | 'Trap' | 'Rapport' | 'Heavy Hand';
 
 // ─── Effect Conditions ────────────────────────────────────────
 export type EffectConditionType =
@@ -56,7 +56,8 @@ export type CardEffectType =
   | 'PLACE_DUMMY_SHIELDS'
   | 'CANCEL_STAGED_ENEMY_CARD'
   | 'INCREMENT_RAPPORT_COUNTERS'
-  | 'RAPPORT_SHIELD_BREAK';
+  | 'RAPPORT_SHIELD_BREAK'
+  | 'BREAK_PLAYER_SHIELD';
 
 export interface CardEffect {
   type: CardEffectType;
@@ -177,6 +178,8 @@ export interface CardDefinition {
   impressionTurns?: number;
   impressionReturnToDeck?: boolean;
   impressionDestroyBelowPatience?: number;
+  heavyHandEffects?: CardEffect[];
+  returnToDeck?: boolean;
   /** @deprecated Use effectText/longDescription instead */
   description?: string;
 }
@@ -413,7 +416,7 @@ export interface CombatState {
 
 // ─── Combat Actions ────────────────────────────────────────────
 export type CombatAction =
-  | { type: 'PLAY_CARD'; cardInstanceId: string }
+  | { type: 'PLAY_CARD'; cardInstanceId: string; heavyHand?: boolean }
   | { type: 'PLACE_SHIELD'; cardInstanceId: string; slotIdx: number }
   | { type: 'RESEQUENCE_SHIELDS'; newOrder: number[] }
   | { type: 'END_TURN' }

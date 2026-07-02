@@ -184,15 +184,19 @@ function completePlayerPlay(state: CombatState, card: CardInstance, isPonderConv
     const discardCard: CardInstance = isPonderConversion
       ? { ...card, definition: PONDER_DEFINITION }
       : card;
+    const shouldReturnToDeck = !isImpression && !isCombined && card.definition.returnToDeck;
     let discardAdditions: CardInstance[];
     if (isCombined) {
       discardAdditions = card.combinedFrom!;
+    } else if (shouldReturnToDeck) {
+      discardAdditions = [];
     } else {
       discardAdditions = isImpression ? [] : [discardCard];
     }
     s = {
       ...s,
       playerDiscard: [...s.playerDiscard, ...discardAdditions],
+      playerDeck: shouldReturnToDeck ? shuffle([...s.playerDeck, discardCard]) : s.playerDeck,
       fieldImpressions: isImpression ? [...s.fieldImpressions, {
         card,
         counters: 0,
@@ -201,6 +205,9 @@ function completePlayerPlay(state: CombatState, card: CardInstance, isPonderConv
         destroyBelowPatience: card.definition.impressionDestroyBelowPatience,
       }] : s.fieldImpressions,
     };
+    if (shouldReturnToDeck) {
+      s = addLog(s, `${card.definition.name} shuffled back into deck`);
+    }
   }
 
   // Field Trigger Check after Player Play (no trap event — traps watch opponent actions)
@@ -242,8 +249,11 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
 
       const isFrame = state.config.priorityMode === 'frame';
 
-      let effectiveCost = card.definition.cost;
-      let effectiveEffects = card.definition.effects;
+      const isHeavyHand = action.heavyHand && card.definition.keywords.includes('Heavy Hand');
+      let effectiveCost = isHeavyHand ? card.definition.cost * 2 : card.definition.cost;
+      let effectiveEffects = isHeavyHand && card.definition.heavyHandEffects
+        ? card.definition.heavyHandEffects
+        : card.definition.effects;
       let isPonderConversion = false;
       let discoveryEvent: CombatState['pendingDiscovery'] = null;
 

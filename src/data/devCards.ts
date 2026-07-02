@@ -876,6 +876,25 @@ export const ORANGE_STARTER_CARDS: CardDefinition[] = [
     effectText: 'Until the end of your next turn, no shields can be broken.',
     longDescription: 'You invoke a higher power — a regulation, a precedent, an unimpeachable name. For a moment, both sides are frozen in place.',
   },
+  {
+    id: 'orange_by_the_law',
+    name: 'By the Law',
+    cost: 3,
+    keywords: ['Heavy Hand'],
+    effects: [
+      { type: 'MODIFY_PRIORITY', value: -2 },
+    ],
+    heavyHandEffects: [
+      { type: 'MODIFY_PRIORITY', value: -2 },
+      { type: 'BREAK_PLAYER_SHIELD' },
+    ],
+    returnToDeck: true,
+    color: 'Orange',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: 'Normal: -2 priority to opponent. Heavy Hand (cost 6): -2 priority to opponent and break one of your own shields. Shuffles back into your deck after use.',
+    longDescription: 'The law is a blunt instrument. Swing it lightly, and it nudges. Swing it hard, and something breaks — maybe even something of yours.',
+  },
 ];
 
 // ─── Card Definition Block Registry ──────────────────────────
