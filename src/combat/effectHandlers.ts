@@ -1,5 +1,5 @@
 import {
-  CombatState, CardEffect, CardInstance, CardOwner, FieldTrap,
+  CombatState, CardEffect, CardInstance, CardOwner, CardDefinition, FieldTrap,
   TrapTriggerCondition, TrapTriggerType, GameEvent, MAX_TRIGGER_DEPTH, ActiveRestriction, ActiveReplacement, EffectCondition, EffectScaleSource,
 } from './types';
 
