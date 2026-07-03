@@ -1194,16 +1194,22 @@ export function applyEffect(state: CombatState, effectRaw: CardEffect, controlle
         r => r.restrictionType === 'PREVENT_SHIELD_BREAK' && r.target === controller
       );
       if (blocked) return addLog(state, `Shield break prevented by active restriction`);
-      const result = breakPlayerShieldAutomatic(state, controller);
-      let s = result.state;
-      if (result.hadShieldTrigger && result.triggerCard) {
-        s = {
-          ...s,
-          pendingShieldTriggers: [
-            ...s.pendingShieldTriggers,
-            { card: result.triggerCard, breakOrder: result.breakOrder },
-          ],
-        };
+      const breakCount = effect.scale
+        ? (effect.value ?? 1) * getScaleValue(state, effect.scale)
+        : (effect.value ?? 1);
+      let s = state;
+      for (let i = 0; i < breakCount; i++) {
+        const result = breakPlayerShieldAutomatic(s, controller);
+        s = result.state;
+        if (result.hadShieldTrigger && result.triggerCard) {
+          s = {
+            ...s,
+            pendingShieldTriggers: [
+              ...s.pendingShieldTriggers,
+              { card: result.triggerCard, breakOrder: result.breakOrder },
+            ],
+          };
+        }
       }
       return s;
     }

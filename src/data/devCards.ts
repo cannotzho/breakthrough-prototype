@@ -1353,6 +1353,38 @@ export const FAN_CLUB_PRESIDENT_CARDS: CardDefinition[] = [
     effectText: '+10 devotion. Reshuffle all cards back into deck.',
     longDescription: 'There is nothing else. No other purpose. Just the idol.',
   },
+
+  // FCP-6: shields-placed-this-turn scaling, devotion-scaled priority
+  {
+    id: 'fcp_and_hes_mine',
+    name: "And He's Mine",
+    cost: 3,
+    keywords: [],
+    effects: [
+      { type: 'INCREMENT_IMPRESSION_COUNTERS', targetDefinitionId: 'fcp_idols_favor', value: 1, scale: 'NPC_SHIELDS_PLACED_THIS_TURN' },
+      { type: 'BREAK_PLAYER_SHIELD', value: 1, scale: 'NPC_SHIELDS_PLACED_THIS_TURN' },
+    ],
+    color: 'Colorless',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: '+1 devotion per shield placed this turn. Idol breaks 1 player shield per shield placed.',
+    longDescription: "Possession made manifest. Every wall built becomes a weapon wielded.",
+  },
+  {
+    id: 'fcp_impenetrable_insanity',
+    name: 'Impenetrable Insanity',
+    cost: 4,
+    keywords: [],
+    effects: [
+      { type: 'APPLY_RESTRICTION', restrictionType: 'PREVENT_SHIELD_BREAK', restrictionTarget: 'player', restrictionDuration: 2 },
+      { type: 'MODIFY_PRIORITY', value: 1, scale: 'DEVOTION_COUNTER' },
+    ],
+    color: 'Colorless',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: 'Prevent opponent shield breaks next turn. +1 priority per devotion.',
+    longDescription: 'Madness becomes armor. The deeper the obsession, the more unassailable the defenses.',
+  },
 ];
 
 // ─── Card Definition Block Registry ──────────────────────────
