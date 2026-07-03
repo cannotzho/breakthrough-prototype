@@ -492,14 +492,21 @@ export function applyEffect(state: CombatState, effectRaw: CardEffect, controlle
         : (effect.value ?? 0);
       if (state.config.priorityMode === 'frame') {
         const oldPriority = state.priority;
-        const newPriority = clampPriority(state.priority + priorityDelta);
+        let newPriority = clampPriority(state.priority + priorityDelta);
+        if (controller === 'player') {
+          const floor = state.activeRestrictions.find(
+            r => r.restrictionType === 'PRIORITY_FLOOR' && r.target === 'player'
+          );
+          if (floor && floor.value != null && newPriority < floor.value) {
+            newPriority = floor.value;
+          }
+        }
         let s: CombatState = { ...state, priority: newPriority };
         if (oldPriority <= 0 && newPriority > 0) {
           s = priorityRestore(s);
         }
         return s;
       } else {
-        // Classic mode: modify the player's priority meter; does NOT flip activeTurn
         return { ...state, priority: Math.max(0, state.priority + priorityDelta) };
       }
     }
@@ -911,6 +918,25 @@ export function applyEffect(state: CombatState, effectRaw: CardEffect, controlle
           ],
         };
       }
+      return s;
+    }
+    case 'INTERCEPT_SHIELD_BREAKS': {
+      if (!state.stagedEnemyCard) return addLog(state, 'No staged enemy card to intercept');
+      const staged = state.stagedEnemyCard;
+      let breakCount = 0;
+      for (const eff of staged.definition.effects) {
+        if (eff.type === 'BREAK_OPPONENT_SHIELD') breakCount++;
+        if (eff.type === 'BREAK_OPPONENT_SHIELDS_SCALED') breakCount += (eff.value ?? 1);
+      }
+      if (breakCount === 0) return addLog(state, `${staged.definition.name} has no shield breaks to intercept`);
+      const patienceGain = (effect.value ?? 1) * breakCount;
+      let s: CombatState = {
+        ...state,
+        stagedEnemyCard: null,
+        enemyDiscard: [...state.enemyDiscard, staged],
+        patience: state.patience + patienceGain,
+      };
+      s = addLog(s, `Gross Oversight intercepted ${staged.definition.name}: cancelled ${breakCount} shield break(s), restored ${patienceGain} patience`);
       return s;
     }
     default:

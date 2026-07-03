@@ -975,6 +975,35 @@ export const ORANGE_STARTER_CARDS: CardDefinition[] = [
     effectText: 'Until the end of your next turn, gain 2 patience for every card played by the opponent.',
     longDescription: 'You establish a principle of fairness. Every word they speak now strengthens your position.',
   },
+  {
+    id: 'orange_equal_ground',
+    name: 'Equal Ground',
+    cost: 4,
+    keywords: [],
+    effects: [
+      { type: 'APPLY_RESTRICTION', restrictionType: 'PRIORITY_FLOOR', restrictionTarget: 'player', value: -3, restrictionDuration: 99 },
+    ],
+    color: 'Orange',
+    supertype: 'Skill',
+    subtype: 'Impression',
+    effectText: 'While active, your priority cannot drop below -3 during your turn. Prevents priority spillover.',
+    longDescription: 'You draw a line in the sand. No matter how hard they push, there is a floor beneath you.',
+  },
+  {
+    id: 'orange_gross_oversight',
+    name: 'Gross Oversight',
+    cost: 2,
+    keywords: ['Trap'],
+    effects: [
+      { type: 'INTERCEPT_SHIELD_BREAKS', value: 1 },
+    ],
+    color: 'Orange',
+    supertype: 'Skill',
+    subtype: 'Trap',
+    trapTrigger: { triggerType: 'OPPONENT_PLAYS_CARD' },
+    effectText: 'Trap: When the opponent plays a card that would break shields, cancel it and restore 1 patience per shield break prevented.',
+    longDescription: 'You spot the flaw in their argument before it lands. The attack crumbles, and you feel vindicated.',
+  },
 ];
 
 // ─── Card Definition Block Registry ──────────────────────────

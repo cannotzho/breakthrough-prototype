@@ -301,9 +301,19 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
 
       const cost = effectiveCost;
 
+      let newPriority = isFrame ? state.priority - cost : Math.max(0, state.priority - cost);
+      if (isFrame) {
+        const floor = state.activeRestrictions.find(
+          r => r.restrictionType === 'PRIORITY_FLOOR' && r.target === 'player'
+        );
+        if (floor && floor.value != null && newPriority < floor.value) {
+          newPriority = floor.value;
+        }
+      }
+
       let s: CombatState = {
         ...state,
-        priority: isFrame ? state.priority - cost : Math.max(0, state.priority - cost),
+        priority: newPriority,
         playerHand: state.playerHand.filter(c => c.instanceId !== action.cardInstanceId),
         pendingEffects: [],
         pendingEffectCard: null,

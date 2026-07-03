@@ -57,7 +57,8 @@ export type CardEffectType =
   | 'CANCEL_STAGED_ENEMY_CARD'
   | 'INCREMENT_RAPPORT_COUNTERS'
   | 'RAPPORT_SHIELD_BREAK'
-  | 'BREAK_PLAYER_SHIELD';
+  | 'BREAK_PLAYER_SHIELD'
+  | 'INTERCEPT_SHIELD_BREAKS';
 
 export interface CardEffect {
   type: CardEffectType;
@@ -296,7 +297,8 @@ export type RestrictionType =
   | 'PRIORITY_PER_EXTRA_DRAW'
   | 'MAX_TURN_START_DRAW'
   | 'MAX_PLAYS_PER_TURN'
-  | 'PATIENCE_PER_OPPONENT_CARD';
+  | 'PATIENCE_PER_OPPONENT_CARD'
+  | 'PRIORITY_FLOOR';
 
 export interface ActiveRestriction {
   id: string;
