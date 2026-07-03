@@ -1435,6 +1435,71 @@ export const FAN_CLUB_PRESIDENT_CARDS: CardDefinition[] = [
     longDescription: 'Their focus is absolute, unnervingly so — nothing you say can calm them now.',
     trapTrigger: { type: 'END_OF_PLAYER_TURN' },
   },
+
+  // ── FCP-8: You'll Never Tear Us Apart ──
+  {
+    id: 'fcp_youll_never_tear_us_apart',
+    name: "You'll Never Tear Us Apart",
+    cost: 3,
+    keywords: [],
+    effects: [
+      { type: 'INCREMENT_IMPRESSION_COUNTERS', targetImpressionId: 'fcp_idols_favor', value: 2 },
+    ],
+    color: 'Colorless',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: '+2 devotion.',
+    longDescription: 'An unshakeable bond — nothing can separate the fan from their idol.',
+  },
+
+  // ── FCP-9: Fan's Solace, Crippling Fear, It Wasn't Me ──
+  {
+    id: 'fcp_fans_solace',
+    name: "Fan's Solace",
+    cost: 0,
+    keywords: ['Shield Trigger'],
+    effects: [],
+    shieldTriggerEffects: [
+      { type: 'INCREMENT_IMPRESSION_COUNTERS', targetImpressionId: 'fcp_idols_favor', value: 5 },
+    ],
+    color: 'Colorless',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: 'Shield Trigger: +5 devotion.',
+    longDescription: 'Even in defeat, the fan draws comfort from their devotion.',
+  },
+  {
+    id: 'fcp_crippling_fear',
+    name: 'Crippling Fear',
+    cost: 0,
+    keywords: ['Shield Trigger'],
+    effects: [],
+    shieldTriggerEffects: [
+      { type: 'MODIFY_PRIORITY', value: -3 },
+    ],
+    color: 'Colorless',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: 'Shield Trigger: -3 priority. Requires passcode knowledge + physical traces.',
+    longDescription: 'Fear grips them when you get too close to the truth about what they saw.',
+    nuggetId: 'fcp_passcode_knowledge',
+  },
+  {
+    id: 'fcp_it_wasnt_me',
+    name: "It Wasn't Me",
+    cost: 0,
+    keywords: ['Shield Trigger'],
+    effects: [],
+    shieldTriggerEffects: [
+      { type: 'MODIFY_PATIENCE', value: 3 },
+    ],
+    color: 'Colorless',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: 'Shield Trigger: +3 patience. Requires witness statements.',
+    longDescription: 'Denial is a shield of its own — they cling to the lie that they were never involved.',
+    nuggetId: 'fcp_witness_statements',
+  },
 ];
 
 // ─── Card Definition Block Registry ──────────────────────────
