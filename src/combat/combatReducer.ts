@@ -711,12 +711,9 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       const mirrorRestrictions = s.activeRestrictions.filter(
         r => r.restrictionType === 'MIRROR_NPC_PRIORITY_GAIN' && r.target === 'player'
       );
-      for (const r of mirrorRestrictions) {
-        const gain = npcEffectiveCost;
-        if (gain > 0) {
-          s = { ...s, scheduledEffects: [...s.scheduledEffects, { effects: [{ type: 'MODIFY_PRIORITY', value: gain }], turnsUntilFire: 1 }] };
-          s = addLog(s, `Equal Exchange: +${gain} priority scheduled for next turn`);
-        }
+      if (mirrorRestrictions.length > 0 && npcEffectiveCost > 0) {
+        s = { ...s, scheduledEffects: [...s.scheduledEffects, { effects: [{ type: 'MODIFY_PRIORITY', value: npcEffectiveCost }], turnsUntilFire: 1 }] };
+        s = addLog(s, `Equal Exchange: +${npcEffectiveCost} priority scheduled for next turn`);
       }
 
       // PATIENCE_PER_NPC_PRIORITY_GAIN: grant patience from NPC priority spend
