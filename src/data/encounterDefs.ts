@@ -167,6 +167,7 @@ export function buildInitialCombatState(
     abilitiesFiredThisPlay: [],
     turnAbilityFireCounts: {},
     scheduledEffects: [],
+    turnNumber: 1,
     manualEnemyMode: false,
     tokenRegistry: { ...DEV_TOKEN_DEFINITIONS },
     actionLog: ['Encounter started.'],

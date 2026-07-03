@@ -1292,6 +1292,67 @@ export const FAN_CLUB_PRESIDENT_CARDS: CardDefinition[] = [
     effectText: 'Draw 3 cards.',
     longDescription: 'Lost in a world where every fantasy feels real and every reality feels staged.',
   },
+
+  // FCP-5: devotion amplifier, end-of-turn traps, NPC self-sacrifice, NPC reshuffle
+  {
+    id: 'fcp_complete_devotion',
+    name: 'Complete Devotion',
+    cost: 2,
+    keywords: [],
+    effects: [{ type: 'PLACE_IMPRESSION' }],
+    color: 'Colorless',
+    supertype: 'Skill',
+    subtype: 'Impression',
+    effectText: 'All devotion gains are amplified: +1 extra per gain.',
+    longDescription: 'Total surrender to the cause. Every act of worship echoes louder.',
+  },
+  {
+    id: 'fcp_his_loyal_fan',
+    name: 'His Loyal Fan',
+    cost: 2,
+    keywords: ['Trap'],
+    effects: [
+      { type: 'INCREMENT_IMPRESSION_COUNTERS', targetDefinitionId: 'fcp_idols_favor', value: 1, scale: 'NPC_SHIELDS_BROKEN_THIS_TURN' },
+    ],
+    color: 'Colorless',
+    supertype: 'Skill',
+    subtype: 'Trap',
+    effectText: 'End of opponent\'s turn: +1 devotion per shield they broke.',
+    longDescription: 'Every attack on the idol only deepens the fan\'s obsession.',
+    trapTrigger: { triggerType: 'END_OF_PLAYER_TURN' },
+    trapPersistent: false,
+  },
+  {
+    id: 'fcp_deranged_witness',
+    name: 'Deranged Witness',
+    cost: 4,
+    keywords: [],
+    effects: [
+      { type: 'INCREMENT_IMPRESSION_COUNTERS', targetDefinitionId: 'fcp_idols_favor', value: 4 },
+      { type: 'BREAK_NPC_SHIELDS', value: 2 },
+      { type: 'MODIFY_PATIENCE', value: -3 },
+    ],
+    color: 'Colorless',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: '+4 devotion. Sacrifice 2 own shields. -3 patience.',
+    longDescription: 'Sanity crumbles under the weight of devotion. Self-destruction becomes an offering.',
+  },
+  {
+    id: 'fcp_my_only_meaning',
+    name: 'My Only Meaning',
+    cost: 5,
+    keywords: [],
+    effects: [
+      { type: 'INCREMENT_IMPRESSION_COUNTERS', targetDefinitionId: 'fcp_idols_favor', value: 10 },
+      { type: 'RESHUFFLE_NPC_DECK' },
+    ],
+    color: 'Colorless',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: '+10 devotion. Reshuffle all cards back into deck.',
+    longDescription: 'There is nothing else. No other purpose. Just the idol.',
+  },
 ];
 
 // ─── Card Definition Block Registry ──────────────────────────

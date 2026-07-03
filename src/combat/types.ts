@@ -27,7 +27,10 @@ export type EffectScaleSource =
   | 'PLAYER_SHIELDS_BROKEN_PREV_TURN'
   | 'OPPONENT_MISSING_PATIENCE'
   | 'CHOSEN_NUMBER'
-  | 'NPC_DECK_MATCHING_COST_COUNT';
+  | 'NPC_DECK_MATCHING_COST_COUNT'
+  | 'NPC_SHIELDS_BROKEN_THIS_TURN'
+  | 'DEVOTION_COUNTER'
+  | 'NPC_SHIELDS_PLACED_THIS_TURN';
 
 // ─── Card Effects ──────────────────────────────────────────────
 export type CardEffectType =
@@ -62,7 +65,8 @@ export type CardEffectType =
   | 'SCHEDULE_EFFECTS'
   | 'INCREMENT_IMPRESSION_COUNTERS'
   | 'TRANSFORM_IMPRESSION'
-  | 'BREAK_NPC_SHIELDS';
+  | 'BREAK_NPC_SHIELDS'
+  | 'RESHUFFLE_NPC_DECK';
 
 export interface CardEffect {
   type: CardEffectType;
@@ -129,7 +133,8 @@ export type TrapTriggerType =
   | 'OPPONENT_BREAKS_SHIELD'
   | 'PATIENCE_CHANGE'
   | 'PRIORITY_CHANGE'
-  | 'COMPOUND_NPC_TURN';
+  | 'COMPOUND_NPC_TURN'
+  | 'END_OF_PLAYER_TURN';
 
 export type TrapTriggerComparator = 'eq' | 'gt' | 'lt' | 'gte' | 'lte';
 
@@ -298,6 +303,8 @@ export interface EncounterConfig {
   scriptedOpponentPlays?: string[];
   npcDummyShieldSlots: number;
   enemyDeckCardIds: string[];
+  scheduledPlays?: { cardId: string; afterTurn: number }[];
+  startingImpressions?: string[];
 }
 
 // ─── Combat Config ─────────────────────────────────────────────
@@ -457,6 +464,8 @@ export interface CombatState {
   turnAbilityFireCounts: Record<string, number>;
 
   scheduledEffects: ScheduledEffect[];
+
+  turnNumber: number;
 
   manualEnemyMode: boolean;
 

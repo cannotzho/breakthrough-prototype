@@ -204,12 +204,14 @@ export function priorityRestore(state: CombatState): CombatState {
   // there would prematurely burn down traps the player just placed, making them
   // "not persist". Gate on whether the opponent played a card this turn.
   if (state.npcCardsPlayedThisTurn > 0) {
+    s = resolveFieldTriggerCheck(s, 'END_OF_PLAYER_TURN');
     s = expireTraps(s);
     s = expireImpressions(s);
     s = tickRestrictions(s);
     s = processScheduledEffects(s);
     s = {
       ...s,
+      turnNumber: s.turnNumber + 1,
       playerCardsPlayedThisTurn: 0,
       playerShieldsBrokenPrevTurn: s.playerShieldsBrokenThisTurn,
       playerShieldsBrokenThisTurn: 0,
@@ -249,6 +251,7 @@ export function classicTurnStart(state: CombatState): CombatState {
   }
   s = drawCards(s, toDraw);
   s = applyEffect(s, { type: 'RAPPORT_SHIELD_BREAK' }, 'player');
+  s = resolveFieldTriggerCheck(s, 'END_OF_PLAYER_TURN');
   s = expireTraps(s);
   s = expireImpressions(s);
   s = tickRestrictions(s);
@@ -259,6 +262,7 @@ export function classicTurnStart(state: CombatState): CombatState {
     npcExtraDrawsThisTurn: 0,
     npcPriorityGainedThisTurn: 0,
     npcShieldsPlacedThisTurn: 0,
+    turnNumber: s.turnNumber + 1,
     playerCardsPlayedThisTurn: 0,
     playerShieldsBrokenPrevTurn: s.playerShieldsBrokenThisTurn,
     playerShieldsBrokenThisTurn: 0,
@@ -592,6 +596,14 @@ function getScaleValue(state: CombatState, source: EffectScaleSource): number {
       const chosen = state.chosenNumber ?? 0;
       return state.enemyDeck.filter(c => c.definition.cost === chosen).length;
     }
+    case 'NPC_SHIELDS_BROKEN_THIS_TURN': return state.npcShieldsBrokenThisTurn;
+    case 'DEVOTION_COUNTER': {
+      const idol = state.fieldImpressions.find(fi =>
+        fi.card.definition.id === 'fcp_idols_favor' || fi.card.definition.id === 'fcp_my_idol'
+      );
+      return idol?.counters ?? 0;
+    }
+    case 'NPC_SHIELDS_PLACED_THIS_TURN': return state.npcShieldsPlacedThisTurn;
   }
 }
 
@@ -1085,8 +1097,17 @@ export function applyEffect(state: CombatState, effectRaw: CardEffect, controlle
     }
     case 'INCREMENT_IMPRESSION_COUNTERS': {
       const targetId = effect.targetDefinitionId;
-      const amount = effect.value ?? 1;
+      let amount = effect.scale
+        ? (effect.value ?? 1) * getScaleValue(state, effect.scale)
+        : (effect.value ?? 1);
+      if (amount <= 0) return state;
       if (!targetId) return addLog(state, '[ERROR] INCREMENT_IMPRESSION_COUNTERS: missing targetDefinitionId');
+      const amplifier = state.fieldImpressions.find(
+        fi => fi.card.definition.id === 'fcp_complete_devotion'
+      );
+      if (amplifier && amount > 0) {
+        amount += 1;
+      }
       const updated = state.fieldImpressions.map(fi =>
         fi.card.definition.id === targetId
           ? { ...fi, counters: fi.counters + amount }
@@ -1095,8 +1116,13 @@ export function applyEffect(state: CombatState, effectRaw: CardEffect, controlle
       const changed = updated.some((fi, i) => fi !== state.fieldImpressions[i]);
       if (!changed) return addLog(state, `No impression found with id ${targetId}`);
       const target = updated.find(fi => fi.card.definition.id === targetId)!;
-      return addLog({ ...state, fieldImpressions: updated },
-        `${target.card.definition.name} counters +${amount} (now ${target.counters})`);
+      let s: CombatState = { ...state, fieldImpressions: updated };
+      if (amplifier) {
+        s = addLog(s, `Complete Devotion amplifies: +${amount} (now ${target.counters})`);
+      } else {
+        s = addLog(s, `${target.card.definition.name} counters +${amount} (now ${target.counters})`);
+      }
+      return s;
     }
     case 'TRANSFORM_IMPRESSION': {
       const sourceId = effect.transformSourceId;
@@ -1137,6 +1163,11 @@ export function applyEffect(state: CombatState, effectRaw: CardEffect, controlle
         }
       }
       return s;
+    }
+    case 'RESHUFFLE_NPC_DECK': {
+      const combined = shuffle([...state.enemyDeck, ...state.enemyDiscard]);
+      return addLog({ ...state, enemyDeck: combined, enemyDiscard: [] },
+        `NPC deck reshuffled (${combined.length} cards)`);
     }
     case 'RAPPORT_SHIELD_BREAK': {
       const toTrulyKnow = state.fieldImpressions.find(fi => fi.card.definition.id === 'green_to_truly_know');
@@ -1239,7 +1270,29 @@ export function selectEnemyCard(state: CombatState): CombatState {
     log.push('NPC deck recycled.');
   }
 
-  const [card, ...rest] = deck;
+  const scheduled = state.config.scheduledPlays ?? [];
+  const scheduledReady = scheduled.find(sp =>
+    state.turnNumber > sp.afterTurn && deck.some(c => c.definition.id === sp.cardId)
+  );
+  let card: CardInstance;
+  let rest: CardInstance[];
+  if (scheduledReady) {
+    const idx = deck.findIndex(c => c.definition.id === scheduledReady.cardId);
+    card = deck[idx];
+    rest = [...deck.slice(0, idx), ...deck.slice(idx + 1)];
+  } else {
+    const lockedIds = new Set(scheduled.filter(sp => state.turnNumber <= sp.afterTurn).map(sp => sp.cardId));
+    const playable = deck.filter(c => !lockedIds.has(c.definition.id));
+    if (playable.length === 0) {
+      if (state.config.priorityMode === 'frame') {
+        return priorityRestore(addLog({ ...state, enemyDeck: deck, enemyDiscard: discard, actionLog: log }, 'NPC has no playable cards — passing'));
+      }
+      return { ...state, npcPriority: 0, phase: 'Check', enemyDeck: deck, enemyDiscard: discard, actionLog: [...log, 'NPC has no playable cards — passing'] };
+    }
+    card = playable[0];
+    const deckIdx = deck.indexOf(card);
+    rest = [...deck.slice(0, deckIdx), ...deck.slice(deckIdx + 1)];
+  }
   let s: CombatState = { ...state, stagedEnemyCard: card, enemyDeck: rest, enemyDiscard: discard, actionLog: log, phase: 'FieldTriggerCheck' };
 
   // Track NPC extra draws (any draw beyond the first this turn)
