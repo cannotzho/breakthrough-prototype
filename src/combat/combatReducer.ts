@@ -730,13 +730,43 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       }
 
       return resolveEffectList(s, card.definition.effects, card, (resolved) => {
+        const isNpcImpression = card.definition.subtype === 'Impression';
+        const isNpcTrap = card.definition.subtype === 'Trap' && card.definition.trapTrigger;
         let final: CombatState = {
           ...resolved,
           stagedEnemyCard: null,
-          enemyDiscard: [...resolved.enemyDiscard, card],
+          enemyDiscard: (isNpcImpression || isNpcTrap)
+            ? resolved.enemyDiscard
+            : [...resolved.enemyDiscard, card],
           pendingEffects: [],
           pendingEffectCard: null,
         };
+        if (isNpcImpression) {
+          final = {
+            ...final,
+            fieldImpressions: [...final.fieldImpressions, {
+              card,
+              counters: 0,
+              turnsRemaining: card.definition.impressionTurns,
+              destroyBelowPatience: card.definition.impressionDestroyBelowPatience,
+            }],
+          };
+          final = addLog(final, `NPC placed ${card.definition.name} as impression`);
+        }
+        if (isNpcTrap) {
+          final = {
+            ...final,
+            fieldTraps: [...final.fieldTraps, {
+              card,
+              triggerCondition: card.definition.trapTrigger!,
+              playOrder: final.trapPlayCounter,
+              turnsRemaining: 2,
+              persistent: card.definition.trapPersistent ?? false,
+            }],
+            trapPlayCounter: final.trapPlayCounter + 1,
+          };
+          final = addLog(final, `NPC placed ${card.definition.name} as trap`);
+        }
         final = resolveFieldTriggerCheck(final);
         return checkState({ ...final, phase: 'Check' });
       });

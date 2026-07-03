@@ -139,7 +139,7 @@ export function priorityRestore(state: CombatState): CombatState {
       turnAbilityFireCounts: {},
     };
   }
-  s = { ...s, npcCardsPlayedThisTurn: 0, npcExtraDrawsThisTurn: 0, npcPriorityGainedThisTurn: 0 };
+  s = { ...s, npcCardsPlayedThisTurn: 0, npcExtraDrawsThisTurn: 0, npcPriorityGainedThisTurn: 0, npcShieldsPlacedThisTurn: 0 };
   return s;
 }
 
@@ -177,6 +177,7 @@ export function classicTurnStart(state: CombatState): CombatState {
     npcCardsPlayedThisTurn: 0,
     npcExtraDrawsThisTurn: 0,
     npcPriorityGainedThisTurn: 0,
+    npcShieldsPlacedThisTurn: 0,
     playerCardsPlayedThisTurn: 0,
     playerShieldsBrokenPrevTurn: s.playerShieldsBrokenThisTurn,
     playerShieldsBrokenThisTurn: 0,
@@ -903,6 +904,22 @@ export function applyEffect(state: CombatState, effectRaw: CardEffect, controlle
         id: 'dummy_shield', name: 'Dummy Shield', cost: 0, keywords: [],
         effects: [], color: 'Colorless', supertype: 'Skill', subtype: null,
       };
+      if (controller === 'npc') {
+        const firstUnbroken = state.opponentShields.findIndex(s => !s.broken);
+        const newNpcShields = [...state.opponentShields];
+        for (let i = 0; i < count; i++) {
+          newNpcShields.splice(firstUnbroken >= 0 ? firstUnbroken : newNpcShields.length, 0, {
+            cardId: `npc_dummy_placed_${Date.now()}_${i}`,
+            isHint: false,
+            broken: false,
+          });
+        }
+        const newBreakOrder = Array.from({ length: newNpcShields.length }, (_, i) => i);
+        return addLog(
+          { ...state, opponentShields: newNpcShields, config: { ...state.config, shieldBreakOrder: newBreakOrder }, npcShieldsPlacedThisTurn: (state.npcShieldsPlacedThisTurn ?? 0) + count },
+          `NPC placed ${count} dummy shield(s)`
+        );
+      }
       const newShields = state.playerShields.map((slot, _i) => slot);
       let placed = 0;
       for (let i = 0; i < newShields.length && placed < count; i++) {
@@ -979,6 +996,21 @@ export function applyEffect(state: CombatState, effectRaw: CardEffect, controlle
       if (!changed) return state;
       return addLog({ ...state, fieldImpressions: updated },
         `Rapport success — To Truly Know counters incremented`);
+    }
+    case 'INCREMENT_IMPRESSION_COUNTERS': {
+      const targetId = effect.targetDefinitionId;
+      const amount = effect.value ?? 1;
+      if (!targetId) return addLog(state, '[ERROR] INCREMENT_IMPRESSION_COUNTERS: missing targetDefinitionId');
+      const updated = state.fieldImpressions.map(fi =>
+        fi.card.definition.id === targetId
+          ? { ...fi, counters: fi.counters + amount }
+          : fi
+      );
+      const changed = updated.some((fi, i) => fi !== state.fieldImpressions[i]);
+      if (!changed) return addLog(state, `No impression found with id ${targetId}`);
+      const target = updated.find(fi => fi.card.definition.id === targetId)!;
+      return addLog({ ...state, fieldImpressions: updated },
+        `${target.card.definition.name} counters +${amount} (now ${target.counters})`);
     }
     case 'RAPPORT_SHIELD_BREAK': {
       const toTrulyKnow = state.fieldImpressions.find(fi => fi.card.definition.id === 'green_to_truly_know');

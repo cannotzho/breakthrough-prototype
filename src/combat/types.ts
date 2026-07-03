@@ -59,7 +59,8 @@ export type CardEffectType =
   | 'RAPPORT_SHIELD_BREAK'
   | 'BREAK_PLAYER_SHIELD'
   | 'INTERCEPT_SHIELD_BREAKS'
-  | 'SCHEDULE_EFFECTS';
+  | 'SCHEDULE_EFFECTS'
+  | 'INCREMENT_IMPRESSION_COUNTERS';
 
 export interface CardEffect {
   type: CardEffectType;
@@ -445,6 +446,7 @@ export interface CombatState {
   playerShieldsBrokenPrevTurn: number;
   playerShieldsBrokenByNpcThisTurn: number;
   patienceLostByNpcThisTurn: number;
+  npcShieldsPlacedThisTurn: number;
   abilitiesFiredThisPlay: string[];
   turnAbilityFireCounts: Record<string, number>;
 

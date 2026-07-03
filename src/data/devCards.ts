@@ -1157,6 +1157,49 @@ export const FAN_CLUB_PRESIDENT_CARDS: CardDefinition[] = [
     effectText: 'Shield Trigger: restore 5 patience.',
     longDescription: 'A fleeting instant of lucidity breaks through the obsession.',
   },
+
+  // FCP-2: NPC impressions, NPC shield placement, devotion counters
+  {
+    id: 'fcp_idols_favor',
+    name: "Idol's Favor",
+    cost: 0,
+    keywords: [],
+    effects: [{ type: 'PLACE_IMPRESSION' }],
+    color: 'Colorless',
+    supertype: 'Skill',
+    subtype: 'Impression',
+    effectText: 'Devotion counter. At 10: consume 10, break 3 shields both sides, -3 patience.',
+    longDescription: "The idol's influence radiates outward, growing stronger with every act of devotion.",
+  },
+  {
+    id: 'fcp_im_his',
+    name: "I'm His",
+    cost: 2,
+    keywords: [],
+    effects: [
+      { type: 'INCREMENT_IMPRESSION_COUNTERS', targetDefinitionId: 'fcp_idols_favor', value: 2 },
+      { type: 'PLACE_DUMMY_SHIELDS', value: 2 },
+    ],
+    color: 'Colorless',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: '+2 devotion. Place 2 NPC shields.',
+    longDescription: 'A declaration of possession — the fan stakes their claim and fortifies their resolve.',
+  },
+  {
+    id: 'fcp_blind_loyalty',
+    name: 'Blind Loyalty',
+    cost: 3,
+    keywords: [],
+    effects: [
+      { type: 'PLACE_DUMMY_SHIELDS', value: 4 },
+    ],
+    color: 'Colorless',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: 'Place 4 NPC shields.',
+    longDescription: 'Unwavering devotion becomes an impenetrable wall of denial.',
+  },
 ];
 
 // ─── Card Definition Block Registry ──────────────────────────
