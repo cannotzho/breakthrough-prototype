@@ -76,6 +76,7 @@ export interface CardEffect {
   restrictionType?: RestrictionType;
   restrictionTarget?: CardOwner;
   restrictionDuration?: number;
+  conditionThreshold?: number;
   condition?: EffectCondition;
   replacementOriginalId?: string;
   replacementTargetId?: string;
@@ -324,13 +325,16 @@ export type RestrictionType =
   | 'PRIORITY_PER_DRAW_BLOCKED'
   | 'MIRROR_NPC_PRIORITY_GAIN'
   | 'PATIENCE_PER_NPC_PRIORITY_GAIN'
-  | 'SELF_BREAK_ON_NPC_SHIELD_BREAK';
+  | 'SELF_BREAK_ON_NPC_SHIELD_BREAK'
+  | 'CONDITIONAL_MAX_SHIELD_BREAKS'
+  | 'CONDITIONAL_MAX_PATIENCE_LOSS';
 
 export interface ActiveRestriction {
   id: string;
   restrictionType: RestrictionType;
   target: CardOwner;
   value?: number;
+  conditionThreshold?: number;
   turnsRemaining: number;
   linkedImpressionId?: string;
 }
@@ -439,6 +443,8 @@ export interface CombatState {
   playerCardsPlayedThisTurn: number;
   playerShieldsBrokenThisTurn: number;
   playerShieldsBrokenPrevTurn: number;
+  playerShieldsBrokenByNpcThisTurn: number;
+  patienceLostByNpcThisTurn: number;
   abilitiesFiredThisPlay: string[];
   turnAbilityFireCounts: Record<string, number>;
 

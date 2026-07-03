@@ -1084,6 +1084,36 @@ export const ORANGE_STARTER_CARDS: CardDefinition[] = [
     effectText: 'Until end of next turn, when the opponent breaks one of your shields, also break an additional one of your own.',
     longDescription: 'You lean into the blow. The pain doubles, but so does the resolve.',
   },
+  {
+    id: 'orange_monolithic_ideals',
+    name: 'Monolithic Ideals',
+    cost: 3,
+    keywords: [],
+    effects: [
+      { type: 'PLACE_IMPRESSION' },
+      {
+        type: 'APPLY_RESTRICTION',
+        restrictionType: 'CONDITIONAL_MAX_SHIELD_BREAKS',
+        restrictionTarget: 'player',
+        value: 2,
+        conditionThreshold: 3,
+        restrictionDuration: 99,
+      },
+      {
+        type: 'APPLY_RESTRICTION',
+        restrictionType: 'CONDITIONAL_MAX_PATIENCE_LOSS',
+        restrictionTarget: 'player',
+        value: 2,
+        conditionThreshold: 6,
+        restrictionDuration: 99,
+      },
+    ],
+    color: 'Orange',
+    supertype: 'Skill',
+    subtype: 'Impression',
+    effectText: 'While you have fewer than 3 shields: max 2 shields broken per turn. While patience is below 6: max 2 patience loss per turn.',
+    longDescription: 'Your convictions form a monolith — unyielding, immutable. They cannot be toppled in a single blow.',
+  },
 ];
 
 // ─── Card Definition Block Registry ──────────────────────────

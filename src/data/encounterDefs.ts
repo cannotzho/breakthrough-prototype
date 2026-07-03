@@ -161,6 +161,8 @@ export function buildInitialCombatState(
     playerCardsPlayedThisTurn: 0,
     playerShieldsBrokenThisTurn: 0,
     playerShieldsBrokenPrevTurn: 0,
+    playerShieldsBrokenByNpcThisTurn: 0,
+    patienceLostByNpcThisTurn: 0,
     abilitiesFiredThisPlay: [],
     turnAbilityFireCounts: {},
     scheduledEffects: [],

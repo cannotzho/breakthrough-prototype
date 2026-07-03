@@ -133,6 +133,8 @@ export function priorityRestore(state: CombatState): CombatState {
       playerShieldsBrokenPrevTurn: s.playerShieldsBrokenThisTurn,
       playerShieldsBrokenThisTurn: 0,
       npcShieldsBrokenThisTurn: 0,
+      playerShieldsBrokenByNpcThisTurn: 0,
+      patienceLostByNpcThisTurn: 0,
       abilitiesFiredThisPlay: [],
       turnAbilityFireCounts: {},
     };
@@ -179,6 +181,8 @@ export function classicTurnStart(state: CombatState): CombatState {
     playerShieldsBrokenPrevTurn: s.playerShieldsBrokenThisTurn,
     playerShieldsBrokenThisTurn: 0,
     npcShieldsBrokenThisTurn: 0,
+    playerShieldsBrokenByNpcThisTurn: 0,
+    patienceLostByNpcThisTurn: 0,
     abilitiesFiredThisPlay: [],
     turnAbilityFireCounts: {},
   };
@@ -414,10 +418,23 @@ export interface ShieldBreakResult {
 
 let shieldBreakCounter = 0;
 
-export function breakPlayerShieldAutomatic(state: CombatState): ShieldBreakResult {
+export function breakPlayerShieldAutomatic(state: CombatState, breakSource?: 'npc' | 'player'): ShieldBreakResult {
   const noBreak: ShieldBreakResult = { state, hadShieldTrigger: false, triggerCard: null, breakOrder: 0 };
 
   if (state.config.unbreakablePlayerShields) return noBreak;
+
+  if (breakSource === 'npc') {
+    const shieldCapR = state.activeRestrictions.find(
+      r => r.restrictionType === 'CONDITIONAL_MAX_SHIELD_BREAKS' && r.target === 'player'
+    );
+    if (shieldCapR && shieldCapR.value != null && shieldCapR.conditionThreshold != null) {
+      const dummyRemaining = state.playerShields.filter(s => s != null && s.shieldType === 'dummy').length;
+      if (dummyRemaining < shieldCapR.conditionThreshold && state.playerShieldsBrokenByNpcThisTurn >= shieldCapR.value) {
+        return { state: addLog(state, `Shield break blocked by Monolithic Ideals (max ${shieldCapR.value}/turn)`), hadShieldTrigger: false, triggerCard: null, breakOrder: 0 };
+      }
+    }
+  }
+
   const idx = getLeftmostPlayerShieldIdx(state);
   if (idx === -1) return noBreak;
 
@@ -436,20 +453,40 @@ export function breakPlayerShieldAutomatic(state: CombatState): ShieldBreakResul
   const newShields = state.playerShields.map((s, i) => i === idx ? null : s);
   const breakOrder = shieldBreakCounter++;
 
+  let effectivePatienceCost = patienceCost;
+
+  if (breakSource === 'npc' && effectivePatienceCost > 0) {
+    const patienceCapR = state.activeRestrictions.find(
+      r => r.restrictionType === 'CONDITIONAL_MAX_PATIENCE_LOSS' && r.target === 'player'
+    );
+    if (patienceCapR && patienceCapR.value != null && patienceCapR.conditionThreshold != null) {
+      if (state.patience < patienceCapR.conditionThreshold) {
+        const remaining = Math.max(0, patienceCapR.value - state.patienceLostByNpcThisTurn);
+        effectivePatienceCost = Math.min(effectivePatienceCost, remaining);
+      }
+    }
+  }
+
   let s: CombatState = {
     ...state,
     playerShields: newShields,
-    patience: state.patience - patienceCost,
+    patience: state.patience - effectivePatienceCost,
     playerDiscard: shield.shieldType === 'dummy'
       ? state.playerDiscard
       : [...state.playerDiscard, card],
+    ...(breakSource === 'npc' ? {
+      playerShieldsBrokenByNpcThisTurn: state.playerShieldsBrokenByNpcThisTurn + 1,
+      patienceLostByNpcThisTurn: state.patienceLostByNpcThisTurn + effectivePatienceCost,
+    } : {}),
   };
 
   const breakType = shield.shieldType === 'core' ? 'Core' : 'Dummy';
   if (hasSafety && shield.shieldType === 'dummy') {
     s = addLog(s, `${card.definition.name} (${breakType}) broken (Safety) — 0 Patience`);
+  } else if (effectivePatienceCost < patienceCost) {
+    s = addLog(s, `${card.definition.name} (${breakType}) broken — ${effectivePatienceCost} Patience (capped by Monolithic Ideals)`);
   } else {
-    s = addLog(s, `${card.definition.name} (${breakType}) broken — ${patienceCost} Patience`);
+    s = addLog(s, `${card.definition.name} (${breakType}) broken — ${effectivePatienceCost} Patience`);
   }
 
   return {
@@ -556,6 +593,23 @@ export function applyEffect(state: CombatState, effectRaw: CardEffect, controlle
             s = { ...s, config: { ...s.config, traits: updatedTraits } };
           }
         }
+        if (controller === 'npc') {
+          const patienceCapR = s.activeRestrictions.find(
+            r => r.restrictionType === 'CONDITIONAL_MAX_PATIENCE_LOSS' && r.target === 'player'
+          );
+          if (patienceCapR && patienceCapR.value != null && patienceCapR.conditionThreshold != null) {
+            if (s.patience < patienceCapR.conditionThreshold) {
+              const remaining = Math.max(0, patienceCapR.value - s.patienceLostByNpcThisTurn);
+              const absDelta = Math.abs(delta);
+              const capped = Math.min(absDelta, remaining);
+              if (capped < absDelta) {
+                s = addLog(s, `Patience loss capped by Monolithic Ideals (${capped} of ${absDelta})`);
+              }
+              delta = -capped;
+            }
+          }
+          s = { ...s, patienceLostByNpcThisTurn: s.patienceLostByNpcThisTurn + Math.abs(delta) };
+        }
       }
       return checkDestroyBelowPatience({ ...s, patience: s.patience + delta });
     }
@@ -599,7 +653,7 @@ export function applyEffect(state: CombatState, effectRaw: CardEffect, controlle
           let s = checkDestroyBelowPatience({ ...state, patience: state.patience - cost });
           return addLog(s, `Shield break replaced by Genuine Enjoyment: lost ${cost} Patience instead`);
         }
-        const result = breakPlayerShieldAutomatic(state);
+        const result = breakPlayerShieldAutomatic(state, 'npc');
         let s = result.state;
         if (result.hadShieldTrigger && result.triggerCard) {
           s = {
@@ -757,6 +811,7 @@ export function applyEffect(state: CombatState, effectRaw: CardEffect, controlle
         restrictionType,
         target,
         value: effect.value,
+        conditionThreshold: effect.conditionThreshold,
         turnsRemaining: restrictionDuration ?? 1,
         linkedImpressionId: sourceCard?.definition.subtype === 'Impression' ? sourceCard.instanceId : undefined,
       };
@@ -950,7 +1005,7 @@ export function applyEffect(state: CombatState, effectRaw: CardEffect, controlle
         r => r.restrictionType === 'PREVENT_SHIELD_BREAK' && r.target === controller
       );
       if (blocked) return addLog(state, `Shield break prevented by active restriction`);
-      const result = breakPlayerShieldAutomatic(state);
+      const result = breakPlayerShieldAutomatic(state, 'player');
       let s = result.state;
       if (result.hadShieldTrigger && result.triggerCard) {
         s = {
