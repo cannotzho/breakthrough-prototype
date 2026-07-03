@@ -1200,6 +1200,68 @@ export const FAN_CLUB_PRESIDENT_CARDS: CardDefinition[] = [
     effectText: 'Place 4 NPC shields.',
     longDescription: 'Unwavering devotion becomes an impenetrable wall of denial.',
   },
+
+  // FCP-3: impression-sourced shield break, NPC draw/recycle
+  {
+    id: 'fcp_he_loves_me',
+    name: 'He Loves Me',
+    cost: 3,
+    keywords: [],
+    effects: [
+      { type: 'INCREMENT_IMPRESSION_COUNTERS', targetDefinitionId: 'fcp_idols_favor', value: 2 },
+      { type: 'BREAK_PLAYER_SHIELD' },
+    ],
+    color: 'Colorless',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: '+2 devotion. Idol breaks 1 player shield.',
+    longDescription: "Love is a weapon. The idol's affection leaves scars.",
+  },
+  {
+    id: 'fcp_he_really_loves_me',
+    name: 'He Really Loves Me',
+    cost: 3,
+    keywords: [],
+    effects: [
+      { type: 'INCREMENT_IMPRESSION_COUNTERS', targetDefinitionId: 'fcp_idols_favor', value: 2 },
+      { type: 'BREAK_PLAYER_SHIELD' },
+      { type: 'BREAK_PLAYER_SHIELD' },
+    ],
+    color: 'Colorless',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: '+2 devotion. Idol breaks 2 player shields.',
+    longDescription: 'Doubled devotion, doubled destruction. The idol is always watching.',
+  },
+  {
+    id: 'fcp_im_never_alone',
+    name: "I'm Never Alone",
+    cost: 2,
+    keywords: [],
+    effects: [
+      { type: 'INCREMENT_IMPRESSION_COUNTERS', targetDefinitionId: 'fcp_idols_favor', value: 2 },
+      { type: 'DRAW_CARDS', value: 1 },
+    ],
+    color: 'Colorless',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: '+2 devotion. Draw 1 card.',
+    longDescription: 'The presence is always there — in the mirrors, in the silence, in the next card drawn.',
+  },
+  {
+    id: 'fcp_fantasy',
+    name: 'FANtasy',
+    cost: 3,
+    keywords: [],
+    effects: [
+      { type: 'DRAW_CARDS', value: 3 },
+    ],
+    color: 'Colorless',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: 'Draw 3 cards.',
+    longDescription: 'Lost in a world where every fantasy feels real and every reality feels staged.',
+  },
 ];
 
 // ─── Card Definition Block Registry ──────────────────────────

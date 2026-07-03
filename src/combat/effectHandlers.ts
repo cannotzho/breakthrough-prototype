@@ -49,6 +49,27 @@ export function drawCards(state: CombatState, count: number): CombatState {
   return { ...state, playerDeck: deck, playerDiscard: discard, playerHand: hand, actionLog: log };
 }
 
+export function drawEnemyCards(state: CombatState, count: number): CombatState {
+  let deck = [...state.enemyDeck];
+  let discard = [...state.enemyDiscard];
+  const log = [...state.actionLog];
+
+  const drawn: CardInstance[] = [];
+  for (let i = 0; i < count; i++) {
+    if (deck.length === 0) {
+      if (discard.length === 0) break;
+      deck = shuffle([...discard]);
+      discard = [];
+      log.push('NPC deck recycled.');
+    }
+    const [card, ...rest] = deck;
+    deck = rest;
+    drawn.push(card);
+  }
+
+  return { ...state, enemyDeck: [...drawn, ...deck], enemyDiscard: discard, actionLog: log };
+}
+
 export function tickRestrictions(state: CombatState): CombatState {
   const updatedR = state.activeRestrictions
     .map(r => ({ ...r, turnsRemaining: r.turnsRemaining - 1 }))
@@ -620,6 +641,9 @@ export function applyEffect(state: CombatState, effectRaw: CardEffect, controlle
       );
       if (drawBlocked) return addLog(state, `Draw prevented by active restriction`);
       const count = effect.value ?? 1;
+      if (controller === 'npc') {
+        return addLog(drawEnemyCards(state, count), `NPC drew ${count} card(s)`);
+      }
       return drawCards(state, count);
     }
     case 'INCREMENT_LIE_COUNTER':
@@ -1037,7 +1061,7 @@ export function applyEffect(state: CombatState, effectRaw: CardEffect, controlle
         r => r.restrictionType === 'PREVENT_SHIELD_BREAK' && r.target === controller
       );
       if (blocked) return addLog(state, `Shield break prevented by active restriction`);
-      const result = breakPlayerShieldAutomatic(state, 'player');
+      const result = breakPlayerShieldAutomatic(state, controller);
       let s = result.state;
       if (result.hadShieldTrigger && result.triggerCard) {
         s = {
