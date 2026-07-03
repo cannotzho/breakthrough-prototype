@@ -1116,12 +1116,56 @@ export const ORANGE_STARTER_CARDS: CardDefinition[] = [
   },
 ];
 
+// ─── Fan Club President Encounter Cards ─────────────────────
+export const FAN_CLUB_PRESIDENT_CARDS: CardDefinition[] = [
+  // FCP-1: existing mechanics only
+  {
+    id: 'fcp_youre_a_hindrance',
+    name: "You're a Hindrance",
+    cost: 4,
+    keywords: [],
+    effects: [{ type: 'MODIFY_PATIENCE', value: -5 }],
+    color: 'Colorless',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: '-5 patience.',
+    longDescription: 'The fan sees you as nothing but an obstacle between them and their idol.',
+  },
+  {
+    id: 'fcp_panicked_memories',
+    name: 'Panicked Memories',
+    cost: 0,
+    keywords: ['Shield Trigger'],
+    effects: [],
+    shieldTriggerEffects: [{ type: 'MODIFY_PATIENCE', value: -3 }],
+    color: 'Colorless',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: 'Shield Trigger: -3 patience.',
+    longDescription: 'Disturbing recollections surface when defenses are broken.',
+  },
+  {
+    id: 'fcp_moment_of_clarity',
+    name: 'Moment of Clarity',
+    cost: 0,
+    keywords: ['Shield Trigger'],
+    effects: [],
+    shieldTriggerEffects: [{ type: 'MODIFY_PATIENCE', value: 5 }],
+    color: 'Colorless',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: 'Shield Trigger: restore 5 patience.',
+    longDescription: 'A fleeting instant of lucidity breaks through the obsession.',
+  },
+];
+
 // ─── Card Definition Block Registry ──────────────────────────
 export const CARD_DEF_BLOCKS: Record<string, CardDefinition[]> = {
   'Blue Starter Deck': BLUE_STARTER_CARDS,
   'Red Starter Deck': RED_STARTER_CARDS,
   'Green Starter Deck': GREEN_STARTER_CARDS,
   'Orange Starter Deck': ORANGE_STARTER_CARDS,
+  'Fan Club President': FAN_CLUB_PRESIDENT_CARDS,
 };
 
 export const PONDER_DEFINITION: CardDefinition = {
