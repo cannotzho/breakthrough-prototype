@@ -1042,6 +1042,48 @@ export const ORANGE_STARTER_CARDS: CardDefinition[] = [
     effectText: 'Trap: When the opponent has drawn extra, broken a shield, and gained priority this turn — gain +5 priority immediately, then +3 at start of your next turn.',
     longDescription: 'The more they do, the deeper they sink. Every action feeds the quagmire.',
   },
+  {
+    id: 'orange_equal_exchange',
+    name: 'Equal Exchange',
+    cost: 3,
+    keywords: [],
+    effects: [
+      { type: 'APPLY_RESTRICTION', restrictionType: 'MIRROR_NPC_PRIORITY_GAIN', restrictionTarget: 'player', restrictionDuration: 2 },
+    ],
+    color: 'Orange',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: 'Until end of next turn, whenever the opponent spends priority, schedule the same amount of priority for you at the start of your next turn.',
+    longDescription: 'What they take, you receive in kind. The scales must balance.',
+  },
+  {
+    id: 'orange_generous_concession',
+    name: 'Generous Concession',
+    cost: 2,
+    keywords: [],
+    effects: [
+      { type: 'APPLY_RESTRICTION', restrictionType: 'PATIENCE_PER_NPC_PRIORITY_GAIN', restrictionTarget: 'player', value: 1, restrictionDuration: 2 },
+    ],
+    color: 'Orange',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: 'Until end of next turn, gain 1 patience for every priority the opponent spends.',
+    longDescription: 'You concede the floor graciously. Their every assertion only makes you more patient.',
+  },
+  {
+    id: 'orange_double_edged_approach',
+    name: 'Double-edged Approach',
+    cost: 1,
+    keywords: [],
+    effects: [
+      { type: 'APPLY_RESTRICTION', restrictionType: 'SELF_BREAK_ON_NPC_SHIELD_BREAK', restrictionTarget: 'player', restrictionDuration: 2 },
+    ],
+    color: 'Orange',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: 'Until end of next turn, when the opponent breaks one of your shields, also break an additional one of your own.',
+    longDescription: 'You lean into the blow. The pain doubles, but so does the resolve.',
+  },
 ];
 
 // ─── Card Definition Block Registry ──────────────────────────

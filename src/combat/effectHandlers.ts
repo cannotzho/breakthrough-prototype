@@ -610,6 +610,24 @@ export function applyEffect(state: CombatState, effectRaw: CardEffect, controlle
             ],
           };
         }
+        // SELF_BREAK_ON_NPC_SHIELD_BREAK: player also breaks one of their own
+        const selfBreak = s.activeRestrictions.some(
+          r => r.restrictionType === 'SELF_BREAK_ON_NPC_SHIELD_BREAK' && r.target === 'player'
+        );
+        if (selfBreak) {
+          s = addLog(s, `Double-edged Approach: additional player shield broken`);
+          const selfResult = breakPlayerShieldAutomatic(s);
+          s = selfResult.state;
+          if (selfResult.hadShieldTrigger && selfResult.triggerCard) {
+            s = {
+              ...s,
+              pendingShieldTriggers: [
+                ...s.pendingShieldTriggers,
+                { card: selfResult.triggerCard, breakOrder: selfResult.breakOrder },
+              ],
+            };
+          }
+        }
         return s;
       }
     }

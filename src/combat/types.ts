@@ -321,7 +321,10 @@ export type RestrictionType =
   | 'PATIENCE_PER_OPPONENT_CARD'
   | 'PRIORITY_FLOOR'
   | 'PREVENT_NPC_EXTRA_DRAW'
-  | 'PRIORITY_PER_DRAW_BLOCKED';
+  | 'PRIORITY_PER_DRAW_BLOCKED'
+  | 'MIRROR_NPC_PRIORITY_GAIN'
+  | 'PATIENCE_PER_NPC_PRIORITY_GAIN'
+  | 'SELF_BREAK_ON_NPC_SHIELD_BREAK';
 
 export interface ActiveRestriction {
   id: string;

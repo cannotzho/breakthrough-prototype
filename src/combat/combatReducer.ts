@@ -707,6 +707,31 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
         }
       }
 
+      // MIRROR_NPC_PRIORITY_GAIN: schedule mirrored priority for player
+      const mirrorRestrictions = s.activeRestrictions.filter(
+        r => r.restrictionType === 'MIRROR_NPC_PRIORITY_GAIN' && r.target === 'player'
+      );
+      for (const r of mirrorRestrictions) {
+        const gain = npcEffectiveCost;
+        if (gain > 0) {
+          s = { ...s, scheduledEffects: [...s.scheduledEffects, { effects: [{ type: 'MODIFY_PRIORITY', value: gain }], turnsUntilFire: 1 }] };
+          s = addLog(s, `Equal Exchange: +${gain} priority scheduled for next turn`);
+        }
+      }
+
+      // PATIENCE_PER_NPC_PRIORITY_GAIN: grant patience from NPC priority spend
+      const patiencePerGain = s.activeRestrictions.filter(
+        r => r.restrictionType === 'PATIENCE_PER_NPC_PRIORITY_GAIN' && r.target === 'player'
+      );
+      for (const r of patiencePerGain) {
+        const ratio = r.value ?? 1;
+        const pGain = ratio * npcEffectiveCost;
+        if (pGain > 0) {
+          s = { ...s, patience: s.patience + pGain };
+          s = addLog(s, `Generous Concession: +${pGain} patience from NPC priority spend`);
+        }
+      }
+
       return resolveEffectList(s, card.definition.effects, card, (resolved) => {
         let final: CombatState = {
           ...resolved,
