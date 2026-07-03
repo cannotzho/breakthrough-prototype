@@ -1385,6 +1385,56 @@ export const FAN_CLUB_PRESIDENT_CARDS: CardDefinition[] = [
     effectText: 'Prevent opponent shield breaks next turn. +1 priority per devotion.',
     longDescription: 'Madness becomes armor. The deeper the obsession, the more unassailable the defenses.',
   },
+
+  // ── FCP-7: Lunatic Love, Distracting Madness, Unhinged Focus ──
+  {
+    id: 'fcp_lunatic_love',
+    name: 'Lunatic Love',
+    cost: 3,
+    keywords: [],
+    effects: [
+      { type: 'PLACE_IMPRESSION' },
+      { type: 'APPLY_RESTRICTION', restrictionType: 'INCREASE_CARD_COST', restrictionTarget: 'npc', value: 1, restrictionDuration: 99 },
+      { type: 'APPLY_RESTRICTION', restrictionType: 'PATIENCE_COST_PER_NPC_CARD', restrictionTarget: 'npc', value: 1, restrictionDuration: 99 },
+      { type: 'APPLY_RESTRICTION', restrictionType: 'DEVOTION_PAYS_PRIORITY', restrictionTarget: 'npc', value: 1, restrictionDuration: 99 },
+    ],
+    color: 'Colorless',
+    supertype: 'Skill',
+    subtype: 'Impression',
+    effectText: 'NPC cards cost +1 priority and +1 patience. Devotion can pay priority costs.',
+    longDescription: 'Love twists into something dangerous — every word they speak costs more, but devotion fuels the fire.',
+  },
+  {
+    id: 'fcp_distracting_madness',
+    name: 'Distracting Madness',
+    cost: 2,
+    keywords: ['Trap'],
+    effects: [
+      { type: 'APPLY_RESTRICTION', restrictionType: 'PREVENT_EXTRA_DRAWS', restrictionTarget: 'player', restrictionDuration: 1 },
+      { type: 'INCREMENT_IMPRESSION_COUNTERS', targetImpressionId: 'fcp_idols_favor', value: 2 },
+    ],
+    color: 'Colorless',
+    supertype: 'Skill',
+    subtype: 'Trap',
+    effectText: 'Prevent opponent extra draws this turn. +2 devotion.',
+    longDescription: 'Their madness is a distraction — while you struggle to think, their obsession only grows.',
+    trapTrigger: { type: 'END_OF_PLAYER_TURN' },
+  },
+  {
+    id: 'fcp_unhinged_focus',
+    name: 'Unhinged Focus',
+    cost: 3,
+    keywords: ['Trap'],
+    effects: [
+      { type: 'APPLY_RESTRICTION', restrictionType: 'PREVENT_PATIENCE_GAIN', restrictionTarget: 'player', restrictionDuration: 1 },
+    ],
+    color: 'Colorless',
+    supertype: 'Skill',
+    subtype: 'Trap',
+    effectText: 'Prevent opponent patience restoration this turn.',
+    longDescription: 'Their focus is absolute, unnervingly so — nothing you say can calm them now.',
+    trapTrigger: { type: 'END_OF_PLAYER_TURN' },
+  },
 ];
 
 // ─── Card Definition Block Registry ──────────────────────────

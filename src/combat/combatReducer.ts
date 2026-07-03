@@ -686,7 +686,36 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       const npcCostIncrease = s.activeRestrictions
         .filter(r => r.restrictionType === 'INCREASE_CARD_COST' && r.target === 'npc')
         .reduce((sum, r) => sum + (r.value ?? 0), 0);
-      const npcEffectiveCost = card.definition.cost + npcCostIncrease;
+      let npcEffectiveCost = card.definition.cost + npcCostIncrease;
+
+      const patienceCostR = s.activeRestrictions.find(
+        r => r.restrictionType === 'PATIENCE_COST_PER_NPC_CARD' && r.target === 'npc'
+      );
+      if (patienceCostR) {
+        const pCost = patienceCostR.value ?? 1;
+        s = { ...s, patience: s.patience - pCost };
+        s = addLog(s, `Lunatic Love: NPC card costs ${pCost} patience`);
+      }
+
+      const devotionPays = s.activeRestrictions.some(
+        r => r.restrictionType === 'DEVOTION_PAYS_PRIORITY' && r.target === 'npc'
+      );
+      if (devotionPays && npcEffectiveCost > 0) {
+        const idol = s.fieldImpressions.find(fi =>
+          fi.card.definition.id === 'fcp_idols_favor' || fi.card.definition.id === 'fcp_my_idol'
+        );
+        if (idol && idol.counters > 0) {
+          const devotionSpend = Math.min(idol.counters, npcEffectiveCost);
+          npcEffectiveCost -= devotionSpend;
+          s = {
+            ...s,
+            fieldImpressions: s.fieldImpressions.map(fi =>
+              fi === idol ? { ...fi, counters: fi.counters - devotionSpend } : fi
+            ),
+          };
+          s = addLog(s, `Lunatic Love: ${devotionSpend} devotion spent as priority`);
+        }
+      }
 
       if (s.config.priorityMode === 'frame') {
         if (npcEffectiveCost > 0) {

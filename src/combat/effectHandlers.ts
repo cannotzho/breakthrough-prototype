@@ -714,6 +714,11 @@ export function applyEffect(state: CombatState, effectRaw: CardEffect, controlle
         r => r.restrictionType === 'PREVENT_DRAW' && r.target === controller
       );
       if (drawBlocked) return addLog(state, `Draw prevented by active restriction`);
+      if (controller === 'player' && state.activeRestrictions.some(
+        r => r.restrictionType === 'PREVENT_EXTRA_DRAWS' && r.target === 'player'
+      )) {
+        return addLog(state, `Extra draws blocked by active restriction`);
+      }
       const count = effect.value ?? 1;
       if (controller === 'npc') {
         return addLog(drawEnemyCards(state, count), `NPC drew ${count} card(s)`);
