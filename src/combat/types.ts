@@ -58,7 +58,8 @@ export type CardEffectType =
   | 'INCREMENT_RAPPORT_COUNTERS'
   | 'RAPPORT_SHIELD_BREAK'
   | 'BREAK_PLAYER_SHIELD'
-  | 'INTERCEPT_SHIELD_BREAKS';
+  | 'INTERCEPT_SHIELD_BREAKS'
+  | 'SCHEDULE_EFFECTS';
 
 export interface CardEffect {
   type: CardEffectType;
@@ -82,6 +83,8 @@ export interface CardEffect {
   altCondition?: EffectCondition;
   copyFilter?: 'HAS_SHIELD_BREAK';
   copyCount?: number;
+  scheduledEffects?: CardEffect[];
+  delayTurns?: number;
 }
 
 // ─── Game Events (for passive triggered abilities) ───────────
@@ -121,7 +124,8 @@ export type TrapTriggerType =
   | 'OPPONENT_PLAYS_CARD'
   | 'OPPONENT_BREAKS_SHIELD'
   | 'PATIENCE_CHANGE'
-  | 'PRIORITY_CHANGE';
+  | 'PRIORITY_CHANGE'
+  | 'COMPOUND_NPC_TURN';
 
 export type TrapTriggerComparator = 'eq' | 'gt' | 'lt' | 'gte' | 'lte';
 
@@ -129,6 +133,23 @@ export interface TrapTriggerCondition {
   triggerType: TrapTriggerType;
   comparator?: TrapTriggerComparator;
   value?: number;
+  compoundConditions?: CompoundCondition[];
+}
+
+export type CompoundConditionType =
+  | 'NPC_EXTRA_DRAWS_GTE'
+  | 'NPC_SHIELDS_BROKEN_GTE'
+  | 'NPC_PRIORITY_GAINED_GTE';
+
+export interface CompoundCondition {
+  type: CompoundConditionType;
+  value: number;
+}
+
+// ─── Scheduled Effects ───────────────────────────────────────
+export interface ScheduledEffect {
+  effects: CardEffect[];
+  turnsUntilFire: number;
 }
 
 // ─── Info Nuggets ──────────────────────────────────────────────
@@ -298,7 +319,9 @@ export type RestrictionType =
   | 'MAX_TURN_START_DRAW'
   | 'MAX_PLAYS_PER_TURN'
   | 'PATIENCE_PER_OPPONENT_CARD'
-  | 'PRIORITY_FLOOR';
+  | 'PRIORITY_FLOOR'
+  | 'PREVENT_NPC_EXTRA_DRAW'
+  | 'PRIORITY_PER_DRAW_BLOCKED';
 
 export interface ActiveRestriction {
   id: string;
@@ -409,11 +432,14 @@ export interface CombatState {
   activeReplacements: ActiveReplacement[];
   npcCardsPlayedThisTurn: number;
   npcExtraDrawsThisTurn: number;
+  npcPriorityGainedThisTurn: number;
   playerCardsPlayedThisTurn: number;
   playerShieldsBrokenThisTurn: number;
   playerShieldsBrokenPrevTurn: number;
   abilitiesFiredThisPlay: string[];
   turnAbilityFireCounts: Record<string, number>;
+
+  scheduledEffects: ScheduledEffect[];
 
   manualEnemyMode: boolean;
 

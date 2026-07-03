@@ -66,6 +66,28 @@ export function tickRestrictions(state: CombatState): CombatState {
   return s;
 }
 
+export function processScheduledEffects(state: CombatState): CombatState {
+  if (state.scheduledEffects.length === 0) return state;
+  const firing: typeof state.scheduledEffects = [];
+  const remaining: typeof state.scheduledEffects = [];
+  for (const se of state.scheduledEffects) {
+    const turnsLeft = se.turnsUntilFire - 1;
+    if (turnsLeft <= 0) {
+      firing.push(se);
+    } else {
+      remaining.push({ ...se, turnsUntilFire: turnsLeft });
+    }
+  }
+  let s: CombatState = { ...state, scheduledEffects: remaining };
+  for (const se of firing) {
+    for (const eff of se.effects) {
+      s = applyEffect(s, eff, 'player');
+    }
+    s = addLog(s, `Scheduled effect fired`);
+  }
+  return s;
+}
+
 export function removeImpressionLinkedRestrictions(state: CombatState, impressionInstanceId: string): CombatState {
   const before = state.activeRestrictions.length;
   const remaining = state.activeRestrictions.filter(r => r.linkedImpressionId !== impressionInstanceId);
@@ -104,6 +126,7 @@ export function priorityRestore(state: CombatState): CombatState {
     s = expireTraps(s);
     s = expireImpressions(s);
     s = tickRestrictions(s);
+    s = processScheduledEffects(s);
     s = {
       ...s,
       playerCardsPlayedThisTurn: 0,
@@ -114,7 +137,7 @@ export function priorityRestore(state: CombatState): CombatState {
       turnAbilityFireCounts: {},
     };
   }
-  s = { ...s, npcCardsPlayedThisTurn: 0, npcExtraDrawsThisTurn: 0 };
+  s = { ...s, npcCardsPlayedThisTurn: 0, npcExtraDrawsThisTurn: 0, npcPriorityGainedThisTurn: 0 };
   return s;
 }
 
@@ -146,10 +169,12 @@ export function classicTurnStart(state: CombatState): CombatState {
   s = expireTraps(s);
   s = expireImpressions(s);
   s = tickRestrictions(s);
+  s = processScheduledEffects(s);
   s = {
     ...s,
     npcCardsPlayedThisTurn: 0,
     npcExtraDrawsThisTurn: 0,
+    npcPriorityGainedThisTurn: 0,
     playerCardsPlayedThisTurn: 0,
     playerShieldsBrokenPrevTurn: s.playerShieldsBrokenThisTurn,
     playerShieldsBrokenThisTurn: 0,
@@ -920,6 +945,16 @@ export function applyEffect(state: CombatState, effectRaw: CardEffect, controlle
       }
       return s;
     }
+    case 'SCHEDULE_EFFECTS': {
+      if (!effect.scheduledEffects || !effect.delayTurns) return state;
+      return {
+        ...state,
+        scheduledEffects: [
+          ...state.scheduledEffects,
+          { effects: effect.scheduledEffects, turnsUntilFire: effect.delayTurns },
+        ],
+      };
+    }
     case 'INTERCEPT_SHIELD_BREAKS': {
       if (!state.stagedEnemyCard) return addLog(state, 'No staged enemy card to intercept');
       const staged = state.stagedEnemyCard;
@@ -978,6 +1013,25 @@ export function selectEnemyCard(state: CombatState): CombatState {
 
   // Track NPC extra draws (any draw beyond the first this turn)
   if (state.npcCardsPlayedThisTurn > 0) {
+    const drawBlocked = s.activeRestrictions.some(
+      r => r.restrictionType === 'PREVENT_NPC_EXTRA_DRAW' && r.target === 'npc'
+    );
+    if (drawBlocked) {
+      s = { ...s, stagedEnemyCard: null, enemyDeck: [card, ...rest] };
+      s = addLog(s, `NPC extra draw blocked by Artful Injunction`);
+      const perBlockRestrictions = s.activeRestrictions.filter(
+        r => r.restrictionType === 'PRIORITY_PER_DRAW_BLOCKED' && r.target === 'player'
+      );
+      for (const r of perBlockRestrictions) {
+        const bonus = r.value ?? 1;
+        s = { ...s, priority: clampPriority(s.priority + bonus) };
+        s = addLog(s, `Artful Injunction: +${bonus} priority from blocked NPC draw`);
+      }
+      if (s.config.priorityMode === 'frame') {
+        return priorityRestore(s);
+      }
+      return { ...s, npcPriority: 0, phase: 'Check' };
+    }
     s = { ...s, npcExtraDrawsThisTurn: s.npcExtraDrawsThisTurn + 1 };
     const perDrawRestrictions = s.activeRestrictions.filter(
       r => r.restrictionType === 'PRIORITY_PER_EXTRA_DRAW' && r.target === 'player'
@@ -995,8 +1049,21 @@ export function selectEnemyCard(state: CombatState): CombatState {
 export function evaluateTrapCondition(
   condition: TrapTriggerCondition,
   event: TrapTriggerType,
-  eventValue?: number
+  eventValue?: number,
+  state?: CombatState
 ): boolean {
+  if (condition.triggerType === 'COMPOUND_NPC_TURN') {
+    if (event !== 'OPPONENT_PLAYS_CARD') return false;
+    if (!state || !condition.compoundConditions) return false;
+    return condition.compoundConditions.every(cc => {
+      switch (cc.type) {
+        case 'NPC_EXTRA_DRAWS_GTE': return state.npcExtraDrawsThisTurn >= cc.value;
+        case 'NPC_SHIELDS_BROKEN_GTE': return state.npcShieldsBrokenThisTurn >= cc.value;
+        case 'NPC_PRIORITY_GAINED_GTE': return state.npcPriorityGainedThisTurn >= cc.value;
+        default: return false;
+      }
+    });
+  }
   if (condition.triggerType !== event) return false;
   if (condition.comparator == null || condition.value == null || eventValue == null) {
     return true;
@@ -1020,7 +1087,7 @@ export function resolveFieldTriggerCheck(state: CombatState, event?: TrapTrigger
 
   const triggeredTraps: FieldTrap[] = event
     ? s.fieldTraps.filter(trap => {
-        if (!evaluateTrapCondition(trap.triggerCondition, event)) return false;
+        if (!evaluateTrapCondition(trap.triggerCondition, event, undefined, s)) return false;
         if (trap.rapportNumber != null && s.stagedEnemyCard) {
           return s.stagedEnemyCard.definition.cost === trap.rapportNumber;
         }

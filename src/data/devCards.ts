@@ -1004,6 +1004,44 @@ export const ORANGE_STARTER_CARDS: CardDefinition[] = [
     effectText: 'Trap: When the opponent plays a card that would break shields, cancel it and restore 1 patience per shield break prevented.',
     longDescription: 'You spot the flaw in their argument before it lands. The attack crumbles, and you feel vindicated.',
   },
+  {
+    id: 'orange_artful_injunction',
+    name: 'Artful Injunction',
+    cost: 3,
+    keywords: [],
+    effects: [
+      { type: 'APPLY_RESTRICTION', restrictionType: 'PREVENT_NPC_EXTRA_DRAW', restrictionTarget: 'npc', restrictionDuration: 2 },
+      { type: 'APPLY_RESTRICTION', restrictionType: 'PRIORITY_PER_DRAW_BLOCKED', restrictionTarget: 'player', value: 1, restrictionDuration: 2 },
+    ],
+    color: 'Orange',
+    supertype: 'Skill',
+    subtype: null,
+    effectText: 'Until end of next turn, the opponent cannot draw extra cards. For each draw blocked, gain 1 priority.',
+    longDescription: 'You file an injunction. The witness may speak, but they may not reach for new material.',
+  },
+  {
+    id: 'orange_semantic_quagmire',
+    name: 'Semantic Quagmire',
+    cost: 3,
+    keywords: ['Trap'],
+    effects: [
+      { type: 'MODIFY_PRIORITY', value: 5 },
+      { type: 'SCHEDULE_EFFECTS', scheduledEffects: [{ type: 'MODIFY_PRIORITY', value: 3 }], delayTurns: 1 },
+    ],
+    color: 'Orange',
+    supertype: 'Skill',
+    subtype: 'Trap',
+    trapTrigger: {
+      triggerType: 'COMPOUND_NPC_TURN',
+      compoundConditions: [
+        { type: 'NPC_EXTRA_DRAWS_GTE', value: 1 },
+        { type: 'NPC_SHIELDS_BROKEN_GTE', value: 1 },
+        { type: 'NPC_PRIORITY_GAINED_GTE', value: 1 },
+      ],
+    },
+    effectText: 'Trap: When the opponent has drawn extra, broken a shield, and gained priority this turn — gain +5 priority immediately, then +3 at start of your next turn.',
+    longDescription: 'The more they do, the deeper they sink. Every action feeds the quagmire.',
+  },
 ];
 
 // ─── Card Definition Block Registry ──────────────────────────

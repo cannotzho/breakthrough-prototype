@@ -692,7 +692,8 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
         if (npcEffectiveCost > 0) {
           const oldPriority = s.priority;
           const newPriority = clampPriority(s.priority + npcEffectiveCost);
-          s = addLog({ ...s, priority: newPriority },
+          const priorityGain = newPriority - oldPriority;
+          s = addLog({ ...s, priority: newPriority, npcPriorityGainedThisTurn: s.npcPriorityGainedThisTurn + Math.max(0, priorityGain) },
             `NPC spent ${npcEffectiveCost} initiative (priority ${oldPriority} → ${newPriority})`);
           if (oldPriority <= 0 && newPriority > 0) {
             s = priorityRestore(s);
@@ -701,7 +702,7 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
       } else {
         if (npcEffectiveCost > 0) {
           const newNpcPriority = Math.max(0, s.npcPriority - npcEffectiveCost);
-          s = addLog({ ...s, npcPriority: newNpcPriority },
+          s = addLog({ ...s, npcPriority: newNpcPriority, npcPriorityGainedThisTurn: s.npcPriorityGainedThisTurn + npcEffectiveCost },
             `NPC spent ${npcEffectiveCost} priority (npcPriority ${s.npcPriority} → ${newNpcPriority})`);
         }
       }
