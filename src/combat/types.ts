@@ -60,7 +60,9 @@ export type CardEffectType =
   | 'BREAK_PLAYER_SHIELD'
   | 'INTERCEPT_SHIELD_BREAKS'
   | 'SCHEDULE_EFFECTS'
-  | 'INCREMENT_IMPRESSION_COUNTERS';
+  | 'INCREMENT_IMPRESSION_COUNTERS'
+  | 'TRANSFORM_IMPRESSION'
+  | 'BREAK_NPC_SHIELDS';
 
 export interface CardEffect {
   type: CardEffectType;
@@ -204,6 +206,10 @@ export interface CardDefinition {
   impressionDestroyBelowPatience?: number;
   heavyHandEffects?: CardEffect[];
   returnToDeck?: boolean;
+  turnStartEffects?: CardEffect[];
+  devotionThreshold?: number;
+  devotionThresholdEffects?: CardEffect[];
+  transformIntoId?: string;
   /** @deprecated Use effectText/longDescription instead */
   description?: string;
 }

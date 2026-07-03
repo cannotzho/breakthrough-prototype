@@ -1168,8 +1168,17 @@ export const FAN_CLUB_PRESIDENT_CARDS: CardDefinition[] = [
     color: 'Colorless',
     supertype: 'Skill',
     subtype: 'Impression',
-    effectText: 'Devotion counter. At 10: consume 10, break 3 shields both sides, -3 patience.',
+    effectText: 'Devotion counter. At 10: consume 10, break 3 shields both sides, -3 patience. At 10 total shields broken or all NPC dummies broken: transform into My Idol.',
     longDescription: "The idol's influence radiates outward, growing stronger with every act of devotion.",
+    devotionThreshold: 10,
+    devotionThresholdEffects: [
+      { type: 'BREAK_PLAYER_SHIELD' },
+      { type: 'BREAK_PLAYER_SHIELD' },
+      { type: 'BREAK_PLAYER_SHIELD' },
+      { type: 'BREAK_NPC_SHIELDS', value: 3 },
+      { type: 'MODIFY_PATIENCE', value: -3 },
+    ],
+    transformIntoId: 'fcp_my_idol',
   },
   {
     id: 'fcp_im_his',
@@ -1199,6 +1208,27 @@ export const FAN_CLUB_PRESIDENT_CARDS: CardDefinition[] = [
     subtype: null,
     effectText: 'Place 4 NPC shields.',
     longDescription: 'Unwavering devotion becomes an impenetrable wall of denial.',
+  },
+
+  // FCP-4: Idol's Favor (full threshold), My Idol (turn-start effects)
+  {
+    id: 'fcp_my_idol',
+    name: 'My Idol',
+    cost: 0,
+    keywords: [],
+    effects: [{ type: 'PLACE_IMPRESSION' }],
+    color: 'Colorless',
+    supertype: 'Skill',
+    subtype: 'Impression',
+    effectText: 'Turn start: +5 priority, break 3 player shields, -3 patience.',
+    longDescription: 'The idol takes form — every turn begins with devastation.',
+    turnStartEffects: [
+      { type: 'MODIFY_PRIORITY', value: 5 },
+      { type: 'BREAK_PLAYER_SHIELD' },
+      { type: 'BREAK_PLAYER_SHIELD' },
+      { type: 'BREAK_PLAYER_SHIELD' },
+      { type: 'MODIFY_PATIENCE', value: -3 },
+    ],
   },
 
   // FCP-3: impression-sourced shield break, NPC draw/recycle
@@ -1360,6 +1390,25 @@ export const DEV_TOKEN_DEFINITIONS: Record<string, CardDefinition> = {
       cost: { priority: 4 },
       effects: [{ type: 'DESTROY_SELF' }],
     }],
+  },
+  fcp_my_idol: {
+    id: 'fcp_my_idol',
+    name: 'My Idol',
+    cost: 0,
+    keywords: [],
+    effects: [{ type: 'PLACE_IMPRESSION' }],
+    color: 'Colorless',
+    supertype: 'Skill',
+    subtype: 'Impression',
+    effectText: 'Turn start: +5 priority, break 3 player shields, -3 patience.',
+    longDescription: 'The idol takes form — every turn begins with devastation.',
+    turnStartEffects: [
+      { type: 'MODIFY_PRIORITY', value: 5 },
+      { type: 'BREAK_PLAYER_SHIELD' },
+      { type: 'BREAK_PLAYER_SHIELD' },
+      { type: 'BREAK_PLAYER_SHIELD' },
+      { type: 'MODIFY_PATIENCE', value: -3 },
+    ],
   },
 };
 

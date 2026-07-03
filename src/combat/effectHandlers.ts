@@ -70,6 +70,66 @@ export function drawEnemyCards(state: CombatState, count: number): CombatState {
   return { ...state, enemyDeck: [...drawn, ...deck], enemyDiscard: discard, actionLog: log };
 }
 
+export function checkDevotionThreshold(state: CombatState): CombatState {
+  const idolIdx = state.fieldImpressions.findIndex(
+    fi => fi.card.definition.devotionThreshold != null
+  );
+  if (idolIdx === -1) return state;
+  const idol = state.fieldImpressions[idolIdx];
+  const threshold = idol.card.definition.devotionThreshold!;
+
+  let s = state;
+
+  if (idol.counters >= threshold) {
+    s = {
+      ...s,
+      fieldImpressions: s.fieldImpressions.map((fi, i) =>
+        i === idolIdx ? { ...fi, counters: fi.counters - threshold } : fi
+      ),
+    };
+    s = addLog(s, `${idol.card.definition.name}: devotion threshold reached (${threshold})! Consuming ${threshold} counters.`);
+
+    const thresholdEffects = idol.card.definition.devotionThresholdEffects ?? [];
+    for (const eff of thresholdEffects) {
+      s = applyEffect(s, eff, idol.card.controller, idol.card);
+    }
+  }
+
+  if (idol.card.definition.transformIntoId) {
+    const totalBroken = s.opponentShields.filter(sh => sh.broken).length;
+    const allNpcDummiesBroken = s.opponentShields.every(sh => sh.broken || sh.loreDescription != null);
+    if (totalBroken >= 10 || allNpcDummiesBroken) {
+      const targetDef = s.tokenRegistry[idol.card.definition.transformIntoId];
+      if (targetDef) {
+        const currentIdx = s.fieldImpressions.findIndex(fi => fi.card.definition.id === idol.card.definition.id);
+        if (currentIdx !== -1) {
+          const existing = s.fieldImpressions[currentIdx];
+          const newCard: CardInstance = { ...existing.card, definition: targetDef };
+          const updated = [...s.fieldImpressions];
+          updated[currentIdx] = { ...existing, card: newCard };
+          s = addLog({ ...s, fieldImpressions: updated },
+            `${idol.card.definition.name} transformed into ${targetDef.name}!`);
+        }
+      }
+    }
+  }
+
+  return s;
+}
+
+export function processNpcTurnStartEffects(state: CombatState): CombatState {
+  let s = state;
+  for (const fi of s.fieldImpressions) {
+    if (fi.card.controller === 'npc' && fi.card.definition.turnStartEffects) {
+      s = addLog(s, `${fi.card.definition.name} turn-start effects fire`);
+      for (const eff of fi.card.definition.turnStartEffects) {
+        s = applyEffect(s, eff, fi.card.controller, fi.card);
+      }
+    }
+  }
+  return s;
+}
+
 export function tickRestrictions(state: CombatState): CombatState {
   const updatedR = state.activeRestrictions
     .map(r => ({ ...r, turnsRemaining: r.turnsRemaining - 1 }))
@@ -212,13 +272,15 @@ export function classicTurnStart(state: CombatState): CombatState {
 }
 
 export function npcTurnStart(state: CombatState): CombatState {
-  const s: CombatState = {
+  let s: CombatState = {
     ...state,
     activeTurn: 'npc',
     priority: 0,
     npcPriority: state.config.startingPriority,
   };
-  return addLog(s, 'NPC Turn Start — opponent\'s turn begins');
+  s = addLog(s, 'NPC Turn Start — opponent\'s turn begins');
+  s = processNpcTurnStartEffects(s);
+  return s;
 }
 
 export function expireTraps(state: CombatState): CombatState {
@@ -1035,6 +1097,46 @@ export function applyEffect(state: CombatState, effectRaw: CardEffect, controlle
       const target = updated.find(fi => fi.card.definition.id === targetId)!;
       return addLog({ ...state, fieldImpressions: updated },
         `${target.card.definition.name} counters +${amount} (now ${target.counters})`);
+    }
+    case 'TRANSFORM_IMPRESSION': {
+      const sourceId = effect.transformSourceId;
+      const targetId = effect.transformTargetId;
+      if (!sourceId || !targetId) return addLog(state, '[ERROR] TRANSFORM_IMPRESSION: missing source/target ID');
+      const targetDef = state.tokenRegistry[targetId];
+      if (!targetDef) return addLog(state, `[ERROR] TRANSFORM_IMPRESSION: no definition for ${targetId}`);
+      const idx = state.fieldImpressions.findIndex(fi => fi.card.definition.id === sourceId);
+      if (idx === -1) return addLog(state, `No impression found with id ${sourceId}`);
+      const existing = state.fieldImpressions[idx];
+      const newCard: CardInstance = { ...existing.card, definition: targetDef };
+      const updated = [...state.fieldImpressions];
+      updated[idx] = { ...existing, card: newCard };
+      return addLog({ ...state, fieldImpressions: updated },
+        `${existing.card.definition.name} transformed into ${targetDef.name}`);
+    }
+    case 'BREAK_NPC_SHIELDS': {
+      const count = effect.value ?? 1;
+      let s = state;
+      for (let i = 0; i < count; i++) {
+        const idx = s.opponentShields.findIndex(sh => !sh.broken);
+        if (idx === -1) break;
+        const newShields = s.opponentShields.map((sh, j) =>
+          j === idx ? { ...sh, broken: true } : sh
+        );
+        s = { ...s, opponentShields: newShields, pendingReveal: newShields[idx] };
+        if (s.pendingReveal) {
+          if (i < count - 1) {
+            s = {
+              ...s,
+              pendingEffects: [
+                ...Array(count - 1 - i).fill({ type: 'BREAK_NPC_SHIELDS', value: 1 }),
+                ...s.pendingEffects,
+              ],
+            };
+          }
+          break;
+        }
+      }
+      return s;
     }
     case 'RAPPORT_SHIELD_BREAK': {
       const toTrulyKnow = state.fieldImpressions.find(fi => fi.card.definition.id === 'green_to_truly_know');

@@ -1,5 +1,5 @@
 import { CombatState, CombatAction, CardInstance, CardEffect, CardOwner, NuggetOverride, SHIELD_PLACEMENT_COST, ActivatedAbilityCost, FieldTrap } from './types';
-import { applyEffect, selectEnemyCard, makeInstance, clampPriority, applyTurnHandoffBonus, priorityRestore, shuffle, resolveFieldTriggerCheck, classicTurnStart, npcTurnStart, addLog, destroyToken, dispatchGameEvent } from './effectHandlers';
+import { applyEffect, selectEnemyCard, makeInstance, clampPriority, applyTurnHandoffBonus, priorityRestore, shuffle, resolveFieldTriggerCheck, classicTurnStart, npcTurnStart, addLog, destroyToken, dispatchGameEvent, checkDevotionThreshold, processNpcTurnStartEffects } from './effectHandlers';
 import { COMBINATIONS } from '../data/combinations';
 import { PONDER_DEFINITION } from '../data/devCards';
 
@@ -768,6 +768,7 @@ export function combatReducer(state: CombatState, action: CombatAction): CombatS
           final = addLog(final, `NPC placed ${card.definition.name} as trap`);
         }
         final = resolveFieldTriggerCheck(final);
+        final = checkDevotionThreshold(final);
         return checkState({ ...final, phase: 'Check' });
       });
     }
