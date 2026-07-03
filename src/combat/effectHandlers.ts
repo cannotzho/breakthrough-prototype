@@ -736,6 +736,7 @@ export function applyEffect(state: CombatState, effectRaw: CardEffect, controlle
       if (targetSide === 'npc') {
         const idx = getNextOpponentShieldIdx(state);
         if (idx === -1) return state;
+        const brokenShield = state.opponentShields[idx];
         const newShields = state.opponentShields.map((s, i) =>
           i === idx ? { ...s, broken: true } : s
         );
@@ -747,6 +748,14 @@ export function applyEffect(state: CombatState, effectRaw: CardEffect, controlle
           npcShieldsBrokenThisTurn: state.npcShieldsBrokenThisTurn + 1,
         };
         s = dispatchGameEvent(s, { type: 'SHIELD_BROKEN', sourceCard });
+        const shieldDef = s.tokenRegistry[brokenShield.cardId];
+        if (shieldDef?.keywords.includes('Shield Trigger')) {
+          const triggerEffects = shieldDef.shieldTriggerEffects ?? shieldDef.effects;
+          s = addLog(s, `NPC Shield Trigger: ${shieldDef.name}`);
+          for (const eff of triggerEffects) {
+            s = applyEffect(s, eff, 'npc');
+          }
+        }
         return s;
       } else {
         const genuineEnjoyment = state.fieldImpressions.find(
@@ -1150,10 +1159,20 @@ export function applyEffect(state: CombatState, effectRaw: CardEffect, controlle
       for (let i = 0; i < count; i++) {
         const idx = s.opponentShields.findIndex(sh => !sh.broken);
         if (idx === -1) break;
+        const brokenNpcShield = s.opponentShields[idx];
         const newShields = s.opponentShields.map((sh, j) =>
           j === idx ? { ...sh, broken: true } : sh
         );
-        s = { ...s, opponentShields: newShields, pendingReveal: newShields[idx] };
+        s = { ...s, opponentShields: newShields, npcShieldsBrokenThisTurn: s.npcShieldsBrokenThisTurn + 1 };
+        const npcShieldDef = s.tokenRegistry[brokenNpcShield.cardId];
+        if (npcShieldDef?.keywords.includes('Shield Trigger')) {
+          const npcTriggerEffects = npcShieldDef.shieldTriggerEffects ?? npcShieldDef.effects;
+          s = addLog(s, `NPC Shield Trigger: ${npcShieldDef.name}`);
+          for (const eff of npcTriggerEffects) {
+            s = applyEffect(s, eff, 'npc');
+          }
+        }
+        s = { ...s, pendingReveal: newShields[idx] };
         if (s.pendingReveal) {
           if (i < count - 1) {
             s = {

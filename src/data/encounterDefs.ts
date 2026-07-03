@@ -1,6 +1,6 @@
 import { EncounterConfig, CombatState, DEFAULT_COMBAT_CONFIG, PlayerShieldSlot, CardDefinition } from '../combat/types';
 import { makeInstance, shuffle } from '../combat/effectHandlers';
-import { DEV_SKILL_CARDS, DEV_ENEMY_CARDS, DEV_TOKEN_DEFINITIONS } from './devCards';
+import { DEV_SKILL_CARDS, DEV_ENEMY_CARDS, DEV_TOKEN_DEFINITIONS, FAN_CLUB_PRESIDENT_CARDS } from './devCards';
 
 const DUMMY_SHIELD_DEF: CardDefinition = {
   id: 'dummy_shield',
@@ -66,11 +66,62 @@ export const CLASSIC_TEST_ENCOUNTER: EncounterConfig = {
   enemyDeckCardIds: ['dev_enemy_dismiss', 'dev_enemy_deflect', 'dev_enemy_deflect'],
 };
 
+export const FAN_CLUB_PRESIDENT_ENCOUNTER: EncounterConfig = {
+  id: 'fan_club_president',
+  displayName: 'The Fan Club President',
+  startingPriority: 5,
+  defaultRestorePriority: 5,
+  priorityMode: 'frame',
+  opponentPatience: 15,
+  opponentShields: [
+    { cardId: 'fcp_fans_solace', isHint: false, broken: false, loreDescription: 'Their devotion gives them comfort even in defeat.' },
+    { cardId: 'fcp_moment_of_clarity', isHint: true, broken: false, hintText: 'A crack in their obsession — push harder.', loreDescription: 'For a fleeting moment, they see the truth.' },
+    { cardId: 'fcp_crippling_fear', isHint: false, broken: false, loreDescription: 'Fear grips them — they know what they saw.' },
+    { cardId: 'fcp_it_wasnt_me', isHint: false, broken: false, loreDescription: 'Desperate denial — they cling to the lie.' },
+  ],
+  shieldBreakOrder: [0, 1, 2, 3],
+  playerDummyShieldSlots: 3,
+  allowedCoreShields: [],
+  unbreakablePlayerShields: false,
+  nuggetOverrides: [],
+  traits: [
+    { id: 'trait_obsessive', name: 'Obsessive', description: 'Devotion fuels their every action.', discovered: false },
+  ],
+  retryable: true,
+  lieThreshold: 3,
+  npcDummyShieldSlots: 5,
+  enemyDeckCardIds: [
+    'fcp_youre_a_hindrance',
+    'fcp_panicked_memories',
+    'fcp_im_his',
+    'fcp_blind_loyalty',
+    'fcp_he_loves_me',
+    'fcp_he_really_loves_me',
+    'fcp_im_never_alone',
+    'fcp_fantasy',
+    'fcp_complete_devotion',
+    'fcp_his_loyal_fan',
+    'fcp_deranged_witness',
+    'fcp_my_only_meaning',
+    'fcp_and_hes_mine',
+    'fcp_impenetrable_insanity',
+    'fcp_lunatic_love',
+    'fcp_distracting_madness',
+    'fcp_unhinged_focus',
+    'fcp_youll_never_tear_us_apart',
+  ],
+  scheduledPlays: [
+    { cardId: 'fcp_my_only_meaning', afterTurn: 5 },
+  ],
+  startingImpressions: ['fcp_idols_favor'],
+};
+
 export function buildInitialCombatState(
   config: EncounterConfig,
   playerDeckDefs?: CardDefinition[],
 ): CombatState {
-  const allEnemyDefs = [...DEV_ENEMY_CARDS];
+  const allEnemyDefs = [...DEV_ENEMY_CARDS, ...FAN_CLUB_PRESIDENT_CARDS];
+  const allDefsLookup = [...allEnemyDefs, ...Object.values(DEV_TOKEN_DEFINITIONS)];
 
   const resolvedPlayerDeck = playerDeckDefs ?? [...DEV_SKILL_CARDS, ...DEV_SKILL_CARDS];
   const shuffledPlayer = shuffle([...resolvedPlayerDeck]);
@@ -79,7 +130,7 @@ export function buildInitialCombatState(
   const initialDeck = playerInstances.slice(DEFAULT_COMBAT_CONFIG.handLimit);
 
   const enemyInstances = config.enemyDeckCardIds.map(id => {
-    const def = allEnemyDefs.find(c => c.id === id) ?? allEnemyDefs[0];
+    const def = allDefsLookup.find(c => c.id === id) ?? allEnemyDefs[0];
     return makeInstance(def, 'npc');
   });
 
@@ -132,7 +183,11 @@ export function buildInitialCombatState(
     enemyDeck: enemyInstances,
     enemyDiscard: [],
     stagedEnemyCard: null,
-    fieldImpressions: [],
+    fieldImpressions: (config.startingImpressions ?? []).map(id => {
+      const def = allDefsLookup.find(c => c.id === id);
+      if (!def) return null;
+      return { card: makeInstance(def, 'npc'), counters: 0 };
+    }).filter((fi): fi is NonNullable<typeof fi> => fi !== null),
     fieldTokens: [],
     fieldTraps: [],
     trapPlayCounter: 0,
@@ -169,7 +224,15 @@ export function buildInitialCombatState(
     scheduledEffects: [],
     turnNumber: 1,
     manualEnemyMode: false,
-    tokenRegistry: { ...DEV_TOKEN_DEFINITIONS },
+    tokenRegistry: {
+      ...DEV_TOKEN_DEFINITIONS,
+      ...Object.fromEntries(
+        config.opponentShields
+          .map(s => allDefsLookup.find(c => c.id === s.cardId))
+          .filter((d): d is CardDefinition => d != null)
+          .map(d => [d.id, d])
+      ),
+    },
     actionLog: ['Encounter started.'],
   };
 }
