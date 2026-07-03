@@ -1411,14 +1411,14 @@ export const FAN_CLUB_PRESIDENT_CARDS: CardDefinition[] = [
     keywords: ['Trap'],
     effects: [
       { type: 'APPLY_RESTRICTION', restrictionType: 'PREVENT_EXTRA_DRAWS', restrictionTarget: 'player', restrictionDuration: 1 },
-      { type: 'INCREMENT_IMPRESSION_COUNTERS', targetImpressionId: 'fcp_idols_favor', value: 2 },
+      { type: 'INCREMENT_IMPRESSION_COUNTERS', targetDefinitionId: 'fcp_idols_favor', value: 2 },
     ],
     color: 'Colorless',
     supertype: 'Skill',
     subtype: 'Trap',
     effectText: 'Prevent opponent extra draws this turn. +2 devotion.',
     longDescription: 'Their madness is a distraction — while you struggle to think, their obsession only grows.',
-    trapTrigger: { type: 'END_OF_PLAYER_TURN' },
+    trapTrigger: { triggerType: 'END_OF_PLAYER_TURN' },
   },
   {
     id: 'fcp_unhinged_focus',
@@ -1433,7 +1433,7 @@ export const FAN_CLUB_PRESIDENT_CARDS: CardDefinition[] = [
     subtype: 'Trap',
     effectText: 'Prevent opponent patience restoration this turn.',
     longDescription: 'Their focus is absolute, unnervingly so — nothing you say can calm them now.',
-    trapTrigger: { type: 'END_OF_PLAYER_TURN' },
+    trapTrigger: { triggerType: 'END_OF_PLAYER_TURN' },
   },
 
   // ── FCP-8: You'll Never Tear Us Apart ──
@@ -1443,7 +1443,7 @@ export const FAN_CLUB_PRESIDENT_CARDS: CardDefinition[] = [
     cost: 3,
     keywords: [],
     effects: [
-      { type: 'INCREMENT_IMPRESSION_COUNTERS', targetImpressionId: 'fcp_idols_favor', value: 2 },
+      { type: 'INCREMENT_IMPRESSION_COUNTERS', targetDefinitionId: 'fcp_idols_favor', value: 2 },
     ],
     color: 'Colorless',
     supertype: 'Skill',
@@ -1460,7 +1460,7 @@ export const FAN_CLUB_PRESIDENT_CARDS: CardDefinition[] = [
     keywords: ['Shield Trigger'],
     effects: [],
     shieldTriggerEffects: [
-      { type: 'INCREMENT_IMPRESSION_COUNTERS', targetImpressionId: 'fcp_idols_favor', value: 5 },
+      { type: 'INCREMENT_IMPRESSION_COUNTERS', targetDefinitionId: 'fcp_idols_favor', value: 5 },
     ],
     color: 'Colorless',
     supertype: 'Skill',
