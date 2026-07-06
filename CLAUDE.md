@@ -1,8 +1,9 @@
 # CLAUDE.md — Breakthrough (v1.4 rebuild)
 
 This is the from-scratch rebuild of **Breakthrough**, a detective card game.
-The rules authority is **`Breakthrough_Design_v1.4.md`**; scope and porting
-rules are in **`Rebuild_Brief.md`**. Where anything conflicts, v1.4 wins.
+The rules authority is **`Breakthrough_Design_v1.4.md`** plus the Ken-approved
+v1.4.1 changes drafted in **`DESIGN_CHANGES_v1.4.1.md`**; scope and porting
+rules are in **`Rebuild_Brief.md`**. Where anything conflicts, v1.4(+1) wins.
 Ken Zho is the design authority — design changes go through him and receive a
 v1.4+ changelog entry. `PORTING_NOTES.md` tracks open ask-Ken items.
 
@@ -27,9 +28,10 @@ dual-playtest sync model.
 ## Commands
 
 - `npm run dev` — Vite dev server
-- `npm test` — engine test suite (94 tests: §6.7 invariants, §4 boundary
+- `npm test` — engine test suite (101 tests: §6.7 invariants, §4 boundary
   ordering, debt-transfer arithmetic, lock-and-keys incl. guard restoration,
-  trap cancellation, all 12 Brief §7 known traps, content sanity + winnability)
+  card-backed Guard Shields (v1.4.1), trap cancellation, all 12 Brief §7
+  known traps, content sanity + winnability)
 - `npm run lint:no-card-ids` — greps the engine for card-ID literals (§15.2)
 - `npm run build` — typecheck + production build
 

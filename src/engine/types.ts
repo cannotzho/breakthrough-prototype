@@ -1,10 +1,13 @@
 /**
  * Breakthrough combat engine — type vocabulary.
  *
- * Implements Breakthrough_Design_v1.4.md exactly. The engine layer is pure and
- * framework-agnostic (v1.4 §15.1): state is plain serializable data, the
- * reducer never mutates its input, and there is no module-level mutable state.
- * No card-ID logic anywhere in the engine (§15.2).
+ * Implements Breakthrough_Design_v1.4.md exactly, plus the v1.4.1 changes
+ * approved by Ken (see DESIGN_CHANGES_v1.4.1.md): two-tier opponent shields
+ * with card-backed Guard Shields, and the CARD_DRAWN canonical event.
+ *
+ * The engine layer is pure and framework-agnostic (v1.4 §15.1): state is
+ * plain serializable data, the reducer never mutates its input, and there is
+ * no module-level mutable state. No card-ID logic anywhere (§15.2).
  */
 
 // ── Sides, boundaries, phases ────────────────────────────────────────────────
@@ -42,12 +45,13 @@ export type Phase =
 
 export type LoseReason = 'PATIENCE' | 'LIES' | 'SHIELDS' | null;
 
-// ── Canonical event vocabulary (v1.4 §5.1) ──────────────────────────────────
+// ── Canonical event vocabulary (v1.4 §5.1 + v1.4.1 CARD_DRAWN) ──────────────
 
 export const CANONICAL_EVENTS = [
   'CARD_STAGED',
   'CARD_PLAYED',
   'CARD_RESOLVED',
+  'CARD_DRAWN', // v1.4.1 — dispatched per card drawn, either side
   'SHIELD_BROKEN',
   'PATIENCE_CHANGED',
   'PRIORITY_CHANGED',
@@ -79,6 +83,8 @@ export interface EngineEvent {
   side?: Side;
   /** TOKEN_CREATED / TOKEN_DESTROYED payload. */
   tokenDefId?: string;
+  /** CARD_DRAWN payload: true when the draw was not a turn-start refill. */
+  extraDraw?: boolean;
 }
 
 // ── Quantities & conditions ──────────────────────────────────────────────────
@@ -113,7 +119,8 @@ export type Quantity =
   | { kind: 'EVENT_DELTA_ABS' } // |delta| — e.g. "for every Priority spent"
   | { kind: 'EVENT_NEW_VALUE' }
   | { kind: 'EVENT_CARD_COST' }
-  | { kind: 'EVENT_IS_OWN_SHIELD' }; // 1 if the event's shieldSide is the subscriber's side
+  | { kind: 'EVENT_IS_OWN_SHIELD' } // 1 if the event's shieldSide is the subscriber's side
+  | { kind: 'EVENT_IS_EXTRA_DRAW' }; // 1 if a CARD_DRAWN event was an extra draw
 
 export type Comparator = 'lt' | 'lte' | 'gt' | 'gte' | 'eq' | 'neq';
 
@@ -204,7 +211,7 @@ export type Effect = EffectBase &
     | {
         /**
          * Place the side's free shield type: Placeholder Shields (player) or
-         * Guard Shields (npc — guard restoration, v1.4 §3.3).
+         * dummy Guard Shields (npc — guard restoration, v1.4 §3.3).
          */
         type: 'PLACE_SHIELDS';
         target: 'self';
@@ -393,7 +400,7 @@ export interface NuggetOverride {
   effectText: string;
 }
 
-// ── Encounter configuration (v1.4 §7) ────────────────────────────────────────
+// ── Encounter configuration (v1.4 §7 + v1.4.1 guard cards) ──────────────────
 
 export interface NpcCoreShieldDef {
   cardId: string;
@@ -427,7 +434,14 @@ export interface EncounterConfig {
   maxPriority: number; // default 10
   startingSide: Side; // default 'player'
   opponentPatience: number;
-  npcGuardShieldCount: number; // required (may be 0)
+  /**
+   * Total Guard Shields (default 10 — v1.4.1). Card-backed guards from
+   * `npcGuardShieldCardIds` count toward this total; the difference is made
+   * up by dummy guards. Breaking an opponent Guard never costs Patience.
+   */
+  npcGuardShieldCount: number;
+  /** Card-backed Guard Shields (Shield Trigger carriers), shuffled into the row. */
+  npcGuardShieldCardIds?: string[];
   opponentShields: NpcCoreShieldDef[];
   npcHandLimit: number; // default 5
   playerDummyShieldSlots: number; // required
@@ -452,6 +466,7 @@ export const ENCOUNTER_DEFAULTS = {
   maxPriority: 10,
   startingSide: 'player' as Side,
   npcHandLimit: 5,
+  npcGuardShieldCount: 10, // v1.4.1
 } as const;
 
 // ── Combat state ─────────────────────────────────────────────────────────────
@@ -465,6 +480,12 @@ export interface PlayerShieldSlot {
   cardInstanceId?: string;
   cardDefinitionId?: string;
   patienceCostOnBreak: number;
+}
+
+/** One standing opponent Guard Shield; card-backed guards carry a cardId. */
+export interface NpcGuard {
+  guardId: string;
+  cardId?: string;
 }
 
 export interface NpcCoreShieldState extends NpcCoreShieldDef {
@@ -613,6 +634,9 @@ export interface CombatState {
   playerShields: PlayerShieldSlot[];
   shieldLossArmed: boolean;
 
+  /** Standing Guard Shields, in break order (leftmost breaks first). */
+  npcGuards: NpcGuard[];
+  /** Invariant: always equals npcGuards.length (kept for quantities/UI). */
   npcGuardsStanding: number;
   npcCoreShields: NpcCoreShieldState[];
 

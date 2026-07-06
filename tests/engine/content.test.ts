@@ -90,7 +90,7 @@ describe('Ported content (Brief §6)', () => {
       'dev_hold',
     ];
     let s = buildInitialState({
-      config: { ...ENCOUNTERS.test_encounter, scriptedDrawOrder: deck },
+      config: { ...ENCOUNTERS.test_encounter, npcGuardShieldCount: 3, scriptedDrawOrder: deck },
       cards: ALL_CARDS,
       tokens: TOKENS,
       nuggets: NUGGETS,

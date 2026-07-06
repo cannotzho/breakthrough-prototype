@@ -822,6 +822,25 @@ export const GREEN_STARTER_CARDS: CardDefinition[] = [
     longDescription: 'You don’t just understand them — you think like them. Their best weapons become yours, wielded with ruthless precision.',
   },
   {
+    id: 'green_genuine_enjoyment',
+    name: 'Genuine Enjoyment',
+    cost: 3,
+    keywords: [],
+    effects: [
+      { type: 'MODIFY_PATIENCE', value: -5 },
+      { type: 'APPLY_RESTRICTION', restriction: { type: 'PREVENT_SHIELD_BREAK', target: 'opponent' } },
+    ],
+    color: 'Green',
+    supertype: 'Skill',
+    subtype: 'Impression',
+    impressionDestroyBelowPatience: 15,
+    // Ken (v1.4.1): not prevention-with-cost — plain PREVENT_SHIELD_BREAK
+    // (linked to this Impression) plus a Patience drain.
+    effectText:
+      'Pay 5 Patience. While this Impression is on the Field, the opponent cannot break shields. Destroyed if Patience falls below 15.',
+    longDescription: 'Your warmth is disarming. They can’t bring themselves to push too hard — but only as long as you keep smiling.',
+  },
+  {
     id: 'green_to_truly_know',
     name: 'To Truly Know',
     cost: 2,
@@ -831,16 +850,40 @@ export const GREEN_STARTER_CARDS: CardDefinition[] = [
     supertype: 'Skill',
     subtype: 'Impression',
     impressionDestroyBelowPatience: 10,
-    // Old hardcoded rapport-counter logic re-expressed as generic counters +
-    // consuming thresholds (v1.4 §3.10). Tier semantics approximated — see
-    // PORTING_NOTES.md (ask-Ken item).
-    thresholds: [
-      { counterName: 'rapport', value: 10, consume: true, checkPoint: 'AFTER_ANY_PLAY', effects: [{ type: 'BREAK_SHIELDS', target: 'opponent', count: 10 }] },
-      { counterName: 'rapport', value: 5, consume: true, checkPoint: 'AFTER_ANY_PLAY', effects: [{ type: 'BREAK_SHIELDS', target: 'opponent', count: 5 }] },
-      { counterName: 'rapport', value: 3, consume: true, checkPoint: 'AFTER_ANY_PLAY', effects: [{ type: 'BREAK_SHIELDS', target: 'opponent', count: 3 }] },
+    // Ken (v1.4.1): the secondary effect fires at the start of the player's
+    // turn; it checks the count of the counters on itself to decide its tier.
+    turnStartEffects: [
+      {
+        type: 'BREAK_SHIELDS',
+        target: 'opponent',
+        count: 10,
+        condition: cmp({ kind: 'COUNTER', counterName: 'rapport', permanentDefId: 'self' }, 'gte', 10),
+      },
+      {
+        type: 'BREAK_SHIELDS',
+        target: 'opponent',
+        count: 5,
+        condition: {
+          all: [
+            cmp({ kind: 'COUNTER', counterName: 'rapport', permanentDefId: 'self' }, 'gte', 5),
+            cmp({ kind: 'COUNTER', counterName: 'rapport', permanentDefId: 'self' }, 'lt', 10),
+          ],
+        },
+      },
+      {
+        type: 'BREAK_SHIELDS',
+        target: 'opponent',
+        count: 3,
+        condition: {
+          all: [
+            cmp({ kind: 'COUNTER', counterName: 'rapport', permanentDefId: 'self' }, 'gte', 3),
+            cmp({ kind: 'COUNTER', counterName: 'rapport', permanentDefId: 'self' }, 'lt', 5),
+          ],
+        },
+      },
     ],
     effectText:
-      'Rapport successes place counters here. At 3 counters: consume them to break 3 Guard Shields. At 5: break 5. At 10: break 10. Destroyed if Patience falls below 10.',
+      'Rapport successes place counters here. At the start of your turn: 3+ counters break 3 Guard Shields, 5+ break 5, 10+ break 10. Destroyed if Patience falls below 10.',
     longDescription: 'True understanding takes time. Each insight builds on the last until their every defense is laid bare.',
   },
 ];
@@ -911,24 +954,26 @@ export const ORANGE_STARTER_CARDS: CardDefinition[] = [
     id: 'orange_mind_tax',
     name: 'Mind Tax',
     cost: 2,
-    keywords: ['Heavy Hand'],
+    keywords: [],
     effects: [],
-    heavyHandEffects: [],
     color: 'Orange',
     supertype: 'Skill',
     subtype: 'Impression',
     impressionDuration: { turns: 2 },
-    // Re-authored (old PRIORITY_PER_EXTRA_DRAW restriction was cut): the tax
-    // settles at NPC Turn End, scaled by the opponent's extra draws.
+    // v1.4.1: CARD_DRAWN canonical event — the tax reacts per extra draw.
     triggeredAbilities: [
       {
-        id: 'mind_tax_settle',
-        trigger: { event: 'NPC_TURN_END' },
-        effects: [{ type: 'MODIFY_PRIORITY', value: 1, scale: { kind: 'EXTRA_DRAWS_THIS_TURN', side: 'opponent' } }],
+        id: 'mind_tax_per_draw',
+        trigger: {
+          event: 'CARD_DRAWN',
+          controllerFilter: 'opponent',
+          condition: cmp({ kind: 'EVENT_IS_EXTRA_DRAW' }, 'eq', 1),
+        },
+        effects: [{ type: 'MODIFY_PRIORITY', value: 1 }],
       },
     ],
     effectText:
-      'Impression (2 turns): at the end of the opponent’s turn, gain 1 Priority for every extra card they drew. (Heavy Hand pending — see porting notes.)',
+      'Impression (2 turns): gain 1 Priority whenever the opponent draws an extra card. (Heavy Hand variant pending — see porting notes.)',
     longDescription: 'You plant a seed of suspicion. Every new piece of information the witness reaches for now costs them credibility.',
   },
   {

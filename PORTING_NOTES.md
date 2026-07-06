@@ -1,7 +1,8 @@
 # Content Porting Notes (Brief §6)
 
-Status of the re-expression from `prototype-v1` data into the v1.4 vocabulary.
-**Items marked ASK-KEN need your call before they're final.**
+Status of the re-expression from `prototype-v1` data into the v1.4 vocabulary,
+updated after Ken's design review (2026-07-06). Implemented design changes are
+drafted as changelog entries in `DESIGN_CHANGES_v1.4.1.md`.
 
 ## Ported cleanly
 
@@ -9,90 +10,55 @@ Status of the re-expression from `prototype-v1` data into the v1.4 vocabulary.
 - Blue starter (16/16) — tokens, replacements, traps re-authored onto canonical events.
 - Red starter (16/16) — scaled effects use engine quantities; `Vindication` uses the
   §4-named `oppShieldsBrokenByPlayerPrevTurn` (the old ambiguous counter is gone).
-- Green starter (15/15 ported; 2 with caveats below) — Rapport is now real prediction
-  config; Disarming Word and Sensitive Deflection sit on canonical events and
-  genuinely cancel (tested, Brief §6.3/§6.5).
-- Orange starter (12/14 ported; 2 dropped, riders trimmed — below).
+- Green starter (17/17) — Rapport is real prediction config; Disarming Word and
+  Sensitive Deflection sit on canonical events and genuinely cancel (tested);
+  **Genuine Enjoyment** and **To Truly Know** implemented per Ken's v1.4.1 rulings.
+- Orange starter (13/15) — **Mind Tax** now reacts per extra draw via the new
+  `CARD_DRAWN` event; `equal_exchange` and `monolithic_ideals` remain excluded
+  (Ken-approved).
 - FCP set (22/22) — devotion is generic counters/thresholds/amplifiers on
-  `fcp_idols_favor`; the engine has no knowledge of any FCP card (§3.10 verified
-  by the no-card-ID lint).
-- Mistimed `END_OF_PLAYER_TURN` traps (His Loyal Fan, Distracting Madness,
-  Unhinged Focus) re-authored per printed intent (Brief §6.4): His Loyal Fan →
-  `PLAYER_TURN_END`; the two restriction traps → `PLAYER_TURN_START` so their
-  "this turn" restrictions cover the full player turn.
+  `fcp_idols_favor`; the engine has no knowledge of any FCP card (verified by
+  the no-card-ID lint).
+- Mistimed `END_OF_PLAYER_TURN` traps re-authored per printed intent (Brief §6.4).
 
-## ASK-KEN — key-nugget assignments & encounter redesign (Brief §6.6, §8)
+## Encounter shape (v1.4.1, per Ken)
 
-Draft assignments live in `src/content/encounters.ts`, marked `DRAFT`:
+Two tiers: **Guard Shields** (total 10 by default; card-backed shield-trigger
+guards + dummy fill; opponent guard breaks never cost Patience) and **Core
+Shields** (locks with key nuggets; Elite/Boss encounters).
 
-**The Informant** — guards: **3** (old dev value was 10 — looked like a test
-setting, proposed 3 for pacing); locks: warehouse shield ← `warehouse_activity`;
-personal hint ← `personal_troubles`; witness shield ← `witnessed_incident` OR
-`personal_troubles` (two keys, one lock, to demo the mechanic).
+- **The Informant** — 10 dummy guards; 3 locks (warehouse / personal-hint /
+  witnessed). Key assignments approved as working values, revision pass later.
+- **Fan Club President** — 10 guards incl. `fcp_fans_solace` +
+  `fcp_panicked_memories` as card guards; 3 locks (clarity-hint ←
+  idol_schedule; crippling_fear ← passcode OR traces; it_wasnt_me ←
+  witness_statements). Approved as working values.
 
-**Fan Club President** — guards: **5** (from old `npcDummyShieldSlots`); locks:
-Fan's Solace ← `fcp_fan_letters`; Moment of Clarity (hint) ← `fcp_idol_schedule`;
-Crippling Fear ← `fcp_passcode_knowledge` OR `fcp_physical_traces` (the old card
-text said "requires passcode knowledge + physical traces" — modelled as either
-key sufficing per §3.3 "one lock, many keys"; if you want BOTH required, that's
-a design change to §3.3); It Wasn't Me ← `fcp_witness_statements`.
+## Deferred (Ken, 2026-07-06)
 
-New Information Cards + nuggets + per-encounter overrides were authored to make
-these winnable (v1.4 §3.3: unwinnable without keys is intentional, but the dev
-decks need key access — the dev Collection includes all Information Cards).
-
-## ASK-KEN — cards that couldn't be faithfully re-expressed
-
-1. **orange_equal_exchange** (`MIRROR_NPC_PRIORITY_GAIN`) — "schedule the same
-   amount for you next turn" needs value-capture at schedule time; scheduled
-   effects currently evaluate scales at fire time (no event context). Options:
-   (a) add capture-at-schedule to §9.4, (b) redesign the card. **Excluded** for now.
-2. **orange_monolithic_ideals** (`CONDITIONAL_MAX_SHIELD_BREAKS` /
-   `CONDITIONAL_MAX_PATIENCE_LOSS`) — per-turn rate caps aren't triggered
-   abilities. Proposal: promote `MAX_SHIELD_BREAKS_PER_TURN` and
-   `MAX_PATIENCE_LOSS_PER_TURN` to core §9.1 restriction types (doc change),
-   using the existing `conditionThreshold` field. **Excluded** for now.
-3. **green_genuine_enjoyment** — "prevent the break AND lose 5 Patience
-   instead" is a prevention-with-cost replacement. Nearest vocabulary is plain
-   `PREVENT_SHIELD_BREAK`, which loses the cost. Proposal: new restriction type
-   `PREVENT_SHIELD_BREAK_WITH_PATIENCE_COST`. **Excluded** for now.
-4. **orange_mind_tax / orange_artful_injunction** — "per extra draw / per
-   blocked draw" riders: there is no draw event in the canonical §5.1 table.
-   Mind Tax was re-authored to settle at `NPC_TURN_END` scaled by the
-   opponent's extra draws (close to intent); the injunction's priority rider is
-   dropped. If per-draw reactivity matters, that's a §5.1 addition (CARD_DRAWN)
-   — version bump.
-5. **fcp_lunatic_love** — `DEVOTION_PAYS_PRIORITY` dropped (pay-priority-with-
-   counters is a cost-payment rule, not an ability). Card keeps its other two
-   restrictions. Redesign or new mechanic?
-6. **fcp_idols_favor transform** — old condition "10 total shields broken OR all
-   NPC dummies broken". There's no cumulative shields-broken counter in v1.4's
-   state; ported as all-Guards-broken only. Add a cumulative counter to the §4
-   vocabulary if the 10-total clause matters.
-7. **green_to_truly_know** — old tiers ("3 counters: break 3/turn; 5: break 5;
-   10: break all") ported as three *consuming* thresholds (3→3, 5→5, 10→10).
-   Not identical to "per turn while held" — confirm intended semantics.
-8. **blue_find_fallacy** — old data fired on any opponent play with the +8
-   conditional; printed text implies firing on the 3rd card. Ported as
-   trigger-on-3rd-card with both effects unconditional. Confirm.
+1. **Devotion as alternate Priority cost** (Lunatic Love rider) — needs an
+   alternate-cost mechanic; implement later.
+2. **Cumulative shields-broken counter** — for Idol's Favor's "10 total
+   shields broken" transform clause; currently approximated as
+   all-Guards-broken. Implement later.
+3. **`orange_equal_exchange`**, **`orange_monolithic_ideals`** — excluded.
+4. **Mind Tax Heavy Hand variant** — Heavy Hand can't scale a triggered
+   ability yet.
 
 ## Patience asymmetry audit (Brief §6.7, v1.4 §3.2)
 
-- All player-card text reworded to "Pay N Patience" (cost framing); NPC cards
-  say "Drain" — no card text implies the player wants Patience low.
-- **White's low-Patience scalers**: not yet ported (White starter didn't exist
-  in the old data) — Red's `press_the_attack` / `charismatic_conviction` keep
-  their risk/reward framing as deliberate exceptions.
-- **Copy-inversion (v1.4 §16.7)**: affected cards flagged, not decided:
-  `green_empathy`, `green_shared_perspective` can copy NPC Patience-drain cards
-  (e.g. `fcp_youre_a_hindrance`), which are dead weight or self-harm in the
-  player's hand. Engine currently plays copies as printed. Needs the §8.5
-  inversion rule decision.
-- `red_ultimatum` / `red_intimidating_presence` drain Patience on *opponent*
-  plays — under §3.2 these hurt the player's own budget with no payoff.
-  Ported as printed (Red recklessness), but flagged: they may want redesign.
+- All player-card text uses cost framing ("Pay N Patience"); NPC cards "Drain".
+- Red's low-Patience scalers keep their risk/reward framing as deliberate
+  exceptions.
+- **Copy-inversion (v1.4 §16.7)** remains open: `green_empathy` /
+  `green_shared_perspective` can copy NPC Patience-drain cards which are dead
+  weight or self-harm in the player's hand. Engine plays copies as printed
+  until the §8.5 inversion rule is decided.
+- `red_ultimatum` / `red_intimidating_presence` drain the shared budget on
+  opponent plays — ported as printed (Red recklessness), flagged for a
+  possible redesign.
 
 ## Supabase
 
-Old rows: **discarded** (Ken's call, this session). Fresh v1.4 schema in
-`supabase/schema.sql`; content files above are the seed source.
+Old rows discarded (Ken-approved). Fresh v1.4 schema in `supabase/schema.sql`;
+`src/content/` is the seed source ("Seed Supabase" in Dev Tools).

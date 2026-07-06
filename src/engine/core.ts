@@ -158,7 +158,10 @@ export interface DrawOptions {
   turnStart?: boolean;
 }
 
-/** Draw with deck recycle (v1.4 §3.12). Returns cards actually drawn. */
+/**
+ * Draw with deck recycle (v1.4 §3.12). Dispatches CARD_DRAWN per card drawn
+ * (v1.4.1 canonical event; extraDraw = not a turn-start refill).
+ */
 export function draw(state: CombatState, side: Side, count: number, opts: DrawOptions = {}): number {
   if (count <= 0) return 0;
   if (hasRestriction(state, side, 'PREVENT_DRAW')) {
@@ -184,8 +187,13 @@ export function draw(state: CombatState, side: Side, count: number, opts: DrawOp
     if (!card) break; // both piles empty: draw stops short, no side effect (§3.12)
     state[side].hand.push(card);
     drawn += 1;
+    if (!opts.turnStart) state[side].extraDrawsThisTurn += 1;
+    dispatchEvent(
+      state,
+      { type: 'CARD_DRAWN', controller: side, cardInstanceId: card.instanceId, cardDefId: card.definitionId, extraDraw: !opts.turnStart },
+      0,
+    );
   }
-  if (!opts.turnStart) state[side].extraDrawsThisTurn += drawn;
   if (drawn > 0) log(state, 'draw', `${side} drew ${drawn} card(s)`, { side, count: drawn });
   return drawn;
 }
@@ -426,9 +434,13 @@ export function placePlaceholderShields(state: CombatState, count: number): void
   armShieldLossIfNeeded(state);
 }
 
+/** Guard restoration places dummy guards (v1.4 §3.3 / v1.4.1). */
 export function placeGuardShields(state: CombatState, count: number): void {
   if (count <= 0) return;
-  state.npcGuardsStanding += count;
+  for (let i = 0; i < count; i++) {
+    state.npcGuards.push({ guardId: newId(state, 'guard') });
+  }
+  state.npcGuardsStanding = state.npcGuards.length;
   state.guardsPlacedByNpcThisTurn += count;
   log(state, 'guards-placed', `NPC places ${count} Guard Shield(s) (${state.npcGuardsStanding} standing)`, { count });
 }
@@ -499,22 +511,43 @@ export function breakOnePlayerShield(state: CombatState, breaker: Side, depth: n
   return slot;
 }
 
-/** Break one NPC Guard Shield (generic break effects hit Guards only, §3.3). */
+/**
+ * Break one NPC Guard Shield — leftmost first (generic break effects hit
+ * Guards only, §3.3). v1.4.1: guards may be card-backed; their Shield Trigger
+ * resolves before the (patience-free) break outcome and the card goes to the
+ * NPC discard. Breaking an opponent Guard never costs Patience.
+ */
 export function breakOneNpcGuard(state: CombatState, breaker: Side, depth: number): boolean {
   if (hasRestriction(state, breaker, 'PREVENT_SHIELD_BREAK')) {
     log(state, 'break-prevented', `Shield break by ${breaker} prevented by restriction`);
     return false;
   }
-  if (state.npcGuardsStanding <= 0) {
+  const guard = state.npcGuards[0];
+  if (!guard) {
     log(state, 'break-fizzle', 'No Guard Shields standing — generic break fizzles (v1.4 §3.3)');
     return false;
   }
-  state.npcGuardsStanding -= 1;
+  state.npcGuards.shift();
+  state.npcGuardsStanding = state.npcGuards.length;
   if (breaker === 'player') state.oppShieldsBrokenByPlayerThisTurn += 1;
-  log(state, 'shield-broken', `NPC Guard Shield broken by ${breaker} (${state.npcGuardsStanding} standing)`, {
+
+  const def = guard.cardId ? getDef(state, guard.cardId) : null;
+  log(state, 'shield-broken', `NPC Guard Shield broken by ${breaker}${def ? ` — ${def.name}` : ''} (${state.npcGuardsStanding} standing)`, {
     shieldType: 'guard',
     breaker,
+    cardId: guard.cardId,
   });
+
+  if (guard.cardId) {
+    // Card-backed guard: card → NPC discard (recyclable), trigger fires.
+    state.npc.discard.push({ instanceId: newId(state, 'card'), definitionId: guard.cardId, owner: 'npc' });
+    if (def?.keywords.includes('Shield Trigger')) {
+      const effects = def.shieldTriggerEffects ?? def.effects;
+      if (effects.length > 0) {
+        pushFrame(state, { kind: 'shieldTrigger', controller: 'npc', effects, depth: depth + 1 });
+      }
+    }
+  }
   dispatchEvent(
     state,
     { type: 'SHIELD_BROKEN', shieldSide: 'npc', shieldType: 'guard', breaker, controller: breaker },

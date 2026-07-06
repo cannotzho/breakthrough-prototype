@@ -100,6 +100,8 @@ export function evalQuantity(q: Quantity, state: CombatState, ctx: EvalContext):
       return ctx.event?.cardCost ?? 0;
     case 'EVENT_IS_OWN_SHIELD':
       return ctx.event?.shieldSide != null && ctx.event.shieldSide === ctx.controller ? 1 : 0;
+    case 'EVENT_IS_EXTRA_DRAW':
+      return ctx.event?.extraDraw ? 1 : 0;
   }
 }
 

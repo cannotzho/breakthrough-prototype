@@ -1,13 +1,15 @@
 /**
- * Encounters, redesigned for v1.4 lock-and-keys (Brief §6.6).
+ * Encounters, redesigned for v1.4 lock-and-keys + the v1.4.1 two-tier shield
+ * clarification (Ken): Guard Shields total 10 by default and may include
+ * card-backed shield-trigger guards; Core Shields (locks) sit behind them on
+ * Elite/Boss encounters.
  *
- * ⚠ DRAFT KEY-NUGGET ASSIGNMENTS — Brief §8 lists these as ask-first. The
- * guard/core splits and key assignments below are proposals awaiting Ken's
- * confirmation; see PORTING_NOTES.md.
+ * Key-nugget assignments are Ken-approved working values, pending a later
+ * design revision pass (marked DRAFT).
  */
 import type { EncounterConfig } from '../engine';
 
-/** The Informant — test encounter, redesigned from the v1.2 shape. */
+/** The Informant — standard encounter: 10 dummy guards, three locks. */
 export const TEST_ENCOUNTER: EncounterConfig = {
   id: 'test_encounter',
   displayName: 'The Informant',
@@ -16,15 +18,13 @@ export const TEST_ENCOUNTER: EncounterConfig = {
   maxPriority: 10,
   startingSide: 'player',
   opponentPatience: 10,
-  // DRAFT: old npcDummyShieldSlots was 10 (dev-testing value); 3 proposed for
-  // real pacing. Confirm with Ken.
-  npcGuardShieldCount: 3,
+  npcGuardShieldCount: 10, // v1.4.1 default total
   opponentShields: [
     {
       cardId: 'info_warehouse_logs',
       isHint: false,
       loreDescription: 'They looked away when you mentioned the warehouse.',
-      keyNuggetIds: ['warehouse_activity'], // DRAFT
+      keyNuggetIds: ['warehouse_activity'], // DRAFT (approved as working values)
     },
     {
       cardId: 'hint_informant_personal',
@@ -37,7 +37,7 @@ export const TEST_ENCOUNTER: EncounterConfig = {
       cardId: 'info_incident_report',
       isHint: false,
       loreDescription: 'The real secret: they witnessed the incident but are afraid to speak.',
-      keyNuggetIds: ['witnessed_incident', 'personal_troubles'], // DRAFT — two keys, one lock
+      keyNuggetIds: ['witnessed_incident', 'personal_troubles'], // DRAFT — one lock, two keys
     },
   ],
   npcHandLimit: 5,
@@ -71,7 +71,10 @@ export const TEST_ENCOUNTER: EncounterConfig = {
   enemyDeckCardIds: ['dev_enemy_dismiss', 'dev_enemy_deflect', 'dev_enemy_deflect'],
 };
 
-/** The Fan Club President — redesigned per Brief §6.6. */
+/**
+ * The Fan Club President — Elite encounter (v1.4.1): 10 Guards, two of them
+ * card-backed shield-trigger guards; three Core Shield locks behind them.
+ */
 export const FAN_CLUB_PRESIDENT_ENCOUNTER: EncounterConfig = {
   id: 'fan_club_president',
   displayName: 'The Fan Club President',
@@ -80,15 +83,9 @@ export const FAN_CLUB_PRESIDENT_ENCOUNTER: EncounterConfig = {
   maxPriority: 10,
   startingSide: 'player',
   opponentPatience: 15,
-  // DRAFT: old npcDummyShieldSlots 5 → 5 Guards. Confirm with Ken.
-  npcGuardShieldCount: 5,
+  npcGuardShieldCount: 10, // total; 8 dummies + the two card guards below
+  npcGuardShieldCardIds: ['fcp_fans_solace', 'fcp_panicked_memories'],
   opponentShields: [
-    {
-      cardId: 'fcp_fans_solace',
-      isHint: false,
-      loreDescription: 'Their devotion gives them comfort even in defeat.',
-      keyNuggetIds: ['fcp_fan_letters'], // DRAFT
-    },
     {
       cardId: 'fcp_moment_of_clarity',
       isHint: true,
@@ -100,8 +97,7 @@ export const FAN_CLUB_PRESIDENT_ENCOUNTER: EncounterConfig = {
       cardId: 'fcp_crippling_fear',
       isHint: false,
       loreDescription: 'Fear grips them — they know what they saw.',
-      // DRAFT — the old card text said "Requires passcode knowledge +
-      // physical traces": modelled as one lock with two possible keys.
+      // One lock, two possible keys (§3.3 — either suffices, per Ken).
       keyNuggetIds: ['fcp_passcode_knowledge', 'fcp_physical_traces'],
     },
     {

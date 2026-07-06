@@ -1,7 +1,8 @@
 /**
  * Initial combat state construction. Validates config (v1.4 §15.5), seeds the
- * RNG, auto-fills Placeholder Shields (§3.4), sets aside scheduled plays
- * (§10), and runs the starting side's Turn Start boundary.
+ * RNG, auto-fills Placeholder Shields (§3.4), builds the Guard row (v1.4.1 —
+ * card-backed guards shuffled among dummies, face-down), sets aside scheduled
+ * plays (§10), and runs the starting side's Turn Start boundary.
  */
 import type {
   CardDefinition,
@@ -10,6 +11,7 @@ import type {
   CombinationRecipe,
   EncounterConfig,
   InfoNugget,
+  NpcGuard,
   Side,
 } from './types';
 import { BOTM_BASE_LIMIT, log, newId, placePlaceholderShields, addPermanent, runStack } from './core';
@@ -66,7 +68,8 @@ export function buildInitialState(input: SetupInput): CombatState {
     backOfMindLimitBase: BOTM_BASE_LIMIT,
     playerShields: [],
     shieldLossArmed: false,
-    npcGuardsStanding: config.npcGuardShieldCount,
+    npcGuards: [],
+    npcGuardsStanding: 0,
     npcCoreShields: config.opponentShields.map((s) => ({
       ...s,
       broken: (config.retryable && input.persistent?.brokenCoreShieldCardIds?.includes(s.cardId)) ?? false,
@@ -109,6 +112,20 @@ export function buildInitialState(input: SetupInput): CombatState {
   };
 
   log(state, 'setup', `Encounter started: ${config.displayName}`, { encounterId: config.id, seed: input.seed });
+
+  // Guard row (v1.4.1): card-backed guards count toward the total; dummies
+  // fill the difference. Shields are face-down — shuffle the row (seeded).
+  const guardCardIds = config.npcGuardShieldCardIds ?? [];
+  const guards: NpcGuard[] = [
+    ...guardCardIds.map((cardId) => ({ guardId: newId(state, 'guard'), cardId })),
+    ...Array.from({ length: Math.max(0, config.npcGuardShieldCount - guardCardIds.length) }, () => ({
+      guardId: newId(state, 'guard'),
+    })),
+  ];
+  const shuffledGuards = shuffleWithRng(guards, state.rngState);
+  state.rngState = shuffledGuards.rngState;
+  state.npcGuards = shuffledGuards.items;
+  state.npcGuardsStanding = state.npcGuards.length;
 
   // Player deck: scripted order (tutorial) or seeded shuffle.
   const playerCards: CardInstance[] = (config.scriptedDrawOrder ?? input.playerDeckCardIds).map((id) => ({

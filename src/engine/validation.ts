@@ -72,6 +72,23 @@ export function validateEncounter(
     issues.push({ severity: 'error', where: w, message: 'npcGuardShieldCount cannot be negative.' });
   }
 
+  // v1.4.1 — card-backed Guard Shields count toward the guard total.
+  const guardCards = config.npcGuardShieldCardIds ?? [];
+  if (guardCards.length > config.npcGuardShieldCount) {
+    issues.push({
+      severity: 'error',
+      where: w,
+      message: `npcGuardShieldCardIds (${guardCards.length}) exceeds npcGuardShieldCount (${config.npcGuardShieldCount}) — card guards count toward the total.`,
+    });
+  }
+  for (const id of guardCards) {
+    if (!cards[id]) {
+      issues.push({ severity: 'error', where: w, message: `Guard Shield card "${id}" not found.` });
+    } else if (!cards[id].keywords.includes('Shield Trigger')) {
+      issues.push({ severity: 'warning', where: w, message: `Guard Shield card "${id}" has no Shield Trigger — it will break with no effect.` });
+    }
+  }
+
   for (const [i, shield] of config.opponentShields.entries()) {
     const sw = `${w} / core shield ${i} (${shield.cardId})`;
     if (!shield.keyNuggetIds || shield.keyNuggetIds.length === 0) {

@@ -103,6 +103,7 @@ describe('Canonical event dispatch coverage (Brief §7 trap 5)', () => {
   const scenarios: Record<string, (s: ReturnType<typeof start>) => ReturnType<typeof start>> = {
     CARD_PLAYED: (s) => playCard(s, 'p_noop'),
     CARD_RESOLVED: (s) => playCard(s, 'p_noop'),
+    CARD_DRAWN: (s) => playCard(s, 'p_draw'),
     PATIENCE_CHANGED: (s) => playCard(s, 'p_patience_down'),
     PRIORITY_CHANGED: (s) => playCard(s, 'p_gain_priority'),
     SHIELD_BROKEN: (s) => playCard(s, 'p_break'),
@@ -119,6 +120,7 @@ describe('Canonical event dispatch coverage (Brief §7 trap 5)', () => {
   };
 
   const scenarioDecks: Record<string, string[]> = {
+    CARD_DRAWN: ['probe', 'p_draw', 'p_noop', 'p_noop', 'p_noop'],
     TOKEN_CREATED: ['probe', 'p_token_maker', 'p_noop', 'p_noop', 'p_noop'],
     TOKEN_DESTROYED: ['probe', 'p_token_maker', 'p_token_smash', 'p_noop', 'p_noop'],
   };
