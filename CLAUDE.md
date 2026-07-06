@@ -28,7 +28,7 @@ dual-playtest sync model.
 ## Commands
 
 - `npm run dev` — Vite dev server
-- `npm test` — engine test suite (101 tests: §6.7 invariants, §4 boundary
+- `npm test` — engine test suite (102 tests: §6.7 invariants, §4 boundary
   ordering, debt-transfer arithmetic, lock-and-keys incl. guard restoration,
   card-backed Guard Shields (v1.4.1), trap cancellation, all 12 Brief §7
   known traps, content sanity + winnability)

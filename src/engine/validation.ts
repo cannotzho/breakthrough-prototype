@@ -4,7 +4,7 @@
  * rows, and malformed configs — config errors, not gameplay states.
  */
 import type { CardDefinition, EncounterConfig, InfoNugget, TriggerCondition } from './types';
-import { CANONICAL_EVENTS } from './types';
+import { CANONICAL_EVENTS, resolvedDummySlots, resolvedGuardCount } from './types';
 
 export interface ValidationIssue {
   severity: 'error' | 'warning';
@@ -64,21 +64,22 @@ export function validateEncounter(
   const issues: ValidationIssue[] = [];
   const w = `encounter ${config.id}`;
 
+  const guardCount = resolvedGuardCount(config);
   // ≥ 1 opponent shield total (v1.4 §3.3 validation; Brief §7 trap 12 — no vacuous wins)
-  if (config.npcGuardShieldCount + config.opponentShields.length < 1) {
+  if (guardCount + config.opponentShields.length < 1) {
     issues.push({ severity: 'error', where: w, message: 'Encounter must define at least one opponent shield (guards + cores ≥ 1).' });
   }
-  if (config.npcGuardShieldCount < 0) {
+  if (guardCount < 0) {
     issues.push({ severity: 'error', where: w, message: 'npcGuardShieldCount cannot be negative.' });
   }
 
   // v1.4.1 — card-backed Guard Shields count toward the guard total.
   const guardCards = config.npcGuardShieldCardIds ?? [];
-  if (guardCards.length > config.npcGuardShieldCount) {
+  if (guardCards.length > guardCount) {
     issues.push({
       severity: 'error',
       where: w,
-      message: `npcGuardShieldCardIds (${guardCards.length}) exceeds npcGuardShieldCount (${config.npcGuardShieldCount}) — card guards count toward the total.`,
+      message: `npcGuardShieldCardIds (${guardCards.length}) exceeds the guard total (${guardCount}) — card guards count toward the total.`,
     });
   }
   for (const id of guardCards) {
@@ -120,7 +121,7 @@ export function validateEncounter(
       issues.push({ severity: 'error', where: w, message: `Nugget override references unknown nugget "${ov.nuggetId}".` });
     }
   }
-  if (config.playerDummyShieldSlots < 0) {
+  if (resolvedDummySlots(config) < 0) {
     issues.push({ severity: 'error', where: w, message: 'playerDummyShieldSlots cannot be negative.' });
   }
   return issues;

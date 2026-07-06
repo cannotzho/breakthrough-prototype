@@ -15,6 +15,7 @@ import type {
   Side,
 } from './types';
 import { BOTM_BASE_LIMIT, log, newId, placePlaceholderShields, addPermanent, runStack } from './core';
+import { resolvedDummySlots, resolvedGuardCount } from './types';
 import { shuffleWithRng } from './rng';
 import { assertValid, validateCard, validateEncounter } from './validation';
 import { check, startFirstTurn } from './boundaries';
@@ -118,7 +119,7 @@ export function buildInitialState(input: SetupInput): CombatState {
   const guardCardIds = config.npcGuardShieldCardIds ?? [];
   const guards: NpcGuard[] = [
     ...guardCardIds.map((cardId) => ({ guardId: newId(state, 'guard'), cardId })),
-    ...Array.from({ length: Math.max(0, config.npcGuardShieldCount - guardCardIds.length) }, () => ({
+    ...Array.from({ length: Math.max(0, resolvedGuardCount(config) - guardCardIds.length) }, () => ({
       guardId: newId(state, 'guard'),
     })),
   ];
@@ -175,7 +176,7 @@ export function buildInitialState(input: SetupInput): CombatState {
   state.npcScheduledAside = aside;
 
   // Player shields: placeholders auto-fill all dummy slots (§3.4.1)…
-  placePlaceholderShields(state, config.playerDummyShieldSlots);
+  placePlaceholderShields(state, resolvedDummySlots(config));
   // …then Core Shields auto-place from the Collection (§3.4.3, no substitution).
   for (const coreDef of config.allowedCoreShields) {
     if (!input.collectionCardIds.includes(coreDef.cardId)) continue;

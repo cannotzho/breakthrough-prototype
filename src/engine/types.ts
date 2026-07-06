@@ -435,16 +435,17 @@ export interface EncounterConfig {
   startingSide: Side; // default 'player'
   opponentPatience: number;
   /**
-   * Total Guard Shields (default 10 — v1.4.1). Card-backed guards from
-   * `npcGuardShieldCardIds` count toward this total; the difference is made
-   * up by dummy guards. Breaking an opponent Guard never costs Patience.
+   * Total Guard Shields (omit for the default of 10 — v1.4.1). Card-backed
+   * guards from `npcGuardShieldCardIds` count toward this total; the
+   * difference is made up by dummy guards. Breaking an opponent Guard never
+   * costs Patience.
    */
-  npcGuardShieldCount: number;
+  npcGuardShieldCount?: number;
   /** Card-backed Guard Shields (Shield Trigger carriers), shuffled into the row. */
   npcGuardShieldCardIds?: string[];
   opponentShields: NpcCoreShieldDef[];
   npcHandLimit: number; // default 5
-  playerDummyShieldSlots: number; // required
+  playerDummyShieldSlots?: number; // omit for the default of 10 (v1.4.1)
   allowedCoreShields: CoreShieldDef[]; // required (empty allowed)
   unbreakablePlayerShields?: boolean;
   nuggetOverrides: NuggetOverride[];
@@ -467,7 +468,14 @@ export const ENCOUNTER_DEFAULTS = {
   startingSide: 'player' as Side,
   npcHandLimit: 5,
   npcGuardShieldCount: 10, // v1.4.1
+  playerDummyShieldSlots: 10, // v1.4.1
 } as const;
+
+/** Resolve optional encounter counts against ENCOUNTER_DEFAULTS. */
+export const resolvedGuardCount = (c: EncounterConfig): number =>
+  c.npcGuardShieldCount ?? ENCOUNTER_DEFAULTS.npcGuardShieldCount;
+export const resolvedDummySlots = (c: EncounterConfig): number =>
+  c.playerDummyShieldSlots ?? ENCOUNTER_DEFAULTS.playerDummyShieldSlots;
 
 // ── Combat state ─────────────────────────────────────────────────────────────
 

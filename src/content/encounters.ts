@@ -41,7 +41,7 @@ export const TEST_ENCOUNTER: EncounterConfig = {
     },
   ],
   npcHandLimit: 5,
-  playerDummyShieldSlots: 3,
+  // playerDummyShieldSlots omitted → defaults to 10 (v1.4.1)
   allowedCoreShields: [],
   nuggetOverrides: [
     {
@@ -108,7 +108,7 @@ export const FAN_CLUB_PRESIDENT_ENCOUNTER: EncounterConfig = {
     },
   ],
   npcHandLimit: 5,
-  playerDummyShieldSlots: 3,
+  // playerDummyShieldSlots omitted → defaults to 10 (v1.4.1)
   allowedCoreShields: [],
   nuggetOverrides: [
     {

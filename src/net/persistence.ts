@@ -6,6 +6,11 @@
  *
  * All functions fail soft (log + fallback) so the game remains playable
  * offline with the bundled content.
+ *
+ * Legacy tolerance: until the new `supabase/schema.sql` has been run, the
+ * live project may still hold the old v1.2 `info_nuggets` shape
+ * (`long_description` instead of `description`). The nugget functions accept
+ * both shapes so the Nuggets tab works either way.
  */
 import type { CardDefinition, CombatState, EncounterConfig, InfoNugget } from '../engine';
 import { supabase } from './supabaseClient';
@@ -15,7 +20,7 @@ import { supabase } from './supabaseClient';
 export async function fetchCards(): Promise<Record<string, CardDefinition> | null> {
   const { data, error } = await supabase.from('cards').select('id,data');
   if (error || !data) return null;
-  return Object.fromEntries(data.map((r) => [r.id, r.data as CardDefinition]));
+  return Object.fromEntries(data.filter((r) => r.data).map((r) => [r.id, r.data as CardDefinition]));
 }
 
 export async function saveCard(card: CardDefinition): Promise<string | null> {
@@ -25,7 +30,10 @@ export async function saveCard(card: CardDefinition): Promise<string | null> {
     nugget_id: card.nuggetId ?? null,
     is_token: card.subtype === 'Token',
   });
-  return error ? error.message : null;
+  if (!error) return null;
+  // Legacy v1.2 cards table has no is_token column — retry without it.
+  const retry = await supabase.from('cards').upsert({ id: card.id, data: card, nugget_id: card.nuggetId ?? null });
+  return retry.error ? retry.error.message : null;
 }
 
 export async function deleteCard(id: string): Promise<string | null> {
@@ -36,7 +44,7 @@ export async function deleteCard(id: string): Promise<string | null> {
 export async function fetchEncounters(): Promise<Record<string, EncounterConfig> | null> {
   const { data, error } = await supabase.from('encounters').select('id,data');
   if (error || !data) return null;
-  return Object.fromEntries(data.map((r) => [r.id, r.data as EncounterConfig]));
+  return Object.fromEntries(data.filter((r) => r.data).map((r) => [r.id, r.data as EncounterConfig]));
 }
 
 export async function saveEncounter(config: EncounterConfig): Promise<string | null> {
@@ -49,15 +57,36 @@ export async function deleteEncounter(id: string): Promise<string | null> {
   return error ? error.message : null;
 }
 
+interface NuggetRow {
+  id: string;
+  name: string;
+  description?: string | null;
+  long_description?: string | null;
+}
+
 export async function fetchNuggets(): Promise<Record<string, InfoNugget> | null> {
-  const { data, error } = await supabase.from('info_nuggets').select('id,name,description');
+  // select('*') tolerates both the new (`description`) and legacy
+  // (`long_description`) column shapes.
+  const { data, error } = await supabase.from('info_nuggets').select('*');
   if (error || !data) return null;
-  return Object.fromEntries(data.map((r) => [r.id, r as InfoNugget]));
+  return Object.fromEntries(
+    (data as NuggetRow[]).map((r) => [
+      r.id,
+      { id: r.id, name: r.name, description: r.description ?? r.long_description ?? '' } satisfies InfoNugget,
+    ]),
+  );
 }
 
 export async function saveNugget(n: InfoNugget): Promise<string | null> {
-  const { error } = await supabase.from('info_nuggets').upsert(n);
-  return error ? error.message : null;
+  const { error } = await supabase.from('info_nuggets').upsert({ id: n.id, name: n.name, description: n.description });
+  if (!error) return null;
+  // Legacy v1.2 table: no `description` column — write `long_description`.
+  const retry = await supabase
+    .from('info_nuggets')
+    .upsert({ id: n.id, name: n.name, long_description: n.description });
+  return retry.error
+    ? `${retry.error.message} (run the new supabase/schema.sql to migrate the info_nuggets table)`
+    : null;
 }
 
 export async function deleteNugget(id: string): Promise<string | null> {
@@ -75,7 +104,7 @@ export interface DeckRow {
 export async function fetchDecks(): Promise<DeckRow[] | null> {
   const { data, error } = await supabase.from('decks').select('id,name,description,card_ids');
   if (error || !data) return null;
-  return data as DeckRow[];
+  return (data as DeckRow[]).map((d) => ({ ...d, card_ids: d.card_ids ?? [] }));
 }
 
 export async function saveDeck(deck: DeckRow): Promise<string | null> {

@@ -71,14 +71,27 @@ h1, h2, h3 { font-weight: 600; letter-spacing: 0.02em; }
 .stat .value.patience.low { color: var(--danger); }
 .stat .value.lie { color: var(--danger); }
 
-.battlefield { display: grid; grid-template-rows: auto 1fr auto; overflow: hidden; padding: 8px 16px; gap: 6px; }
+.battlefield { display: grid; grid-template-rows: 1fr auto; overflow: hidden; padding: 8px 16px; gap: 6px; }
+
+/* The whole upper table is one drop target for playing a card. */
+.play-area {
+  display: grid; grid-template-rows: auto 1fr; gap: 6px; overflow: hidden;
+  border: 2px solid transparent; border-radius: 12px; position: relative;
+  transition: border-color 0.15s, background 0.15s;
+}
+.play-area.droppable { border-color: var(--line); }
+.play-area.over { border-color: var(--accent); background: rgba(216, 180, 90, 0.06); }
+.play-area .drop-hint {
+  position: absolute; top: 8px; right: 12px; font-size: 11px; color: var(--accent);
+  text-transform: uppercase; letter-spacing: 0.1em; pointer-events: none;
+}
 
 .npc-zone, .player-zone { display: flex; flex-direction: column; gap: 6px; }
 .zone-row { display: flex; align-items: center; gap: 8px; min-height: 40px; }
 .zone-label { width: 92px; color: var(--text-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; flex-shrink: 0; }
 
 /* Shields */
-.shield { width: 46px; height: 62px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 20px; position: relative; }
+.shield { width: 46px; height: 62px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 20px; position: relative; flex-shrink: 0; }
 .shield.guard { background: linear-gradient(160deg, #3a2f4a, #241c30); border: 1px solid var(--npc); }
 .shield.npc-core { background: linear-gradient(160deg, #4a2f3a, #301c24); border: 1px solid var(--accent); cursor: help; }
 .shield.npc-core.hint-broken { opacity: 0.85; border-style: dashed; }
@@ -86,7 +99,19 @@ h1, h2, h3 { font-weight: 600; letter-spacing: 0.02em; }
 .shield.placeholder { background: #262a33; border: 1px dashed var(--line); color: var(--text-dim); }
 .shield.real { background: linear-gradient(160deg, #2f3a4a, #1c2430); border: 1px solid var(--accent-2); }
 .shield.core { background: linear-gradient(160deg, #4a453a, #302b1c); border: 1px solid var(--accent); }
-.shield .keys { position: absolute; bottom: 2px; right: 3px; font-size: 10px; color: var(--accent); }
+.shield.grabbable { cursor: grab; }
+.shield.grabbable:active { cursor: grabbing; }
+.shield.drag-src { opacity: 0.35; }
+.shield.drag-over { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Player shield row — droppable for placement, sortable via drag. */
+.shield-row {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  min-height: 70px; padding: 3px 6px; border: 2px dashed transparent; border-radius: 10px;
+  transition: border-color 0.15s, background 0.15s; flex: 1;
+}
+.shield-row.droppable { border-color: var(--accent-2); }
+.shield-row.over { border-color: var(--accent-2); background: rgba(127, 180, 216, 0.08); }
 
 /* Priority bar (one bar, two meters — v1.4 §3.1 presentation) */
 .priority-wrap { display: flex; align-items: center; gap: 12px; padding: 4px 0; }
@@ -115,16 +140,23 @@ h1, h2, h3 { font-weight: 600; letter-spacing: 0.02em; }
 .permanent .p-counters { color: var(--accent); font-weight: 700; }
 .permanent .p-ability button { margin-top: 4px; font-size: 10px; padding: 2px 6px; }
 
-/* Hand & cards */
-.hand { display: flex; gap: 8px; align-items: flex-end; min-height: calc(var(--card-h) + 8px); padding: 4px 0; overflow-x: auto; }
+/* Hand & cards — overflow must stay visible so the action menu isn't clipped. */
+.hand {
+  display: flex; gap: 8px; align-items: flex-end;
+  min-height: calc(var(--card-h) + 8px); padding: 4px 0;
+  overflow: visible; flex-wrap: nowrap;
+}
 .card {
   width: var(--card-w); height: var(--card-h); border-radius: 10px; flex-shrink: 0;
   background: linear-gradient(170deg, var(--bg-panel), #1a1d25);
   border: 1px solid var(--line); padding: 8px; display: flex; flex-direction: column; gap: 4px;
-  cursor: pointer; position: relative; transition: transform 0.15s, border-color 0.15s, opacity 0.2s;
+  cursor: grab; position: relative; transition: transform 0.15s, border-color 0.15s, opacity 0.2s;
+  touch-action: none; /* required for pointer-sensor dragging */
+  user-select: none;
 }
+.card:active { cursor: grabbing; }
 .card:hover { transform: translateY(-8px); border-color: var(--accent); z-index: 5; }
-.card.dimmed { opacity: 0.4; }
+.card.dimmed { opacity: 0.4; cursor: default; }
 .card.dimmed:hover { transform: none; border-color: var(--line); }
 .card .c-top { display: flex; justify-content: space-between; align-items: center; }
 .card .c-name { font-size: 12px; font-weight: 600; line-height: 1.15; }
@@ -137,7 +169,7 @@ h1, h2, h3 { font-weight: 600; letter-spacing: 0.02em; }
 .card.color-White .c-color { background: #e8e6df; } .card.color-Black .c-color { background: #666; }
 .card.color-Purple .c-color { background: #b06ad8; } .card.color-Colorless .c-color { background: #444a58; }
 
-.card-menu { position: absolute; bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%); background: var(--bg-raised); border: 1px solid var(--accent); border-radius: 8px; padding: 6px; display: flex; flex-direction: column; gap: 4px; z-index: 30; width: 150px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+.card-menu { position: absolute; bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%); background: var(--bg-raised); border: 1px solid var(--accent); border-radius: 8px; padding: 6px; display: flex; flex-direction: column; gap: 4px; z-index: 60; width: 160px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
 .card-menu button { font-size: 12px; padding: 5px 8px; white-space: nowrap; }
 
 .botm-zone { display: flex; gap: 6px; align-items: center; min-height: 46px; padding: 2px 8px; border: 1px dashed var(--accent-2); border-radius: 8px; }

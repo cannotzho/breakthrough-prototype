@@ -7,6 +7,7 @@
  * (Brief §7 trap 6 — the Distracting Madness bug class).
  */
 import type { BoundaryName, CombatState, Side } from './types';
+import { resolvedGuardCount } from './types';
 import {
   HAND_LIMIT,
   dispatchEvent,
@@ -261,7 +262,7 @@ export function check(state: CombatState): void {
 
   // 1 — WIN before loss (§6.7 inv. 4).
   const coresLeft = state.npcCoreShields.some((s) => !s.broken);
-  const totalConfigured = state.config.npcGuardShieldCount + state.config.opponentShields.length;
+  const totalConfigured = resolvedGuardCount(state.config) + state.config.opponentShields.length;
   if (totalConfigured > 0 && state.npcGuardsStanding === 0 && !coresLeft) {
     state.result = 'WIN';
     state.phase = 'Won';

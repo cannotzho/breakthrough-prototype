@@ -94,3 +94,23 @@ describe('Card-backed Guard Shields (v1.4.1)', () => {
     expect(() => startWithCardGuards(1, ['g_st', 'g_st'])).toThrow();
   });
 });
+
+describe('Encounter count defaults (v1.4.1)', () => {
+  it('omitted npcGuardShieldCount / playerDummyShieldSlots default to 10 / 10', () => {
+    const config = { ...makeEncounter() };
+    delete (config as Partial<typeof config>).npcGuardShieldCount;
+    delete (config as Partial<typeof config>).playerDummyShieldSlots;
+    const s = buildInitialState({
+      config,
+      cards: CARDS,
+      tokens: TOKENS,
+      nuggets: NUGGETS,
+      playerDeckCardIds: Array(12).fill('p_noop'),
+      collectionCardIds: [],
+      seed: 3,
+    });
+    expect(s.npcGuardsStanding).toBe(10);
+    expect(s.playerShields.length).toBe(10);
+    expect(s.playerShields.every((x) => x.shieldType === 'placeholder')).toBe(true);
+  });
+});
