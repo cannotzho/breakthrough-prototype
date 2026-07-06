@@ -1,145 +1,117 @@
-# CLAUDE.md
+# CLAUDE.md — Breakthrough (v1.4 rebuild)
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This is the from-scratch rebuild of **Breakthrough**, a detective card game.
+The rules authority is **`Breakthrough_Design_v1.4.md`**; scope and porting
+rules are in **`Rebuild_Brief.md`**. Where anything conflicts, v1.4 wins.
+Ken Zho is the design authority — design changes go through him and receive a
+v1.4+ changelog entry. `PORTING_NOTES.md` tracks open ask-Ken items.
+
+`prototype-v1/` is the retired prototype. Only its data files
+(`src/data/devCards.ts`, `encounterDefs.ts`, `combinations.ts`) and Supabase
+files (`supabase/schema.sql`, `src/lib/supabaseClient.ts`) may be read, as
+content reference. **Never read its engine, screens, components, stores, or
+old design docs** (Brief §2).
+
+## Stack
+
+Vite + React 19 + TypeScript. Chosen because: the engine is framework-agnostic
+pure TS by directive (v1.4 §15.1), so the framework only owns presentation;
+React + Motion (`motion/react`) is the strongest option for sequential,
+never-silent DOM animation over form-heavy dev tooling (canvas engines would
+fight the CRUD screens); Zustand for the thin UI bridge; Supabase JS +
+Realtime for persistence and dual playtest; Vitest for the engine suite.
+Determinism comes from a seeded PRNG stored *inside* combat state — identical
+(seed, action sequence) ⇒ byte-identical states, which is the whole
+dual-playtest sync model.
 
 ## Commands
 
-Node.js is installed in user scope — if `npm` isn't found in PowerShell, run `$env:PATH += ";$env:APPDATA\npm"` first.
-
-```
-npm run dev       # dev server at http://localhost:5173
-npm run build     # tsc -b + vite build
-npm run lint      # eslint .
-npm run preview   # serve the dist/ build locally
-```
-
-There are no tests. Type-check alone: `npx tsc --noEmit`.
-
-## Project Overview
-
-> **Design authority:** `Breakthrough_Design.md` is the authoritative source of truth for all game design decisions. This file (`CLAUDE.md`) documents code structure only.
-
-Breakthrough is a detective card game. The original prototype is `breakthrough.html` (vanilla JS, single file). The active codebase uses Vite + React 19 + TypeScript + Tailwind CSS 3.4.
-
-The core mechanic: the player conducts interrogations using cards. Both sides have **shields**. Draining the opponent's **Patience** to zero wins the encounter. Losing all player shields or exceeding the **Lie** threshold loses.
+- `npm run dev` — Vite dev server
+- `npm test` — engine test suite (94 tests: §6.7 invariants, §4 boundary
+  ordering, debt-transfer arithmetic, lock-and-keys incl. guard restoration,
+  trap cancellation, all 12 Brief §7 known traps, content sanity + winnability)
+- `npm run lint:no-card-ids` — greps the engine for card-ID literals (§15.2)
+- `npm run build` — typecheck + production build
 
 ## Architecture
 
-### App flow
-
-`App.tsx` is a flat screen router over a `Screen` union type:
-
 ```
-title → combat | cardCollection | encounterGallery | deckBuilder
-```
-
-- **`title`** — `TitleScreen.tsx`: main menu with Playtest button and dev tool navigation
-- **`combat`** — `CombatScreen.tsx`: full combat encounter (accepts optional `encounterConfig`)
-- **`cardCollection`** — `CardCollectionScreen.tsx`: card browser/editor
-- **`encounterGallery`** — `EncounterGalleryScreen.tsx`: encounter editor with playtest launcher
-- **`deckBuilder`** — `DeckBuilderScreen.tsx`: deck composition tool
-
-### Combat engine
-
-The combat engine is intentionally framework-agnostic — split across three files with zero React imports in the engine layer:
-
-| File | Role |
-|------|------|
-| `src/combat/types.ts` | All TypeScript types: `CombatState`, `CombatAction`, `CardDefinition`, `EncounterConfig`, etc. |
-| `src/combat/combatReducer.ts` | Pure reducer `(CombatState, CombatAction) → CombatState`. Large switch over 24+ action types. |
-| `src/combat/effectHandlers.ts` | Pure helpers: `shuffle`, `drawCards`, `applyEffect`, `breakPlayerShieldAutomatic`, `priorityRestore`, `classicTurnStart`, `npcTurnStart`, `resolveFieldTriggerCheck`, etc. |
-
-`CombatScreen.tsx` wires the reducer into React via `useReducer`, owns phase-transition `useEffect` timers, and handles all drag-and-drop card interactions.
-
-**Priority modes:** Two distinct priority systems, configured per encounter via `priorityMode`:
-
-- **Frame** (`'frame'`): Single shared priority meter (−10 to +10). Priority > 0 = player acts; ≤ 0 = opponent acts. Card costs deduct from priority; opponent plays increase it. Priority restore fires on drop to ≤ 0.
-- **Classic** (`'classic'`): Separate priority meters for player and NPC. Explicit turn alternation via `activeTurn` flag. Each play deducts from the active player's meter. Turn switches when priority hits 0.
-
-**Shields:** Two types — `dummy` (basic, costs 1 Patience on break, 0 with Safety keyword) and `core` (custom `patienceCostOnBreak`). Cards with the `Shield Trigger` keyword queue effects when their shield is broken.
-
-**Field Traps:** Cards with the `Trap` keyword are placed on the field. Each has a `TrapTriggerCondition` (trigger type + optional comparator/value). Traps fire automatically during `FieldTriggerCheck` phase. Resolved FIFO with `MAX_TRIGGER_DEPTH` (20) recursion protection.
-
-**Back of Mind (BotM):** When the player loses priority, they keep up to `backOfMindLimit` cards (default 1); the rest discard. BotM cards can be played during the opponent's turn.
-
-**Traits:** NPC properties stored in `config.traits[]`. Start hidden (`discovered: false`), revealed when their trigger fires (e.g. the `sensitive` trait adds +1 Patience damage).
-
-**Keywords:** `Safety`, `Assemble`, `Shield Trigger`, `Lie`, `Trap`.
-
-**Combinations:** `COMBINATIONS` in `src/data/combinations.ts` is the recipe list (currently empty). The engine supports combining two `Assemble`-keyword cards via the `COMBINE` action.
-
-### Data layer
-
-| File | Content |
-|------|---------|
-| `src/data/devCards.ts` | Engine foundation data + Claude-authored card definition blocks (see below) |
-| `src/data/encounterDefs.ts` | `TEST_ENCOUNTER` (Frame mode), `CLASSIC_TEST_ENCOUNTER` (Classic mode), `buildInitialCombatState()` factory |
-| `src/data/combinations.ts` | `COMBINATIONS` array — card merge recipes (currently empty) |
-
-### devCards.ts — dual role
-
-`src/data/devCards.ts` serves two distinct purposes:
-
-1. **Engine foundation data** (always active): `DEV_SKILL_CARDS`, `DEV_ENEMY_CARDS` (default test encounter decks), `PONDER_DEFINITION` (fallback draw card), and `DEV_TOKEN_DEFINITIONS` (token registry used by the combat engine — Logical Chain, Impactful Conclusion, Captivating Sense, etc.).
-
-2. **Claude-authored card definition blocks** (import required): Named exports like `BLUE_STARTER_CARDS` that store card definitions in code. These are **not** automatically loaded into the app — they must be imported into the Supabase-backed collection via the dev tool importer (Card Collection screen → "Import from Code" panel). All blocks are registered in `CARD_DEF_BLOCKS` so the importer discovers them automatically. When Claude authors new card blocks (e.g. `ORANGE_STARTER_CARDS`), add them to `CARD_DEF_BLOCKS` and the importer picks them up.
-
-### Persistence
-
-**Supabase** is the primary persistence layer. Schema is in `supabase/schema.sql`. Six tables: `cards`, `encounters`, `info_nuggets`, `decks`, `encounter_relevant_cards`, `nugget_discovery`.
-
-**Zustand stores** in `src/stores/` manage all data access:
-
-| Store | File | Table | Purpose |
-|-------|------|-------|---------|
-| `useDevCardStore` | `collectionStore.ts` | `cards` | Card CRUD with Supabase sync |
-| `useDevEncounterStore` | `encounterStore.ts` | `encounters` | Encounter CRUD with Supabase sync |
-| `useNuggetStore` | `nuggetStore.ts` | `info_nuggets` | Info nugget CRUD with Supabase sync |
-| `useDeckStore` | `deckStore.ts` | `decks` | Deck CRUD with Supabase sync |
-| `useEncounterRelevantCardStore` | `encounterRelevantCardStore.ts` | `encounter_relevant_cards` | Nugget override mappings |
-| `useNuggetDiscoveryStore` | `nuggetDiscoveryStore.ts` | `nugget_discovery` | Runtime discovery tracking |
-| `useSaveStore` | `saveStore.ts` | — (localStorage) | Per-encounter save state (not yet wired) |
-
-The first four stores share a common pattern: fetch-on-init, optimistic set + async Supabase upsert, delete-on-id-change, and (for `collectionStore`/`encounterStore`) `importFromLocalStorage()` for legacy migration.
-
-Supabase credentials are hardcoded in `src/lib/supabaseClient.ts` (anon key only — safe for the public prototype).
-
-### Components
-
-**Combat UI** (`src/components/combat/`):
-- `PriorityBar.tsx` — bidirectional priority meter
-- `PatienceDisplay.tsx` — opponent patience bar
-
-**Dev tools** (`src/components/dev/`):
-- `DevPanel.tsx` — slide-in tabbed overlay during combat (State, Cards, Nuggets, Encounters, Collection, Decks tabs + log drawer)
-- `CardEditorForm.tsx` — card creation/editing form with keyword/effect editors
-- `CardGalleryGrid.tsx` — paginated card grid with filtering
-- `CardCollection.tsx` — card CRUD manager (gallery + create/edit views)
-- `DeckBuilder.tsx` — deck composition tool with card gallery
-- `EncounterEditor.tsx` — encounter CRUD with shield/trait/nugget-override sub-editors
-- `SupabaseStatus.tsx` — connection status + localStorage import
-- `IssueSubmitButton.tsx` — floating GitHub issue reporter (global)
-
-## Adding Cards
-
-Cards are now authored via the dev UI (Card Collection screen or DevPanel's Collection tab) and persisted to Supabase — no source file editing required.
-
-To add a card programmatically, use `useDevCardStore.getState().addCard(cardDef)` with a `CardDefinition` object. Required fields: `id` (unique), `name`, `cost`, `color` (ColorIdentity), `supertype` (`'Skill'` | `'Information'`), `effects` (array of `CardEffect`). Optional: `keywords`, `subtype` (`'Impression'` | `'Trap'`), `effectText`, `longDescription`, `nuggetId`, `trapTrigger` (for Trap cards).
-
-For hardcoded test cards, add entries to `DEV_SKILL_CARDS` or `DEV_ENEMY_CARDS` in `src/data/devCards.ts`.
-
-## Adding Encounters
-
-Encounters are authored via the Encounter Gallery screen or DevPanel's Encounters tab and persisted to Supabase.
-
-To add a hardcoded test encounter, add an `EncounterConfig` to `src/data/encounterDefs.ts`. Key fields: `id`, `displayName`, `priorityMode` (`'frame'` | `'classic'`), `startingPriority`, `defaultRestorePriority`, `opponentPatience`, `opponentShields[]`, `playerDummyShieldSlots`, `enemyDeckCardIds[]`, `traits[]`, `lieThreshold`.
-
-## Adding Combination Recipes
-
-Append to `COMBINATIONS` in `src/data/combinations.ts`:
-
-```ts
-{ ingredients: ['cardIdA', 'cardIdB'], result: resultCardDefinition }
+src/engine/     PURE. No React, no Supabase, no module-level state, no card IDs
+                (one permitted content id: 'ponder', the designed fallback).
+  types.ts        full v1.4 vocabulary (events, effects, restrictions, config)
+  quantities.ts   evalQuantity/evalCondition — all scales & conditions
+  rng.ts          mulberry32; RNG state lives in CombatState
+  core.ts         effect stack (ONE suspension mechanism §15.4), event dispatch
+                  (ONE integration point §15.5), shield procedures, play
+                  sequencing §6.3/§6.6, thresholds §3.10
+  boundaries.ts   ONE handoff() §15.3 — all §4 boundary steps live here only;
+                  check() §6.1 (win before loss)
+  reducer.ts      public reduce(state, action) — clones input, rejects illegal
+                  actions without state change
+  setup.ts        buildInitialState (validates, seeds, placeholders, set-asides)
+  validation.ts   authoring-time checks (canonical events only, keyless locks…)
+src/content/    Ported card/encounter data (Brief §6 re-expression). Data only.
+src/net/        supabaseClient, persistence (content CRUD + §12 progress),
+                realtime (dual playtest host-authority protocol)
+src/stores/     gameStore — driver concerns only (history, session, manual mode)
+src/ui/         title / combat / playtest screens, styles
+src/devtools/   card editor, encounter builder, nugget manager, deck builder,
+                in-combat DevPanel (inspector, dev actions, manual enemy mode)
+tests/engine/   the suite; fixtures are synthetic (content-agnostic engine)
 ```
 
-Both ingredient cards must have the `Assemble` keyword. The engine picks up new recipes automatically.
+### Engine invariants the code enforces (do not regress)
+
+- Two independent Priority meters; overspend unbounded; debt transfers at turn
+  end, clamped at the *receiver's* turn start (§3.1). No auto turn handoff.
+- Turn-start formula only — there is no "restore priority" anywhere (§3.1,
+  Brief §7.3).
+- All timed mechanics live in exactly one §4 boundary step; expiry ticks run
+  before boundary-triggered effects apply (Brief §7.6).
+- Generic break effects hit Guard Shields only; NPC Core Shields break solely
+  via key nuggets while zero Guards stand; Guards are restorable (§3.3).
+- Effect sequences suspend and resume, never restart; play completion (move
+  card → CARD_RESOLVED → thresholds) always runs, including after a Reveal
+  (§6.7.6, Brief §7.2).
+- Cancelled staged cards discard exactly once and never begin resolution
+  (§3.6, Brief §7.4).
+- BotM Select fires only from Player Turn End (§6.5, Brief §7.8).
+- The reducer is pure; encounter config is immutable input (§6.7.12).
+
+### Dev tooling notes (Brief §5)
+
+- **Manual enemy mode** (Dev Panel in combat): a human stages the NPC's play
+  from its hand via `NPC_PLAY_CARD` — identical state transitions to the
+  automatic leftmost policy (tested byte-identical in `purity.test.ts`).
+- **Dual playtest** (`#/playtest`): host shares a 5-letter code; guest drives
+  the NPC side. Host is the authority: it validates guest requests through the
+  reducer and broadcasts the applied action sequence; both clients replay the
+  same actions over the same seeded initial state. NPC turn end remains
+  automatic (§4.4). Dev-panel patches are disabled during sessions (they'd
+  break determinism).
+- **Encounter builder** launches a playtest directly; all editors run the
+  engine's authoring validation before save.
+
+### Persistence (Brief §3)
+
+Fresh schema in `supabase/schema.sql` (old v1.2 tables dropped — Ken approved
+discarding old rows). Content tables (`cards`, `encounters`, `info_nuggets`,
+`decks`) back the dev tools; `progress_*` tables persist the Collection,
+global nugget discovery, per-NPC trait discovery, and per-encounter retry
+state (persistent core-shield breaks, `playedNonRelevantCards`). The app works
+offline from bundled content in `src/content/` if Supabase is unreachable.
+"Seed Supabase" in Dev Tools uploads the bundled content.
+
+### Known environment quirk (this workspace)
+
+In-place file edits through the mounted-folder bridge have produced truncated
+syncs; when modifying source here, delete + rewrite files rather than editing
+in place, and re-run `npm test` after any batch of writes.
+
+## Status
+
+Engine, tests, UI, dev tools, dual playtest, persistence, and content port are
+in place. Open design questions are collected in `PORTING_NOTES.md` — most
+importantly the DRAFT key-nugget assignments in `src/content/encounters.ts`
+and the cards that need vocabulary decisions (equal_exchange,
+monolithic_ideals, genuine_enjoyment, lunatic_love rider, copy-inversion).

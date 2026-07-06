@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create *)",
+      "PowerShell(Get-Command node, npm, npx -ErrorAction SilentlyContinue)",
+      "PowerShell($env:PATH = [System.Environment]::GetEnvironmentVariable\\(\"PATH\", \"User\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"PATH\", \"Machine\"\\); node --version; npm --version)",
+      "PowerShell($env:PATH = [System.Environment]::GetEnvironmentVariable\\(\"PATH\", \"User\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"PATH\", \"Machine\"\\); \\(Get-Command npm\\).Source)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
+    ]
+  }
+}
