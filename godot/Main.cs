@@ -64,14 +64,27 @@ public partial class Main : Control
         random.Pressed += () => seed.Value = Random.Shared.Next();
         bar.AddChild(random);
 
-        var start = new Button { Text = "Start Combat ▶" };
+        var start = new Button { Text = "2D Debug Combat ▶" };
         start.Pressed += () =>
         {
-            LaunchConfig.EncounterId = encounter.GetItemText(encounter.Selected);
-            LaunchConfig.DeckName = deck.GetItemText(deck.Selected);
-            LaunchConfig.Seed = (int)seed.Value;
+            ApplyLaunchConfig(encounter, deck, seed);
             GetTree().ChangeSceneToFile("res://CombatScreen.tscn");
         };
         bar.AddChild(start);
+
+        var arena = new Button { Text = "Enter the Mindspace ▶" };
+        arena.Pressed += () =>
+        {
+            ApplyLaunchConfig(encounter, deck, seed);
+            GetTree().ChangeSceneToFile("res://MindspaceArena.tscn");
+        };
+        bar.AddChild(arena);
+    }
+
+    private static void ApplyLaunchConfig(OptionButton encounter, OptionButton deck, SpinBox seed)
+    {
+        LaunchConfig.EncounterId = encounter.GetItemText(encounter.Selected);
+        LaunchConfig.DeckName = deck.GetItemText(deck.Selected);
+        LaunchConfig.Seed = (int)seed.Value;
     }
 }

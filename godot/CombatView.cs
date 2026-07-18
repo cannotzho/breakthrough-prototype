@@ -60,7 +60,12 @@ public sealed record PermanentView(
     int? TurnsRemaining,
     IReadOnlyList<AbilityView> Abilities);
 
-public sealed record LogView(int Seq, string Type, string Message);
+/// <summary>
+/// Data is the engine's structured payload (side, delta, shieldType,
+/// definitionId, …) — primitives only. Animation layers key off Type + Data;
+/// Message is for humans.
+/// </summary>
+public sealed record LogView(int Seq, string Type, string Message, IReadOnlyDictionary<string, object?>? Data);
 
 // ── Prompts: exactly one may be non-null per view ───────────────────────────
 
@@ -180,7 +185,7 @@ public static class CombatViewBuilder
             Result = s.Result == null ? null : new ResultView(s.Result, s.LoseReason),
             NewLog = s.Log
                 .Where(l => l.Seq > lastSeenLogSeq)
-                .Select(l => new LogView(l.Seq, l.Type, l.Message))
+                .Select(l => new LogView(l.Seq, l.Type, l.Message, l.Data))
                 .ToList(),
         };
     }

@@ -1,9 +1,42 @@
-# Breakthrough — Godot integration (steps 1–2)
+# Breakthrough — Godot integration (steps 1–3)
 
 Godot 4 (.NET) host for the ported C# engine
-(`../csharp-engine/Breakthrough.Engine`): the step-1 smoke harness plus the
-step-2 **CombatBridge** seam and a playable placeholder combat screen.
-Flat rects and default theme only — presentation is step 3.
+(`../csharp-engine/Breakthrough.Engine`): the step-1 smoke harness, the
+step-2 **CombatBridge** seam with a 2D debug screen, and the step-3
+**MindspaceArena** — the 3D combat presentation (Inscryption-style table,
+opponent avatar, 3D cards) built entirely on placeholder procedural visuals
+that an artist replaces via the ArtLibrary slots below.
+
+## MindspaceArena (step 3)
+
+`arena/MindspaceArena.cs` sits on the CombatBridge seam and renders combat in
+3D: a table in a void, the opponent's avatar across from you (mood-driven rim
+glow tracks patience), face-down guard row, core-shield row, field
+permanents, your shield arc and hand fan as 3D cards, and a bell you ring to
+end the turn. Card movement comes from view reconciliation (cards glide
+between slots, keyed by instance/slot/permanent id); one-shot flourishes
+(avatar flinch, floating damage numbers, camera shakes, NPC play flybys) are
+driven by `arena/AnimationDirector.cs` off `CombatView.NewLog` — the seam's
+event-delta contract. Prompts and toast-style rejection live on a 2D HUD
+layer (`arena/ArenaHud.cs`).
+
+## Artist slots (how real art gets in)
+
+Every visual is requested from `arena/ArtLibrary.cs` by slot name. Drop a
+file at the conventional path and the procedural placeholder yields to it —
+no code changes:
+
+| Kind | Path | Slots |
+| --- | --- | --- |
+| Material | `art/materials/<slot>.tres` | `card_front`, `card_back`, `shield_slab`, `shield_core`, `guard_back`, `core_shield`, `core_shield_broken`, `table`, `avatar_body`, `void_dome`, `bell` |
+| Mesh | `art/models/card.res` / `.tres` | `card` — unit card in the XY plane, ~0.7 × 1.0, facing +Z |
+| Scene | `art/models/<slot>.tscn` | `avatar` (whole opponent prop), `table_prop`, `bell_prop` |
+
+Placeholder shaders live in `art/shaders/` (`painterly_surface`,
+`avatar_mood`, `mindspace_void`) — all knobs are named uniforms, so retints
+are `.tres` edits. The avatar scene override keeps working with
+`OpponentAvatar.cs` as long as its root is a Node3D; a ShaderMaterial with a
+`mood` uniform on the first child mesh inherits the patience-driven glow.
 
 ## The seam (step 2)
 
@@ -32,11 +65,13 @@ sequencing should key off.
 
 - **Play (editor):** open this folder's `project.godot` in Godot, press
   **F5**. The `Main` scene runs the step-1 smoke harness, then shows a
-  launcher bar (encounter · deck · seed) — **Start Combat ▶** opens the
-  placeholder combat screen. Click a hand card for Play / Heavy Hand /
-  Place-as-Shield; click two shields to swap their break order; prompts
-  (reveal, choose-number, Back-of-Mind, deck reveal) appear as overlays;
-  NPC turns advance automatically (toggle Auto NPC for manual stepping).
+  launcher bar (encounter · deck · seed) — **Enter the Mindspace ▶** opens
+  the 3D arena; **2D Debug Combat ▶** opens the flat step-2 screen. In both:
+  click a hand card for Play / Heavy Hand / Place-as-Shield; click two
+  shields to swap their break order; prompts (reveal, choose-number,
+  Back-of-Mind, deck reveal) appear as overlays; NPC turns advance
+  automatically (toggle Auto NPC for manual stepping). In the arena, click
+  the bell (or the HUD button) to end your turn.
 - **Headless (CI-style):** `godot --headless --path godot` from the repo
   root. Exits 0 on PASS, 1 on FAIL.
 - **GDScript interop demo:** open `GatewayDemo.tscn` and run the scene
