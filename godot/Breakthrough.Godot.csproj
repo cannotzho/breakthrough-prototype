@@ -1,0 +1,20 @@
+<Project Sdk="Godot.NET.Sdk/4.7.1">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <!-- Not "Breakthrough.Godot": a namespace segment named `Godot` would
+         shadow the Godot API namespace inside our own code. -->
+    <RootNamespace>Breakthrough.GodotHost</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\csharp-engine\Breakthrough.Engine\Breakthrough.Engine.csproj" />
+  </ItemGroup>
+
+  <!-- content.json is derived data (exported from the TS content layer via
+       csharp-engine/tools/dump-content.test.ts). Sync the canonical copy into
+       the Godot project dir on every build so res://content.json stays fresh. -->
+  <Target Name="SyncContentBundle" BeforeTargets="BeforeBuild">
+    <Copy SourceFiles="..\csharp-engine\Breakthrough.Engine.Tests\content.json" DestinationFolder="$(MSBuildProjectDirectory)" SkipUnchangedFiles="true" />
+  </Target>
+</Project>

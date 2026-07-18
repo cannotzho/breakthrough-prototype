@@ -1,0 +1,9 @@
+# Godot 4 generated files
+.godot/
+
+# Backup the editor's SDK-upgrade tool leaves behind
+*.old
+
+# Derived data — synced from csharp-engine/Breakthrough.Engine.Tests/content.json
+# by the SyncContentBundle build target; the canonical copy lives there.
+content.json
