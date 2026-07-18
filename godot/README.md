@@ -1,8 +1,26 @@
-# Breakthrough — Godot integration harness (step 1)
+# Breakthrough — Godot integration (steps 1–2)
 
-Minimal Godot 4 (.NET) host proving the ported C# engine
-(`../csharp-engine/Breakthrough.Engine`) runs correctly *inside* Godot.
-No visuals, no art — a smoke-run scene and a GDScript interop gateway.
+Godot 4 (.NET) host for the ported C# engine
+(`../csharp-engine/Breakthrough.Engine`): the step-1 smoke harness plus the
+step-2 **CombatBridge** seam and a playable placeholder combat screen.
+Flat rects and default theme only — presentation is step 3.
+
+## The seam (step 2)
+
+```
+CombatScreen.tscn / .cs   placeholder presentation (replaced in step 3)
+        │  reads CombatView · calls typed intents
+CombatBridge.cs           Node adapter: StateChanged signal, NPC pacing timer
+CombatSession.cs          THE seam (pure C#): typed dispatch → Reduce,
+        │                 emits CombatView after every action
+CombatView.cs             the only state shape scenes see; hidden info
+        │                 (NPC hand, guard backing, unbroken lore) filtered here
+Breakthrough.Engine       untouched
+```
+
+Scenes never touch `CombatState`. Each `CombatView` carries `NewLog` — the
+log-entry delta since the last emission — which is what step-3 animation
+sequencing should key off.
 
 ## Prerequisites
 
@@ -12,11 +30,13 @@ No visuals, no art — a smoke-run scene and a GDScript interop gateway.
 
 ## Run
 
-- **Editor:** open this folder's `project.godot` in Godot, press **F5**.
-  The `Main` scene loads the real content bundle, boots the
-  `fan_club_president` encounter, drives three scripted rounds through
-  `Reducer.Reduce`, replays them to prove determinism, and prints a
-  PASS/FAIL report to the Output console and the on-screen label.
+- **Play (editor):** open this folder's `project.godot` in Godot, press
+  **F5**. The `Main` scene runs the step-1 smoke harness, then shows a
+  launcher bar (encounter · deck · seed) — **Start Combat ▶** opens the
+  placeholder combat screen. Click a hand card for Play / Heavy Hand /
+  Place-as-Shield; click two shields to swap their break order; prompts
+  (reveal, choose-number, Back-of-Mind, deck reveal) appear as overlays;
+  NPC turns advance automatically (toggle Auto NPC for manual stepping).
 - **Headless (CI-style):** `godot --headless --path godot` from the repo
   root. Exits 0 on PASS, 1 on FAIL.
 - **GDScript interop demo:** open `GatewayDemo.tscn` and run the scene
@@ -34,13 +54,19 @@ dotnet build godot/Breakthrough.Godot.sln
 
 ## Files
 
-- `EngineHarness.cs` — pure C# smoke driver (no Godot API); loads
+- `CombatSession.cs` / `CombatView.cs` / `CombatBridge.cs` — the step-2 seam
+  (see diagram above). `CombatSession` + `CombatView` are pure C# and are
+  driven end-to-end by a console verifier without a Godot runtime.
+- `CombatScreen.cs` + `CombatScreen.tscn` — playable placeholder screen;
+  builds all UI in code, fully rebuilds per view, appends log deltas.
+- `LaunchConfig.cs` — static launcher→scene parameter holder.
+- `EngineHarness.cs` — step-1 pure C# smoke driver (no Godot API); loads
   `content.json`, runs/replays the scripted game, times `Reduce` and
   full-state JSON serialization.
-- `Main.cs` + `Main.tscn` — prints the harness report; quits with an exit
-  code under `--headless`.
-- `EngineGateway.cs` — GDScript-facing bridge: typed action methods in,
-  state out as JSON string / parsed Dictionary / small summary Dictionary.
+- `Main.cs` + `Main.tscn` — harness report + combat launcher; quits with an
+  exit code under `--headless`.
+- `EngineGateway.cs` — step-1 GDScript-facing bridge (JSON/Dictionary state
+  reads); superseded by CombatBridge for scenes, kept for GDScript access.
 - `gateway_demo.gd` + `GatewayDemo.tscn` — GDScript driving the gateway.
 - `content.json` — derived; synced from
   `../csharp-engine/Breakthrough.Engine.Tests/content.json` by a build

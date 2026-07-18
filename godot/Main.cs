@@ -1,11 +1,10 @@
-// Entry node for the engine harness scene. All engine work happens in
-// EngineHarness (pure C#); this node only resolves the content path via
-// Godot, prints the report to the Godot console, and mirrors it into a
-// RichTextLabel as the minimal debug UI.
-//
-// Headless-friendly: `godot --headless --path godot` runs the harness and
-// exits with code 0 on PASS / 1 on FAIL, so it can serve as a CI smoke check.
+// Entry node. Two jobs:
+//  - Headless (`godot --headless --path godot`): run the step-1 engine smoke
+//    harness and exit 0/1 — the CI check, unchanged.
+//  - Windowed: run the same harness, show its report, and offer a launcher
+//    (encounter + deck + seed) into the playable placeholder CombatScreen.
 
+using System;
 using Godot;
 
 namespace Breakthrough.GodotHost;
@@ -26,6 +25,53 @@ public partial class Main : Control
         if (DisplayServer.GetName() == "headless")
         {
             GetTree().Quit(result.Passed ? 0 : 1);
+            return;
         }
+
+        BuildLauncher();
+    }
+
+    private void BuildLauncher()
+    {
+        var content = EngineHarness.LoadContent(ProjectSettings.GlobalizePath("res://"));
+
+        var bar = new HBoxContainer();
+        bar.SetAnchorsPreset(LayoutPreset.BottomWide);
+        bar.OffsetLeft = 12; bar.OffsetTop = -48; bar.OffsetRight = -12; bar.OffsetBottom = -12;
+        bar.AddThemeConstantOverride("separation", 10);
+        AddChild(bar);
+
+        bar.AddChild(new Label { Text = "Encounter:" });
+        var encounter = new OptionButton();
+        foreach (var id in content.Encounters.Keys)
+        {
+            encounter.AddItem(id);
+            if (id == LaunchConfig.EncounterId) encounter.Selected = encounter.ItemCount - 1;
+        }
+        bar.AddChild(encounter);
+
+        bar.AddChild(new Label { Text = "Deck:" });
+        var deck = new OptionButton();
+        foreach (var name in content.StarterDeckLists.Keys) deck.AddItem(name);
+        deck.Selected = 0;
+        bar.AddChild(deck);
+
+        bar.AddChild(new Label { Text = "Seed:" });
+        var seed = new SpinBox { MinValue = 0, MaxValue = int.MaxValue, Value = LaunchConfig.Seed };
+        bar.AddChild(seed);
+
+        var random = new Button { Text = "🎲" };
+        random.Pressed += () => seed.Value = Random.Shared.Next();
+        bar.AddChild(random);
+
+        var start = new Button { Text = "Start Combat ▶" };
+        start.Pressed += () =>
+        {
+            LaunchConfig.EncounterId = encounter.GetItemText(encounter.Selected);
+            LaunchConfig.DeckName = deck.GetItemText(deck.Selected);
+            LaunchConfig.Seed = (int)seed.Value;
+            GetTree().ChangeSceneToFile("res://CombatScreen.tscn");
+        };
+        bar.AddChild(start);
     }
 }
