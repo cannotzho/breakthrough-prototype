@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Pure C# class library: no Godot node/scene dependencies (v1.4 §15.1).
+         net8.0 matches the Godot 4 .NET (Mono/C#) build target. -->
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>12</LangVersion>
+    <RootNamespace>Breakthrough.Engine</RootNamespace>
+  </PropertyGroup>
+
+</Project>

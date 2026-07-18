@@ -1,0 +1,3617 @@
+{
+  "cards": {
+    "ponder": {
+      "id": "ponder",
+      "name": "Ponder",
+      "cost": 1,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "DRAW_CARDS",
+          "value": 1
+        }
+      ],
+      "color": "Colorless",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Draw 1 card.",
+      "longDescription": "Some leads need time to breathe before they turn into something useful."
+    },
+    "blue_modus_ponens": {
+      "id": "blue_modus_ponens",
+      "name": "Modus Ponens",
+      "cost": 3,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "DRAW_CARDS",
+          "value": 1
+        },
+        {
+          "type": "CREATE_TOKEN",
+          "tokenDefinitionId": "logical_chain",
+          "count": 1
+        }
+      ],
+      "color": "Blue",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Draw a card. Create a Logical Chain.",
+      "longDescription": "If the premise holds, the conclusion follows. A clean line of deduction that builds your case and keeps your hand full."
+    },
+    "blue_modus_tollens": {
+      "id": "blue_modus_tollens",
+      "name": "Modus Tollens",
+      "cost": 4,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": -2
+        },
+        {
+          "type": "CREATE_TOKEN",
+          "tokenDefinitionId": "logical_chain",
+          "count": 2
+        }
+      ],
+      "color": "Blue",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Pay 2 Patience. Create two Logical Chains.",
+      "longDescription": "Deny the conclusion and the premise crumbles. Two chains of reasoning emerge from a single contradiction."
+    },
+    "blue_anticipation": {
+      "id": "blue_anticipation",
+      "name": "Anticipation",
+      "cost": 3,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": -1
+        },
+        {
+          "type": "APPLY_RESTRICTION",
+          "restriction": {
+            "type": "PREVENT_DRAW",
+            "target": "self",
+            "expiry": {
+              "boundary": "PLAYER_TURN_END",
+              "occurrences": 1
+            }
+          }
+        },
+        {
+          "type": "APPLY_RESTRICTION",
+          "restriction": {
+            "type": "PREVENT_SHIELD_BREAK",
+            "target": "self",
+            "expiry": {
+              "boundary": "PLAYER_TURN_END",
+              "occurrences": 1
+            }
+          }
+        },
+        {
+          "type": "DESTROY_TOKENS",
+          "count": 2
+        },
+        {
+          "type": "APPLY_RESTRICTION",
+          "restriction": {
+            "type": "PREVENT_SHIELD_BREAK",
+            "target": "opponent",
+            "expiry": {
+              "boundary": "PLAYER_TURN_START",
+              "occurrences": 1
+            }
+          }
+        }
+      ],
+      "color": "Blue",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Pay 1 Patience. You can’t draw or break shields this turn. Destroy 2 tokens. Your shields can’t be broken until your next turn.",
+      "longDescription": "Sacrifice your current momentum for an ironclad position. The tokens you destroy fuel a wall that protects you through the opponent’s turn."
+    },
+    "blue_decisive_punchline": {
+      "id": "blue_decisive_punchline",
+      "name": "Decisive Punchline",
+      "cost": 6,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "DESTROY_TOKENS",
+          "count": 3
+        }
+      ],
+      "color": "Blue",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Destroy 3 tokens you control.",
+      "longDescription": "Everything you’ve built leads to this moment. Sacrifice your chains of reasoning for a devastating cascade of leave-triggers."
+    },
+    "blue_debunk": {
+      "id": "blue_debunk",
+      "name": "Debunk",
+      "cost": 5,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": -3
+        },
+        {
+          "type": "DESTROY_IMPRESSION",
+          "owner": "opponent"
+        },
+        {
+          "type": "CREATE_TOKEN",
+          "tokenDefinitionId": "logical_chain",
+          "count": 1
+        }
+      ],
+      "color": "Blue",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Pay 3 Patience. Destroy an opponent Impression. Create a Logical Chain.",
+      "longDescription": "Tear apart a false premise and replace it with cold reason. The destroyed impression fuels a new chain of logic."
+    },
+    "blue_powerful_clarity": {
+      "id": "blue_powerful_clarity",
+      "name": "Powerful Clarity",
+      "cost": 3,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "MODIFY_PRIORITY",
+          "value": 6
+        },
+        {
+          "type": "CREATE_TOKEN",
+          "tokenDefinitionId": "logical_chain",
+          "count": 1
+        }
+      ],
+      "color": "Blue",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "+6 Priority. Create a Logical Chain.",
+      "longDescription": "A flash of insight that seizes the conversation and crystallizes into a tangible line of reasoning."
+    },
+    "blue_package": {
+      "id": "blue_package",
+      "name": "Package",
+      "cost": 1,
+      "keywords": [
+        "Shield Trigger"
+      ],
+      "effects": [
+        {
+          "type": "TRANSFORM_TOKEN",
+          "fromTokenId": "logical_chain",
+          "toTokenId": "impactful_conclusion",
+          "count": 1
+        }
+      ],
+      "shieldTriggerEffects": [
+        {
+          "type": "TRANSFORM_TOKEN",
+          "fromTokenId": "logical_chain",
+          "toTokenId": "impactful_conclusion",
+          "count": 3,
+          "upTo": true
+        }
+      ],
+      "color": "Blue",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Transform a Logical Chain into an Impactful Conclusion. Shield Trigger: transform up to 3.",
+      "longDescription": "Bundle a chain of reasoning into a devastating conclusion. Under pressure, package even more at once."
+    },
+    "blue_hold_attention": {
+      "id": "blue_hold_attention",
+      "name": "Hold Attention",
+      "cost": 5,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": -1
+        },
+        {
+          "type": "TRANSFORM_TOKEN",
+          "fromTokenId": "logical_chain",
+          "toTokenId": "captivating_sense",
+          "count": 1
+        }
+      ],
+      "color": "Blue",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Pay 1 Patience. Transform a Logical Chain into a Captivating Sense.",
+      "longDescription": "Weave your logical thread into something that holds their attention, building momentum when it finally releases."
+    },
+    "blue_conversational_symmetry": {
+      "id": "blue_conversational_symmetry",
+      "name": "Conversational Symmetry",
+      "cost": 2,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": -1
+        },
+        {
+          "type": "MODIFY_PRIORITY",
+          "value": 4
+        },
+        {
+          "type": "TRANSFORM_TOKEN",
+          "fromTokenId": "logical_chain",
+          "toTokenId": "captivating_sense",
+          "count": 1
+        }
+      ],
+      "color": "Blue",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Pay 1 Patience. +4 Priority. Transform a Logical Chain into a Captivating Sense.",
+      "longDescription": "Mirror their energy back at them, transforming raw logic into an irresistible thread of conversation."
+    },
+    "blue_timely_follow_up": {
+      "id": "blue_timely_follow_up",
+      "name": "Timely Follow-up",
+      "cost": 6,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "APPLY_REPLACEMENT",
+          "originalTokenId": "logical_chain",
+          "replacementTokenId": "impactful_conclusion",
+          "expiry": {
+            "boundary": "PLAYER_TURN_END",
+            "occurrences": 1
+          }
+        }
+      ],
+      "color": "Blue",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "This turn, whenever you would create a Logical Chain, create an Impactful Conclusion instead.",
+      "longDescription": "Strike while the iron is hot. Every logical thread you spin this turn lands with the full weight of a conclusion."
+    },
+    "blue_crystallize": {
+      "id": "blue_crystallize",
+      "name": "Crystallize",
+      "cost": 5,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": -1
+        },
+        {
+          "type": "DESTROY_TOKENS",
+          "count": 2
+        },
+        {
+          "type": "CREATE_TOKEN",
+          "tokenDefinitionId": "logical_chain",
+          "count": 1
+        }
+      ],
+      "color": "Blue",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Pay 1 Patience. Destroy 2 tokens. Create a Logical Chain.",
+      "longDescription": "Collapse two threads of reasoning into a single, refined chain — their leave-triggers fire as you forge something new."
+    },
+    "blue_cold_hard_facts": {
+      "id": "blue_cold_hard_facts",
+      "name": "Cold Hard Facts",
+      "cost": 2,
+      "keywords": [
+        "Trap"
+      ],
+      "effects": [
+        {
+          "type": "TRANSFORM_TOKEN",
+          "fromTokenId": "logical_chain",
+          "toTokenId": "impactful_conclusion",
+          "count": 1
+        }
+      ],
+      "color": "Blue",
+      "supertype": "Skill",
+      "subtype": "Trap",
+      "trapTrigger": {
+        "event": "CARD_PLAYED",
+        "controllerFilter": "opponent",
+        "condition": {
+          "compare": {
+            "lhs": {
+              "kind": "CARDS_PLAYED_THIS_TURN",
+              "side": "opponent"
+            },
+            "op": "gte",
+            "rhs": {
+              "kind": "CONST",
+              "value": 3
+            }
+          }
+        }
+      },
+      "effectText": "Trap: When the enemy plays their 3rd card this turn, transform a Logical Chain into an Impactful Conclusion.",
+      "longDescription": "Patience rewards the prepared mind. When they overextend, your reasoning crystallizes into something devastating."
+    },
+    "blue_find_fallacy": {
+      "id": "blue_find_fallacy",
+      "name": "Find Fallacy",
+      "cost": 8,
+      "keywords": [
+        "Trap"
+      ],
+      "effects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": -2
+        },
+        {
+          "type": "MODIFY_PRIORITY",
+          "value": 8
+        }
+      ],
+      "color": "Blue",
+      "supertype": "Skill",
+      "subtype": "Trap",
+      "trapTrigger": {
+        "event": "CARD_PLAYED",
+        "controllerFilter": "opponent",
+        "condition": {
+          "compare": {
+            "lhs": {
+              "kind": "CARDS_PLAYED_THIS_TURN",
+              "side": "opponent"
+            },
+            "op": "gte",
+            "rhs": {
+              "kind": "CONST",
+              "value": 3
+            }
+          }
+        }
+      },
+      "effectText": "Trap: When the enemy plays their 3rd card this turn, pay 2 Patience and gain +8 Priority.",
+      "longDescription": "Spot the hole in their argument at the perfect moment. Their overconfidence becomes your opening."
+    },
+    "blue_eloquence": {
+      "id": "blue_eloquence",
+      "name": "Eloquence",
+      "cost": 7,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": -1
+        }
+      ],
+      "color": "Blue",
+      "supertype": "Skill",
+      "subtype": "Impression",
+      "triggeredAbilities": [
+        {
+          "id": "eloquence_token_draw",
+          "trigger": {
+            "event": "TOKEN_DESTROYED",
+            "controllerFilter": "self"
+          },
+          "effects": [
+            {
+              "type": "DRAW_CARDS",
+              "value": 1
+            }
+          ]
+        }
+      ],
+      "effectText": "Pay 1 Patience. Impression: When a token you control is destroyed, draw a card.",
+      "longDescription": "Your eloquent phrasing lingers in the air, ensuring every conclusion you reach opens a new avenue of inquiry."
+    },
+    "blue_sophistry": {
+      "id": "blue_sophistry",
+      "name": "Sophistry",
+      "cost": 6,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "TRANSFORM_TOKEN",
+          "fromTokenId": "logical_chain",
+          "toTokenId": "impactful_conclusion",
+          "all": true
+        }
+      ],
+      "color": "Blue",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Transform all Logical Chains into Impactful Conclusions.",
+      "longDescription": "Dress up every thread of reasoning as an unassailable conclusion. Intellectually dishonest, but devastatingly effective."
+    },
+    "blue_lingering_words": {
+      "id": "blue_lingering_words",
+      "name": "Lingering Words",
+      "cost": 7,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": -2
+        }
+      ],
+      "color": "Blue",
+      "supertype": "Skill",
+      "subtype": "Impression",
+      "triggeredAbilities": [
+        {
+          "id": "lingering_words_token_create",
+          "trigger": {
+            "event": "TOKEN_DESTROYED",
+            "controllerFilter": "self"
+          },
+          "effects": [
+            {
+              "type": "CREATE_TOKEN",
+              "tokenDefinitionId": "logical_chain",
+              "count": 1
+            }
+          ]
+        }
+      ],
+      "effectText": "Pay 2 Patience. Impression: When a token you control is destroyed, create a Logical Chain.",
+      "longDescription": "Your words echo in their mind. Every conclusion that lands spawns a new thread of reasoning to pursue."
+    },
+    "red_baleful_shout": {
+      "id": "red_baleful_shout",
+      "name": "Baleful Shout",
+      "cost": 1,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": -3
+        },
+        {
+          "type": "BREAK_SHIELDS",
+          "target": "opponent",
+          "count": 3
+        }
+      ],
+      "color": "Red",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Pay 3 Patience. Break 3 Guard Shields.",
+      "longDescription": "The room goes quiet. Three arguments collapse under the weight of a single, undeniable roar of authority."
+    },
+    "red_violent_intent": {
+      "id": "red_violent_intent",
+      "name": "Violent Intent",
+      "cost": 2,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": -3
+        },
+        {
+          "type": "BREAK_SHIELDS",
+          "target": "opponent",
+          "count": 1
+        },
+        {
+          "type": "DRAW_CARDS",
+          "value": 1
+        }
+      ],
+      "color": "Red",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Pay 3 Patience. Break 1 Guard Shield. Draw a card.",
+      "longDescription": "Make your intentions unmistakably clear. One defense crumbles, and the shock of it opens your next angle of attack."
+    },
+    "red_exude_authority": {
+      "id": "red_exude_authority",
+      "name": "Exude Authority",
+      "cost": 1,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": -1
+        },
+        {
+          "type": "DRAW_CARDS",
+          "value": 1
+        },
+        {
+          "type": "MODIFY_PRIORITY",
+          "value": 1
+        }
+      ],
+      "color": "Red",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Pay 1 Patience. Draw a card. +1 Priority.",
+      "longDescription": "A subtle shift in posture, a measured look. You need say almost nothing — the room does the work for you."
+    },
+    "red_rally": {
+      "id": "red_rally",
+      "name": "Rally",
+      "cost": 5,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": -2
+        },
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": 3
+        },
+        {
+          "type": "DRAW_CARDS",
+          "value": 2
+        }
+      ],
+      "color": "Red",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Pay 2 Patience, then restore 3 Patience. Draw 2 cards.",
+      "longDescription": "Pull back, regroup, breathe. The interrogation is a marathon, not a sprint — and you just found your second wind."
+    },
+    "red_reframed_perspective": {
+      "id": "red_reframed_perspective",
+      "name": "Reframed Perspective",
+      "cost": 3,
+      "keywords": [
+        "Trap"
+      ],
+      "effects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": -1
+        },
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": 3
+        }
+      ],
+      "color": "Red",
+      "supertype": "Skill",
+      "subtype": "Trap",
+      "trapTrigger": {
+        "event": "CARD_PLAYED",
+        "controllerFilter": "opponent",
+        "condition": {
+          "compare": {
+            "lhs": {
+              "kind": "CARDS_PLAYED_THIS_TURN",
+              "side": "opponent"
+            },
+            "op": "gte",
+            "rhs": {
+              "kind": "CONST",
+              "value": 2
+            }
+          }
+        }
+      },
+      "effectText": "Trap: When the enemy plays their 2nd card this turn, restore 3 Patience (net +2).",
+      "longDescription": "Let them overcommit. When they exhaust their second line of attack, you reframe the entire conversation from a position of calm."
+    },
+    "red_press_the_attack": {
+      "id": "red_press_the_attack",
+      "name": "Press the Attack",
+      "cost": 2,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": -4
+        },
+        {
+          "type": "MODIFY_PRIORITY",
+          "value": 4,
+          "condition": {
+            "compare": {
+              "lhs": {
+                "kind": "PATIENCE"
+              },
+              "op": "lt",
+              "rhs": {
+                "kind": "CONST",
+                "value": 5
+              }
+            }
+          }
+        }
+      ],
+      "color": "Red",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Pay 4 Patience. If Patience is below 5, +4 Priority.",
+      "longDescription": "The encounter is slipping away — time to throw everything at it. Desperation becomes momentum when you refuse to back down."
+    },
+    "red_charismatic_conviction": {
+      "id": "red_charismatic_conviction",
+      "name": "Charismatic Conviction",
+      "cost": 5,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": -1
+        },
+        {
+          "type": "BREAK_SHIELDS",
+          "target": "opponent",
+          "count": 1
+        },
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": 3
+        },
+        {
+          "type": "MODIFY_PRIORITY",
+          "value": 3,
+          "condition": {
+            "compare": {
+              "lhs": {
+                "kind": "PATIENCE"
+              },
+              "op": "lt",
+              "rhs": {
+                "kind": "CONST",
+                "value": 7
+              }
+            }
+          }
+        }
+      ],
+      "color": "Red",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Pay 1 Patience. Break 1 Guard Shield. Restore 3 Patience. If Patience is below 7, +3 Priority.",
+      "longDescription": "Tear one wall down, rebuild your composure, then press harder. Under pressure, your conviction is its own argument."
+    },
+    "red_gravitas": {
+      "id": "red_gravitas",
+      "name": "Gravitas",
+      "cost": 5,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": -2
+        }
+      ],
+      "color": "Red",
+      "supertype": "Skill",
+      "subtype": "Impression",
+      "triggeredAbilities": [
+        {
+          "id": "gravitas_shield_break_priority",
+          "trigger": {
+            "event": "SHIELD_BROKEN",
+            "controllerFilter": "self"
+          },
+          "effects": [
+            {
+              "type": "MODIFY_PRIORITY",
+              "value": 1
+            }
+          ]
+        }
+      ],
+      "effectText": "Pay 2 Patience. Impression: Whenever you break a shield, +1 Priority.",
+      "longDescription": "Your presence becomes the argument. Each defense you shatter earns you a moment longer in control of the room."
+    },
+    "red_overwhelming_onslaught": {
+      "id": "red_overwhelming_onslaught",
+      "name": "Overwhelming Onslaught",
+      "cost": 3,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": -1
+        },
+        {
+          "type": "BREAK_SHIELDS",
+          "target": "opponent",
+          "count": 1,
+          "scale": {
+            "kind": "CARDS_PLAYED_THIS_TURN",
+            "side": "self"
+          }
+        }
+      ],
+      "color": "Red",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Pay 1 Patience. Break 1 Guard Shield for each card you’ve played this turn (including this one).",
+      "longDescription": "Each word lands harder than the last. Your momentum becomes a battering ram."
+    },
+    "red_magnetic_rhetoric": {
+      "id": "red_magnetic_rhetoric",
+      "name": "Magnetic Rhetoric",
+      "cost": 2,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": -1
+        },
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": 1,
+          "scale": {
+            "kind": "CARDS_PLAYED_THIS_TURN",
+            "side": "self"
+          }
+        }
+      ],
+      "color": "Red",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Pay 1 Patience. Restore 1 Patience for each card played this turn (including this one).",
+      "longDescription": "The longer you’ve been talking, the more persuasive you become. Your argument builds on itself."
+    },
+    "red_passionate_persuasion": {
+      "id": "red_passionate_persuasion",
+      "name": "Passionate Persuasion",
+      "cost": 2,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": -2
+        },
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": 1,
+          "scale": {
+            "kind": "PRIORITY",
+            "side": "self"
+          }
+        }
+      ],
+      "color": "Red",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Pay 2 Patience. Restore 1 Patience for each Priority point remaining after playing this card.",
+      "longDescription": "Raw conviction poured into every word. The more momentum you carry, the harder you hit."
+    },
+    "red_vindication": {
+      "id": "red_vindication",
+      "name": "Vindication",
+      "cost": 3,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": -1
+        },
+        {
+          "type": "MODIFY_PRIORITY",
+          "value": 1,
+          "scale": {
+            "kind": "OPP_SHIELDS_BROKEN_BY_PLAYER_PREV_TURN"
+          }
+        }
+      ],
+      "color": "Red",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Pay 1 Patience. +1 Priority for each opponent shield you broke last turn.",
+      "longDescription": "Yesterday’s victories become today’s fuel. Every defense you dismantled hands you another opening."
+    },
+    "red_submit": {
+      "id": "red_submit",
+      "name": "Submit",
+      "cost": 2,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": -1
+        },
+        {
+          "type": "BREAK_SHIELDS",
+          "target": "opponent",
+          "count": 1,
+          "scale": {
+            "kind": "MISSING_PATIENCE"
+          }
+        }
+      ],
+      "color": "Red",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Pay 1 Patience. Break X Guard Shields, where X is how far Patience has fallen below its start.",
+      "longDescription": "The cracks are already showing. You press into every gap their exhaustion has left open."
+    },
+    "red_commanding_aura": {
+      "id": "red_commanding_aura",
+      "name": "Commanding Aura",
+      "cost": 3,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "APPLY_RESTRICTION",
+          "restriction": {
+            "type": "PREVENT_PATIENCE_GAIN",
+            "target": "both",
+            "expiry": {
+              "boundary": "PLAYER_TURN_START",
+              "occurrences": 3
+            }
+          }
+        }
+      ],
+      "color": "Red",
+      "supertype": "Skill",
+      "subtype": "Impression",
+      "triggeredAbilities": [
+        {
+          "id": "ca_bonus_break",
+          "trigger": {
+            "event": "SHIELD_BROKEN",
+            "controllerFilter": "self"
+          },
+          "maxTimesPerPlay": 1,
+          "effects": [
+            {
+              "type": "BREAK_SHIELDS",
+              "target": "opponent",
+              "count": 1
+            }
+          ]
+        }
+      ],
+      "effectText": "Impression: Prevent all Patience gains for 3 turns. Once per play: when you break a shield, break one more.",
+      "longDescription": "Your authority fills the room. Every attack lands harder and their attempts to recover fall flat."
+    },
+    "red_ultimatum": {
+      "id": "red_ultimatum",
+      "name": "Ultimatum",
+      "cost": 2,
+      "keywords": [
+        "Trap"
+      ],
+      "effects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": -1
+        }
+      ],
+      "color": "Red",
+      "supertype": "Skill",
+      "subtype": "Trap",
+      "trapTrigger": {
+        "event": "CARD_PLAYED",
+        "controllerFilter": "opponent"
+      },
+      "trapPersistent": true,
+      "effectText": "Trap — persistent. Each time your opponent plays a card, pay 1 Patience. Expires at your next turn start.",
+      "longDescription": "You’ve laid your terms and you’re not moving. Every word they speak digs them deeper."
+    },
+    "red_intimidating_presence": {
+      "id": "red_intimidating_presence",
+      "name": "Intimidating Presence",
+      "cost": 2,
+      "keywords": [],
+      "effects": [],
+      "color": "Red",
+      "supertype": "Skill",
+      "subtype": "Impression",
+      "triggeredAbilities": [
+        {
+          "id": "ip_npc_play",
+          "trigger": {
+            "event": "CARD_PLAYED",
+            "controllerFilter": "opponent"
+          },
+          "maxTimesPerTurn": 1,
+          "effects": [
+            {
+              "type": "MODIFY_PATIENCE",
+              "value": -1
+            }
+          ]
+        }
+      ],
+      "effectText": "Impression: Once per turn, when your opponent plays a card, pay 1 Patience.",
+      "longDescription": "You don’t need to move. The weight of your presence makes every action they take cost them something."
+    },
+    "green_listening_ear": {
+      "id": "green_listening_ear",
+      "name": "Listening Ear",
+      "cost": 0,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": 3
+        }
+      ],
+      "color": "Green",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Restore 3 Patience.",
+      "longDescription": "Sometimes the most powerful thing you can do is simply listen. Your attentive silence puts them at ease."
+    },
+    "green_rally": {
+      "id": "green_rally",
+      "name": "Rally",
+      "cost": 2,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": 3
+        },
+        {
+          "type": "DRAW_CARDS",
+          "value": 2
+        }
+      ],
+      "color": "Green",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Restore 3 Patience. Draw 2 cards.",
+      "longDescription": "A reassuring word, a moment of calm — your composure steadies everything around you."
+    },
+    "green_emotional_connection": {
+      "id": "green_emotional_connection",
+      "name": "Emotional Connection",
+      "cost": 0,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": 2
+        },
+        {
+          "type": "REVEAL_NPC_HAND"
+        }
+      ],
+      "color": "Green",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Restore 2 Patience. The opponent reveals their hand.",
+      "longDescription": "You reach them on a level that has nothing to do with facts. For a moment, their guard drops entirely."
+    },
+    "green_deep_understanding": {
+      "id": "green_deep_understanding",
+      "name": "Deep Understanding",
+      "cost": 0,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": 3
+        },
+        {
+          "type": "DECK_REVEAL",
+          "side": "opponent",
+          "count": 3
+        }
+      ],
+      "color": "Green",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Restore 3 Patience. Look at the top 3 cards of the opponent’s deck.",
+      "longDescription": "Your empathy runs so deep you can sense what they’re about to say before they say it."
+    },
+    "green_display_of_benevolence": {
+      "id": "green_display_of_benevolence",
+      "name": "Display of Benevolence",
+      "cost": 2,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": 10,
+          "altValue": 15,
+          "altCondition": {
+            "compare": {
+              "lhs": {
+                "kind": "PATIENCE"
+              },
+              "op": "lt",
+              "rhs": {
+                "kind": "CONST",
+                "value": 10
+              }
+            }
+          }
+        }
+      ],
+      "color": "Green",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Restore 10 Patience. If Patience is below 10, restore 15 instead.",
+      "longDescription": "An act of genuine kindness — no strings attached. When things are at their worst, your generosity overwhelms."
+    },
+    "green_empathy": {
+      "id": "green_empathy",
+      "name": "Empathy",
+      "cost": 3,
+      "keywords": [
+        "Rapport"
+      ],
+      "rapport": {
+        "min": 1,
+        "max": 10,
+        "checked": {
+          "kind": "STAGED_CARD_COST"
+        }
+      },
+      "effects": [
+        {
+          "type": "COPY_FROM_NPC_DECK",
+          "count": 1,
+          "costEquals": {
+            "kind": "CHOSEN_NUMBER"
+          },
+          "patienceCostOverride": {
+            "kind": "CHOSEN_NUMBER"
+          }
+        }
+      ],
+      "color": "Green",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "{Rapport} Choose a number 1–10. Copy an opponent-deck card with that Priority cost into your hand. It costs that much Patience to play.",
+      "longDescription": "You understand them so completely that you can mirror their thoughts. Their strategy becomes your own."
+    },
+    "green_keeping_an_open_mind": {
+      "id": "green_keeping_an_open_mind",
+      "name": "Keeping an Open Mind",
+      "cost": 2,
+      "keywords": [
+        "Rapport"
+      ],
+      "rapport": {
+        "min": 1,
+        "max": 10,
+        "checked": {
+          "kind": "DECK_CARDS_MATCHING_COST",
+          "side": "opponent",
+          "cost": {
+            "kind": "CHOSEN_NUMBER"
+          }
+        }
+      },
+      "effects": [
+        {
+          "type": "REVEAL_NPC_DECK_TOP"
+        },
+        {
+          "type": "DRAW_CARDS",
+          "value": 1,
+          "scale": {
+            "kind": "DECK_CARDS_MATCHING_COST",
+            "side": "opponent",
+            "cost": {
+              "kind": "CHOSEN_NUMBER"
+            }
+          },
+          "condition": {
+            "compare": {
+              "lhs": {
+                "kind": "DECK_CARDS_MATCHING_COST",
+                "side": "opponent",
+                "cost": {
+                  "kind": "CHOSEN_NUMBER"
+                }
+              },
+              "op": "gte",
+              "rhs": {
+                "kind": "CONST",
+                "value": 1
+              }
+            }
+          }
+        },
+        {
+          "type": "INCREMENT_COUNTERS",
+          "counterName": "rapport",
+          "targetDefinitionId": "green_to_truly_know",
+          "amount": 1,
+          "condition": {
+            "compare": {
+              "lhs": {
+                "kind": "DECK_CARDS_MATCHING_COST",
+                "side": "opponent",
+                "cost": {
+                  "kind": "CHOSEN_NUMBER"
+                }
+              },
+              "op": "gte",
+              "rhs": {
+                "kind": "CONST",
+                "value": 1
+              }
+            }
+          }
+        }
+      ],
+      "color": "Green",
+      "supertype": "Skill",
+      "subtype": "Impression",
+      "leaveTriggerEffects": [
+        {
+          "type": "HIDE_NPC_DECK_TOP"
+        }
+      ],
+      "effectText": "The opponent plays with the top card of their deck revealed. {Rapport} Choose 1–10. If the opponent’s deck holds cards with that cost, draw that many.",
+      "longDescription": "Stay open to what they’re showing you. The more you understand their rhythm, the more ammunition you find."
+    },
+    "green_engaging_insight": {
+      "id": "green_engaging_insight",
+      "name": "Engaging Insight",
+      "cost": 2,
+      "keywords": [
+        "Rapport"
+      ],
+      "rapport": {
+        "min": 1,
+        "max": 10,
+        "checked": {
+          "kind": "DECK_CARDS_MATCHING_COST",
+          "side": "opponent",
+          "cost": {
+            "kind": "CHOSEN_NUMBER"
+          }
+        }
+      },
+      "effects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": 3,
+          "scale": {
+            "kind": "DECK_CARDS_MATCHING_COST",
+            "side": "opponent",
+            "cost": {
+              "kind": "CHOSEN_NUMBER"
+            }
+          },
+          "condition": {
+            "compare": {
+              "lhs": {
+                "kind": "DECK_CARDS_MATCHING_COST",
+                "side": "opponent",
+                "cost": {
+                  "kind": "CHOSEN_NUMBER"
+                }
+              },
+              "op": "gte",
+              "rhs": {
+                "kind": "CONST",
+                "value": 1
+              }
+            }
+          }
+        },
+        {
+          "type": "INCREMENT_COUNTERS",
+          "counterName": "rapport",
+          "targetDefinitionId": "green_to_truly_know",
+          "amount": 1,
+          "condition": {
+            "compare": {
+              "lhs": {
+                "kind": "DECK_CARDS_MATCHING_COST",
+                "side": "opponent",
+                "cost": {
+                  "kind": "CHOSEN_NUMBER"
+                }
+              },
+              "op": "gte",
+              "rhs": {
+                "kind": "CONST",
+                "value": 1
+              }
+            }
+          }
+        },
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": -5,
+          "condition": {
+            "compare": {
+              "lhs": {
+                "kind": "DECK_CARDS_MATCHING_COST",
+                "side": "opponent",
+                "cost": {
+                  "kind": "CHOSEN_NUMBER"
+                }
+              },
+              "op": "lt",
+              "rhs": {
+                "kind": "CONST",
+                "value": 1
+              }
+            }
+          }
+        }
+      ],
+      "color": "Green",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "{Rapport} Choose 1–10. If the opponent’s deck holds cards with that cost, restore 3 Patience per match. Otherwise pay 5 Patience.",
+      "longDescription": "A calculated read on their psyche. Get it right, and everything flows. Get it wrong, and the rapport backfires."
+    },
+    "green_like_an_open_book": {
+      "id": "green_like_an_open_book",
+      "name": "Like an Open Book",
+      "cost": 3,
+      "keywords": [
+        "Rapport"
+      ],
+      "rapport": {
+        "min": 1,
+        "max": 10,
+        "checked": {
+          "kind": "DECK_CARDS_MATCHING_COST",
+          "side": "opponent",
+          "cost": {
+            "kind": "CHOSEN_NUMBER"
+          }
+        }
+      },
+      "effects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": 5,
+          "scale": {
+            "kind": "DECK_CARDS_MATCHING_COST",
+            "side": "opponent",
+            "cost": {
+              "kind": "CHOSEN_NUMBER"
+            }
+          },
+          "condition": {
+            "compare": {
+              "lhs": {
+                "kind": "DECK_CARDS_MATCHING_COST",
+                "side": "opponent",
+                "cost": {
+                  "kind": "CHOSEN_NUMBER"
+                }
+              },
+              "op": "gte",
+              "rhs": {
+                "kind": "CONST",
+                "value": 2
+              }
+            }
+          }
+        },
+        {
+          "type": "INCREMENT_COUNTERS",
+          "counterName": "rapport",
+          "targetDefinitionId": "green_to_truly_know",
+          "amount": 1,
+          "condition": {
+            "compare": {
+              "lhs": {
+                "kind": "DECK_CARDS_MATCHING_COST",
+                "side": "opponent",
+                "cost": {
+                  "kind": "CHOSEN_NUMBER"
+                }
+              },
+              "op": "gte",
+              "rhs": {
+                "kind": "CONST",
+                "value": 2
+              }
+            }
+          }
+        },
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": -10,
+          "condition": {
+            "compare": {
+              "lhs": {
+                "kind": "DECK_CARDS_MATCHING_COST",
+                "side": "opponent",
+                "cost": {
+                  "kind": "CHOSEN_NUMBER"
+                }
+              },
+              "op": "lt",
+              "rhs": {
+                "kind": "CONST",
+                "value": 2
+              }
+            }
+          }
+        }
+      ],
+      "color": "Green",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "{Rapport} Choose 1–10. If the opponent’s deck holds 2+ cards with that cost, restore 5 Patience per match. Otherwise pay 10 Patience.",
+      "longDescription": "You can read them like a book. But overconfidence is its own trap — miss, and they close off harder than before."
+    },
+    "green_sensitive_deflection": {
+      "id": "green_sensitive_deflection",
+      "name": "Sensitive Deflection",
+      "cost": 2,
+      "keywords": [
+        "Trap"
+      ],
+      "effects": [
+        {
+          "type": "PLACE_SHIELDS",
+          "target": "self",
+          "count": 3,
+          "condition": {
+            "compare": {
+              "lhs": {
+                "kind": "PLAYER_SHIELDS_BROKEN_BY_NPC_THIS_TURN"
+              },
+              "op": "gte",
+              "rhs": {
+                "kind": "CONST",
+                "value": 2
+              }
+            }
+          }
+        }
+      ],
+      "color": "Green",
+      "supertype": "Skill",
+      "subtype": "Trap",
+      "trapTrigger": {
+        "event": "SHIELD_BROKEN",
+        "controllerFilter": "opponent",
+        "condition": {
+          "compare": {
+            "lhs": {
+              "kind": "PLAYER_SHIELDS_BROKEN_BY_NPC_THIS_TURN"
+            },
+            "op": "gte",
+            "rhs": {
+              "kind": "CONST",
+              "value": 2
+            }
+          }
+        }
+      },
+      "effectText": "Trap: When the opponent breaks their 2nd shield of yours this turn, place 3 Placeholder Shields.",
+      "longDescription": "When they push too hard, you softly redirect. Three new walls rise as naturally as a change of subject."
+    },
+    "green_disarming_word": {
+      "id": "green_disarming_word",
+      "name": "Disarming Word",
+      "cost": 2,
+      "keywords": [
+        "Rapport",
+        "Trap"
+      ],
+      "rapport": {
+        "min": 1,
+        "max": 10,
+        "checked": {
+          "kind": "STAGED_CARD_COST"
+        }
+      },
+      "effects": [
+        {
+          "type": "CANCEL_STAGED_CARD"
+        },
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": 1,
+          "scale": {
+            "kind": "CHOSEN_NUMBER"
+          }
+        },
+        {
+          "type": "INCREMENT_COUNTERS",
+          "counterName": "rapport",
+          "targetDefinitionId": "green_to_truly_know",
+          "amount": 1
+        }
+      ],
+      "color": "Green",
+      "supertype": "Skill",
+      "subtype": "Trap",
+      "trapTrigger": {
+        "event": "CARD_STAGED",
+        "controllerFilter": "opponent",
+        "condition": {
+          "compare": {
+            "lhs": {
+              "kind": "STAGED_CARD_COST"
+            },
+            "op": "eq",
+            "rhs": {
+              "kind": "CHOSEN_NUMBER"
+            }
+          }
+        }
+      },
+      "effectText": "{Rapport} Trap: Choose 1–10. If the opponent stages a card with that cost, cancel it and restore that much Patience.",
+      "longDescription": "A single well-placed word, spoken at just the right moment, and their entire argument unravels before it begins."
+    },
+    "green_i_know_how_you_feel": {
+      "id": "green_i_know_how_you_feel",
+      "name": "I Know How You Feel",
+      "cost": 2,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "REVEAL_NPC_HAND"
+        }
+      ],
+      "color": "Green",
+      "supertype": "Skill",
+      "subtype": "Impression",
+      "impressionDuration": {
+        "turns": 2,
+        "returnToDeck": true
+      },
+      "leaveTriggerEffects": [
+        {
+          "type": "HIDE_NPC_HAND"
+        }
+      ],
+      "effectText": "The opponent plays with their hand revealed. Shuffles back into your deck after 2 of your turns.",
+      "longDescription": "You see right through them — every card on the table, every move they’re planning. But the clarity won’t last forever."
+    },
+    "green_shared_perspective": {
+      "id": "green_shared_perspective",
+      "name": "Shared Perspective",
+      "cost": 5,
+      "keywords": [
+        "Rapport"
+      ],
+      "rapport": {
+        "min": 1,
+        "max": 10,
+        "checked": {
+          "kind": "STAGED_CARD_COST"
+        }
+      },
+      "effects": [
+        {
+          "type": "COPY_FROM_NPC_DECK",
+          "count": 2,
+          "costEquals": {
+            "kind": "CHOSEN_NUMBER"
+          },
+          "withShieldBreak": true,
+          "patienceCostOverride": {
+            "kind": "CHOSEN_NUMBER"
+          }
+        }
+      ],
+      "color": "Green",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "{Rapport} Choose 1–10. Copy two opponent-deck cards with that cost and a shield-break effect. They cost that much Patience to play.",
+      "longDescription": "You don’t just understand them — you think like them. Their best weapons become yours, wielded with ruthless precision."
+    },
+    "green_genuine_enjoyment": {
+      "id": "green_genuine_enjoyment",
+      "name": "Genuine Enjoyment",
+      "cost": 3,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": -5
+        },
+        {
+          "type": "APPLY_RESTRICTION",
+          "restriction": {
+            "type": "PREVENT_SHIELD_BREAK",
+            "target": "opponent"
+          }
+        }
+      ],
+      "color": "Green",
+      "supertype": "Skill",
+      "subtype": "Impression",
+      "impressionDestroyBelowPatience": 15,
+      "effectText": "Pay 5 Patience. While this Impression is on the Field, the opponent cannot break shields. Destroyed if Patience falls below 15.",
+      "longDescription": "Your warmth is disarming. They can’t bring themselves to push too hard — but only as long as you keep smiling."
+    },
+    "green_to_truly_know": {
+      "id": "green_to_truly_know",
+      "name": "To Truly Know",
+      "cost": 2,
+      "keywords": [],
+      "effects": [],
+      "color": "Green",
+      "supertype": "Skill",
+      "subtype": "Impression",
+      "impressionDestroyBelowPatience": 10,
+      "turnStartEffects": [
+        {
+          "type": "BREAK_SHIELDS",
+          "target": "opponent",
+          "count": 10,
+          "condition": {
+            "compare": {
+              "lhs": {
+                "kind": "COUNTER",
+                "counterName": "rapport",
+                "permanentDefId": "self"
+              },
+              "op": "gte",
+              "rhs": {
+                "kind": "CONST",
+                "value": 10
+              }
+            }
+          }
+        },
+        {
+          "type": "BREAK_SHIELDS",
+          "target": "opponent",
+          "count": 5,
+          "condition": {
+            "all": [
+              {
+                "compare": {
+                  "lhs": {
+                    "kind": "COUNTER",
+                    "counterName": "rapport",
+                    "permanentDefId": "self"
+                  },
+                  "op": "gte",
+                  "rhs": {
+                    "kind": "CONST",
+                    "value": 5
+                  }
+                }
+              },
+              {
+                "compare": {
+                  "lhs": {
+                    "kind": "COUNTER",
+                    "counterName": "rapport",
+                    "permanentDefId": "self"
+                  },
+                  "op": "lt",
+                  "rhs": {
+                    "kind": "CONST",
+                    "value": 10
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "BREAK_SHIELDS",
+          "target": "opponent",
+          "count": 3,
+          "condition": {
+            "all": [
+              {
+                "compare": {
+                  "lhs": {
+                    "kind": "COUNTER",
+                    "counterName": "rapport",
+                    "permanentDefId": "self"
+                  },
+                  "op": "gte",
+                  "rhs": {
+                    "kind": "CONST",
+                    "value": 3
+                  }
+                }
+              },
+              {
+                "compare": {
+                  "lhs": {
+                    "kind": "COUNTER",
+                    "counterName": "rapport",
+                    "permanentDefId": "self"
+                  },
+                  "op": "lt",
+                  "rhs": {
+                    "kind": "CONST",
+                    "value": 5
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "effectText": "Rapport successes place counters here. At the start of your turn: 3+ counters break 3 Guard Shields, 5+ break 5, 10+ break 10. Destroyed if Patience falls below 10.",
+      "longDescription": "True understanding takes time. Each insight builds on the last until their every defense is laid bare."
+    },
+    "orange_appeal_to_authority": {
+      "id": "orange_appeal_to_authority",
+      "name": "Appeal to Authority",
+      "cost": 2,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "APPLY_RESTRICTION",
+          "restriction": {
+            "type": "PREVENT_SHIELD_BREAK",
+            "target": "self",
+            "expiry": {
+              "boundary": "PLAYER_TURN_END",
+              "occurrences": 2
+            }
+          }
+        },
+        {
+          "type": "APPLY_RESTRICTION",
+          "restriction": {
+            "type": "PREVENT_SHIELD_BREAK",
+            "target": "opponent",
+            "expiry": {
+              "boundary": "PLAYER_TURN_END",
+              "occurrences": 2
+            }
+          }
+        }
+      ],
+      "color": "Orange",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Until the end of your next turn, no shields can be broken.",
+      "longDescription": "You invoke a higher power — a regulation, a precedent, an unimpeachable name. For a moment, both sides are frozen in place."
+    },
+    "orange_by_the_law": {
+      "id": "orange_by_the_law",
+      "name": "By the Law",
+      "cost": 3,
+      "keywords": [
+        "Heavy Hand"
+      ],
+      "effects": [
+        {
+          "type": "MODIFY_PRIORITY",
+          "value": -2,
+          "target": "opponent"
+        }
+      ],
+      "heavyHandEffects": [
+        {
+          "type": "MODIFY_PRIORITY",
+          "value": -2,
+          "target": "opponent"
+        },
+        {
+          "type": "BREAK_SHIELDS",
+          "target": "self",
+          "count": 1
+        }
+      ],
+      "returnToDeck": true,
+      "color": "Orange",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Normal: −2 opponent Priority. Heavy Hand (double cost): also break one of your own shields. Shuffles back into your deck after use.",
+      "longDescription": "The law is a blunt instrument. Swing it lightly, and it nudges. Swing it hard, and something breaks — maybe even something of yours."
+    },
+    "orange_exacting_decree": {
+      "id": "orange_exacting_decree",
+      "name": "Exacting Decree",
+      "cost": 3,
+      "keywords": [
+        "Heavy Hand"
+      ],
+      "effects": [
+        {
+          "type": "APPLY_RESTRICTION",
+          "restriction": {
+            "type": "INCREASE_CARD_COST",
+            "target": "both",
+            "value": 1
+          }
+        }
+      ],
+      "heavyHandEffects": [
+        {
+          "type": "APPLY_RESTRICTION",
+          "restriction": {
+            "type": "INCREASE_CARD_COST",
+            "target": "both",
+            "value": 2
+          }
+        }
+      ],
+      "color": "Orange",
+      "supertype": "Skill",
+      "subtype": "Impression",
+      "effectText": "Normal: all cards cost +1 Priority (both sides). Heavy Hand (double cost): +2 instead. Lasts while this Impression is on the Field.",
+      "longDescription": "A decree from on high. Every word now carries a surcharge, every argument an added toll. The bureaucracy has arrived."
+    },
+    "orange_mind_tax": {
+      "id": "orange_mind_tax",
+      "name": "Mind Tax",
+      "cost": 2,
+      "keywords": [],
+      "effects": [],
+      "color": "Orange",
+      "supertype": "Skill",
+      "subtype": "Impression",
+      "impressionDuration": {
+        "turns": 2
+      },
+      "triggeredAbilities": [
+        {
+          "id": "mind_tax_per_draw",
+          "trigger": {
+            "event": "CARD_DRAWN",
+            "controllerFilter": "opponent",
+            "condition": {
+              "compare": {
+                "lhs": {
+                  "kind": "EVENT_IS_EXTRA_DRAW"
+                },
+                "op": "eq",
+                "rhs": {
+                  "kind": "CONST",
+                  "value": 1
+                }
+              }
+            }
+          },
+          "effects": [
+            {
+              "type": "MODIFY_PRIORITY",
+              "value": 1
+            }
+          ]
+        }
+      ],
+      "effectText": "Impression (2 turns): gain 1 Priority whenever the opponent draws an extra card. (Heavy Hand variant pending — see porting notes.)",
+      "longDescription": "You plant a seed of suspicion. Every new piece of information the witness reaches for now costs them credibility."
+    },
+    "orange_cognitive_burden": {
+      "id": "orange_cognitive_burden",
+      "name": "Cognitive Burden",
+      "cost": 2,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "APPLY_RESTRICTION",
+          "restriction": {
+            "type": "MAX_TURN_START_DRAW",
+            "target": "both",
+            "value": 3
+          }
+        }
+      ],
+      "color": "Orange",
+      "supertype": "Skill",
+      "subtype": "Impression",
+      "effectText": "Both sides may only draw up to 3 cards at the start of each turn. Lasts while this Impression is on the Field.",
+      "longDescription": "The weight of what has been said settles over both sides. Thoughts come slower now, each one heavier than the last."
+    },
+    "orange_strict_compliance": {
+      "id": "orange_strict_compliance",
+      "name": "Strict Compliance",
+      "cost": 5,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "APPLY_RESTRICTION",
+          "restriction": {
+            "type": "MAX_PLAYS_PER_TURN",
+            "target": "both",
+            "value": 2
+          }
+        }
+      ],
+      "color": "Orange",
+      "supertype": "Skill",
+      "subtype": "Impression",
+      "effectText": "Both sides may only play up to 2 cards per turn. Lasts while this Impression is on the Field.",
+      "longDescription": "The rules are clear. Two statements, no more. Anything beyond that is out of order."
+    },
+    "orange_fair_provision": {
+      "id": "orange_fair_provision",
+      "name": "Fair Provision",
+      "cost": 3,
+      "keywords": [
+        "Trap"
+      ],
+      "effects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": 2
+        }
+      ],
+      "color": "Orange",
+      "supertype": "Skill",
+      "subtype": "Trap",
+      "trapPersistent": true,
+      "trapTrigger": {
+        "event": "CARD_PLAYED",
+        "controllerFilter": "opponent"
+      },
+      "effectText": "Trap — persistent: restore 2 Patience each time the opponent plays a card. Expires at your next turn start.",
+      "longDescription": "You establish a principle of fairness. Every word they speak now strengthens your position."
+    },
+    "orange_equal_ground": {
+      "id": "orange_equal_ground",
+      "name": "Equal Ground",
+      "cost": 4,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "APPLY_RESTRICTION",
+          "restriction": {
+            "type": "PRIORITY_FLOOR",
+            "target": "self",
+            "value": -3
+          }
+        }
+      ],
+      "color": "Orange",
+      "supertype": "Skill",
+      "subtype": "Impression",
+      "effectText": "While this Impression is on the Field, your Priority cannot drop below −3.",
+      "longDescription": "You draw a line in the sand. No matter how hard they push, there is a floor beneath you."
+    },
+    "orange_gross_oversight": {
+      "id": "orange_gross_oversight",
+      "name": "Gross Oversight",
+      "cost": 2,
+      "keywords": [
+        "Trap"
+      ],
+      "effects": [
+        {
+          "type": "CANCEL_STAGED_CARD"
+        },
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": 1,
+          "scale": {
+            "kind": "STAGED_CARD_BREAK_COUNT"
+          }
+        }
+      ],
+      "color": "Orange",
+      "supertype": "Skill",
+      "subtype": "Trap",
+      "trapTrigger": {
+        "event": "CARD_STAGED",
+        "controllerFilter": "opponent",
+        "condition": {
+          "compare": {
+            "lhs": {
+              "kind": "STAGED_CARD_BREAK_COUNT"
+            },
+            "op": "gte",
+            "rhs": {
+              "kind": "CONST",
+              "value": 1
+            }
+          }
+        }
+      },
+      "effectText": "Trap: When the opponent stages a card that would break shields, cancel it and restore 1 Patience per prevented break.",
+      "longDescription": "You spot the flaw in their argument before it lands. The attack crumbles, and you feel vindicated."
+    },
+    "orange_artful_injunction": {
+      "id": "orange_artful_injunction",
+      "name": "Artful Injunction",
+      "cost": 3,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "APPLY_RESTRICTION",
+          "restriction": {
+            "type": "PREVENT_EXTRA_DRAWS",
+            "target": "opponent",
+            "expiry": {
+              "boundary": "PLAYER_TURN_END",
+              "occurrences": 2
+            }
+          }
+        }
+      ],
+      "color": "Orange",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Until the end of your next turn, the opponent cannot draw extra cards. (Priority-per-blocked-draw rider pending — see porting notes.)",
+      "longDescription": "You file an injunction. The witness may speak, but they may not reach for new material."
+    },
+    "orange_semantic_quagmire": {
+      "id": "orange_semantic_quagmire",
+      "name": "Semantic Quagmire",
+      "cost": 3,
+      "keywords": [
+        "Trap"
+      ],
+      "effects": [
+        {
+          "type": "MODIFY_PRIORITY",
+          "value": 5
+        },
+        {
+          "type": "SCHEDULE_EFFECTS",
+          "effects": [
+            {
+              "type": "MODIFY_PRIORITY",
+              "value": 3
+            }
+          ],
+          "at": {
+            "boundary": "PLAYER_TURN_START",
+            "occurrences": 1
+          }
+        }
+      ],
+      "color": "Orange",
+      "supertype": "Skill",
+      "subtype": "Trap",
+      "trapTrigger": {
+        "event": "NPC_TURN_END",
+        "condition": {
+          "all": [
+            {
+              "compare": {
+                "lhs": {
+                  "kind": "EXTRA_DRAWS_THIS_TURN",
+                  "side": "opponent"
+                },
+                "op": "gte",
+                "rhs": {
+                  "kind": "CONST",
+                  "value": 1
+                }
+              }
+            },
+            {
+              "compare": {
+                "lhs": {
+                  "kind": "PLAYER_SHIELDS_BROKEN_BY_NPC_THIS_TURN"
+                },
+                "op": "gte",
+                "rhs": {
+                  "kind": "CONST",
+                  "value": 1
+                }
+              }
+            },
+            {
+              "compare": {
+                "lhs": {
+                  "kind": "PRIORITY_GAINED_THIS_TURN",
+                  "side": "opponent"
+                },
+                "op": "gte",
+                "rhs": {
+                  "kind": "CONST",
+                  "value": 1
+                }
+              }
+            }
+          ]
+        }
+      },
+      "effectText": "Trap: At the end of an opponent turn in which they drew extra, broke a shield, and gained Priority — +5 Priority now, +3 more at your next turn start.",
+      "longDescription": "The more they do, the deeper they sink. Every action feeds the quagmire."
+    },
+    "orange_generous_concession": {
+      "id": "orange_generous_concession",
+      "name": "Generous Concession",
+      "cost": 2,
+      "keywords": [
+        "Trap"
+      ],
+      "effects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": 1,
+          "scale": {
+            "kind": "EVENT_DELTA_ABS"
+          }
+        }
+      ],
+      "color": "Orange",
+      "supertype": "Skill",
+      "subtype": "Trap",
+      "trapPersistent": true,
+      "trapTrigger": {
+        "event": "PRIORITY_CHANGED",
+        "controllerFilter": "opponent",
+        "condition": {
+          "compare": {
+            "lhs": {
+              "kind": "EVENT_DELTA"
+            },
+            "op": "lt",
+            "rhs": {
+              "kind": "CONST",
+              "value": 0
+            }
+          }
+        }
+      },
+      "effectText": "Trap — persistent: restore 1 Patience for every Priority the opponent spends. Expires at your next turn start.",
+      "longDescription": "You concede the floor graciously. Their every assertion only makes you more patient."
+    },
+    "orange_double_edged_approach": {
+      "id": "orange_double_edged_approach",
+      "name": "Double-edged Approach",
+      "cost": 1,
+      "keywords": [
+        "Trap"
+      ],
+      "effects": [
+        {
+          "type": "BREAK_SHIELDS",
+          "target": "self",
+          "count": 1
+        }
+      ],
+      "color": "Orange",
+      "supertype": "Skill",
+      "subtype": "Trap",
+      "trapPersistent": true,
+      "trapTrigger": {
+        "event": "SHIELD_BROKEN",
+        "controllerFilter": "opponent",
+        "condition": {
+          "compare": {
+            "lhs": {
+              "kind": "EVENT_IS_OWN_SHIELD"
+            },
+            "op": "eq",
+            "rhs": {
+              "kind": "CONST",
+              "value": 1
+            }
+          }
+        }
+      },
+      "effectText": "Trap — persistent: when the opponent breaks one of your shields, break an additional one of your own.",
+      "longDescription": "You lean into the blow. The pain doubles, but so does the resolve."
+    },
+    "fcp_youre_a_hindrance": {
+      "id": "fcp_youre_a_hindrance",
+      "name": "You're a Hindrance",
+      "cost": 4,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": -5
+        }
+      ],
+      "color": "Colorless",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Drain 5 Patience.",
+      "longDescription": "The fan sees you as nothing but an obstacle between them and their idol."
+    },
+    "fcp_panicked_memories": {
+      "id": "fcp_panicked_memories",
+      "name": "Panicked Memories",
+      "cost": 0,
+      "keywords": [
+        "Shield Trigger"
+      ],
+      "effects": [],
+      "shieldTriggerEffects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": -3
+        }
+      ],
+      "color": "Colorless",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Shield Trigger: drain 3 Patience.",
+      "longDescription": "Disturbing recollections surface when defenses are broken."
+    },
+    "fcp_moment_of_clarity": {
+      "id": "fcp_moment_of_clarity",
+      "name": "Moment of Clarity",
+      "cost": 0,
+      "keywords": [
+        "Shield Trigger"
+      ],
+      "effects": [],
+      "shieldTriggerEffects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": 5
+        }
+      ],
+      "color": "Colorless",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Shield Trigger: restore 5 Patience.",
+      "longDescription": "A fleeting instant of lucidity breaks through the obsession."
+    },
+    "fcp_idols_favor": {
+      "id": "fcp_idols_favor",
+      "name": "Idol's Favor",
+      "cost": 0,
+      "keywords": [],
+      "effects": [],
+      "color": "Colorless",
+      "supertype": "Skill",
+      "subtype": "Impression",
+      "thresholds": [
+        {
+          "counterName": "devotion",
+          "value": 10,
+          "consume": true,
+          "effects": [
+            {
+              "type": "BREAK_SHIELDS",
+              "target": "opponent",
+              "count": 3
+            },
+            {
+              "type": "BREAK_SHIELDS",
+              "target": "self",
+              "count": 3
+            },
+            {
+              "type": "MODIFY_PATIENCE",
+              "value": -3
+            }
+          ]
+        }
+      ],
+      "transformCondition": {
+        "condition": {
+          "compare": {
+            "lhs": {
+              "kind": "NPC_GUARDS_STANDING"
+            },
+            "op": "eq",
+            "rhs": {
+              "kind": "CONST",
+              "value": 0
+            }
+          }
+        },
+        "intoDefinitionId": "fcp_my_idol"
+      },
+      "effectText": "Devotion accumulates here. At 10: consume 10 — break 3 shields on both sides, drain 3 Patience. When all Guard Shields are down: transforms into My Idol.",
+      "longDescription": "The idol's influence radiates outward, growing stronger with every act of devotion."
+    },
+    "fcp_my_idol": {
+      "id": "fcp_my_idol",
+      "name": "My Idol",
+      "cost": 0,
+      "keywords": [],
+      "effects": [],
+      "color": "Colorless",
+      "supertype": "Skill",
+      "subtype": "Impression",
+      "turnStartEffects": [
+        {
+          "type": "MODIFY_PRIORITY",
+          "value": 5
+        },
+        {
+          "type": "BREAK_SHIELDS",
+          "target": "opponent",
+          "count": 3
+        },
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": -3
+        }
+      ],
+      "effectText": "At the start of the fan’s turn: +5 Priority, break 3 of your shields, drain 3 Patience.",
+      "longDescription": "The idol takes form — every turn begins with devastation."
+    },
+    "fcp_im_his": {
+      "id": "fcp_im_his",
+      "name": "I'm His",
+      "cost": 2,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "INCREMENT_COUNTERS",
+          "counterName": "devotion",
+          "targetDefinitionId": "fcp_idols_favor",
+          "amount": 2
+        },
+        {
+          "type": "PLACE_SHIELDS",
+          "target": "self",
+          "count": 2
+        }
+      ],
+      "color": "Colorless",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "+2 devotion. Place 2 Guard Shields.",
+      "longDescription": "A declaration of possession — the fan stakes their claim and fortifies their resolve."
+    },
+    "fcp_blind_loyalty": {
+      "id": "fcp_blind_loyalty",
+      "name": "Blind Loyalty",
+      "cost": 3,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "PLACE_SHIELDS",
+          "target": "self",
+          "count": 4
+        }
+      ],
+      "color": "Colorless",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Place 4 Guard Shields.",
+      "longDescription": "Unwavering devotion becomes an impenetrable wall of denial."
+    },
+    "fcp_he_loves_me": {
+      "id": "fcp_he_loves_me",
+      "name": "He Loves Me",
+      "cost": 3,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "INCREMENT_COUNTERS",
+          "counterName": "devotion",
+          "targetDefinitionId": "fcp_idols_favor",
+          "amount": 2
+        },
+        {
+          "type": "BREAK_SHIELDS",
+          "target": "opponent",
+          "count": 1
+        }
+      ],
+      "color": "Colorless",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "+2 devotion. Break 1 of your shields.",
+      "longDescription": "Love is a weapon. The idol's affection leaves scars."
+    },
+    "fcp_he_really_loves_me": {
+      "id": "fcp_he_really_loves_me",
+      "name": "He Really Loves Me",
+      "cost": 3,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "INCREMENT_COUNTERS",
+          "counterName": "devotion",
+          "targetDefinitionId": "fcp_idols_favor",
+          "amount": 2
+        },
+        {
+          "type": "BREAK_SHIELDS",
+          "target": "opponent",
+          "count": 2
+        }
+      ],
+      "color": "Colorless",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "+2 devotion. Break 2 of your shields.",
+      "longDescription": "Doubled devotion, doubled destruction. The idol is always watching."
+    },
+    "fcp_im_never_alone": {
+      "id": "fcp_im_never_alone",
+      "name": "I'm Never Alone",
+      "cost": 2,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "INCREMENT_COUNTERS",
+          "counterName": "devotion",
+          "targetDefinitionId": "fcp_idols_favor",
+          "amount": 2
+        },
+        {
+          "type": "DRAW_CARDS",
+          "value": 1
+        }
+      ],
+      "color": "Colorless",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "+2 devotion. Draw 1 card.",
+      "longDescription": "The presence is always there — in the mirrors, in the silence, in the next card drawn."
+    },
+    "fcp_fantasy": {
+      "id": "fcp_fantasy",
+      "name": "FANtasy",
+      "cost": 3,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "DRAW_CARDS",
+          "value": 3
+        }
+      ],
+      "color": "Colorless",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Draw 3 cards.",
+      "longDescription": "Lost in a world where every fantasy feels real and every reality feels staged."
+    },
+    "fcp_complete_devotion": {
+      "id": "fcp_complete_devotion",
+      "name": "Complete Devotion",
+      "cost": 2,
+      "keywords": [],
+      "effects": [],
+      "color": "Colorless",
+      "supertype": "Skill",
+      "subtype": "Impression",
+      "counterAmplifiers": [
+        {
+          "counterName": "devotion",
+          "extra": 1
+        }
+      ],
+      "effectText": "All devotion gains are amplified: +1 extra per gain.",
+      "longDescription": "Total surrender to the cause. Every act of worship echoes louder."
+    },
+    "fcp_his_loyal_fan": {
+      "id": "fcp_his_loyal_fan",
+      "name": "His Loyal Fan",
+      "cost": 2,
+      "keywords": [
+        "Trap"
+      ],
+      "effects": [
+        {
+          "type": "INCREMENT_COUNTERS",
+          "counterName": "devotion",
+          "targetDefinitionId": "fcp_idols_favor",
+          "amount": 1,
+          "scale": {
+            "kind": "OPP_SHIELDS_BROKEN_BY_PLAYER_THIS_TURN"
+          }
+        }
+      ],
+      "color": "Colorless",
+      "supertype": "Skill",
+      "subtype": "Trap",
+      "trapTrigger": {
+        "event": "PLAYER_TURN_END",
+        "condition": {
+          "compare": {
+            "lhs": {
+              "kind": "OPP_SHIELDS_BROKEN_BY_PLAYER_THIS_TURN"
+            },
+            "op": "gte",
+            "rhs": {
+              "kind": "CONST",
+              "value": 1
+            }
+          }
+        }
+      },
+      "effectText": "Trap: At the end of your turn, +1 devotion per shield you broke that turn.",
+      "longDescription": "Every attack on the idol only deepens the fan's obsession."
+    },
+    "fcp_deranged_witness": {
+      "id": "fcp_deranged_witness",
+      "name": "Deranged Witness",
+      "cost": 4,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "INCREMENT_COUNTERS",
+          "counterName": "devotion",
+          "targetDefinitionId": "fcp_idols_favor",
+          "amount": 4
+        },
+        {
+          "type": "BREAK_SHIELDS",
+          "target": "self",
+          "count": 2
+        },
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": -3
+        }
+      ],
+      "color": "Colorless",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "+4 devotion. Sacrifice 2 own Guard Shields. Drain 3 Patience.",
+      "longDescription": "Sanity crumbles under the weight of devotion. Self-destruction becomes an offering."
+    },
+    "fcp_my_only_meaning": {
+      "id": "fcp_my_only_meaning",
+      "name": "My Only Meaning",
+      "cost": 5,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "INCREMENT_COUNTERS",
+          "counterName": "devotion",
+          "targetDefinitionId": "fcp_idols_favor",
+          "amount": 10
+        },
+        {
+          "type": "RESHUFFLE_DECK"
+        }
+      ],
+      "color": "Colorless",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "+10 devotion. Reshuffle the discard pile back into the deck.",
+      "longDescription": "There is nothing else. No other purpose. Just the idol."
+    },
+    "fcp_and_hes_mine": {
+      "id": "fcp_and_hes_mine",
+      "name": "And He's Mine",
+      "cost": 3,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "INCREMENT_COUNTERS",
+          "counterName": "devotion",
+          "targetDefinitionId": "fcp_idols_favor",
+          "amount": 1,
+          "scale": {
+            "kind": "GUARDS_PLACED_BY_NPC_THIS_TURN"
+          }
+        },
+        {
+          "type": "BREAK_SHIELDS",
+          "target": "opponent",
+          "count": 1,
+          "scale": {
+            "kind": "GUARDS_PLACED_BY_NPC_THIS_TURN"
+          }
+        }
+      ],
+      "color": "Colorless",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "+1 devotion per Guard Shield placed this turn. Break 1 of your shields per Guard placed.",
+      "longDescription": "Possession made manifest. Every wall built becomes a weapon wielded."
+    },
+    "fcp_impenetrable_insanity": {
+      "id": "fcp_impenetrable_insanity",
+      "name": "Impenetrable Insanity",
+      "cost": 4,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "APPLY_RESTRICTION",
+          "restriction": {
+            "type": "PREVENT_SHIELD_BREAK",
+            "target": "opponent",
+            "expiry": {
+              "boundary": "PLAYER_TURN_END",
+              "occurrences": 1
+            }
+          }
+        },
+        {
+          "type": "MODIFY_PRIORITY",
+          "value": 1,
+          "scale": {
+            "kind": "COUNTER",
+            "counterName": "devotion",
+            "permanentDefId": "fcp_idols_favor"
+          }
+        }
+      ],
+      "color": "Colorless",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "You cannot break shields during your next turn. The fan gains +1 Priority per devotion.",
+      "longDescription": "Madness becomes armor. The deeper the obsession, the more unassailable the defenses."
+    },
+    "fcp_lunatic_love": {
+      "id": "fcp_lunatic_love",
+      "name": "Lunatic Love",
+      "cost": 3,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "APPLY_RESTRICTION",
+          "restriction": {
+            "type": "INCREASE_CARD_COST",
+            "target": "self",
+            "value": 1
+          }
+        },
+        {
+          "type": "APPLY_RESTRICTION",
+          "restriction": {
+            "type": "PATIENCE_COST_PER_CARD",
+            "target": "self",
+            "value": 1
+          }
+        }
+      ],
+      "color": "Colorless",
+      "supertype": "Skill",
+      "subtype": "Impression",
+      "effectText": "The fan’s cards cost +1 Priority and drain 1 Patience each. Lasts while this Impression is on the Field. (Devotion-pays-Priority rider pending — see porting notes.)",
+      "longDescription": "Love twists into something dangerous — every word they speak costs more, but devotion fuels the fire."
+    },
+    "fcp_distracting_madness": {
+      "id": "fcp_distracting_madness",
+      "name": "Distracting Madness",
+      "cost": 2,
+      "keywords": [
+        "Trap"
+      ],
+      "effects": [
+        {
+          "type": "APPLY_RESTRICTION",
+          "restriction": {
+            "type": "PREVENT_EXTRA_DRAWS",
+            "target": "opponent",
+            "expiry": {
+              "boundary": "PLAYER_TURN_END",
+              "occurrences": 1
+            }
+          }
+        },
+        {
+          "type": "INCREMENT_COUNTERS",
+          "counterName": "devotion",
+          "targetDefinitionId": "fcp_idols_favor",
+          "amount": 2
+        }
+      ],
+      "color": "Colorless",
+      "supertype": "Skill",
+      "subtype": "Trap",
+      "trapTrigger": {
+        "event": "PLAYER_TURN_START"
+      },
+      "effectText": "Trap: At the start of your turn, you cannot draw extra cards that turn. +2 devotion.",
+      "longDescription": "Their madness is a distraction — while you struggle to think, their obsession only grows."
+    },
+    "fcp_unhinged_focus": {
+      "id": "fcp_unhinged_focus",
+      "name": "Unhinged Focus",
+      "cost": 3,
+      "keywords": [
+        "Trap"
+      ],
+      "effects": [
+        {
+          "type": "APPLY_RESTRICTION",
+          "restriction": {
+            "type": "PREVENT_PATIENCE_GAIN",
+            "target": "opponent",
+            "expiry": {
+              "boundary": "PLAYER_TURN_END",
+              "occurrences": 1
+            }
+          }
+        }
+      ],
+      "color": "Colorless",
+      "supertype": "Skill",
+      "subtype": "Trap",
+      "trapTrigger": {
+        "event": "PLAYER_TURN_START"
+      },
+      "effectText": "Trap: At the start of your turn, you cannot restore Patience that turn.",
+      "longDescription": "Their focus is absolute, unnervingly so — nothing you say can calm them now."
+    },
+    "fcp_youll_never_tear_us_apart": {
+      "id": "fcp_youll_never_tear_us_apart",
+      "name": "You'll Never Tear Us Apart",
+      "cost": 3,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "INCREMENT_COUNTERS",
+          "counterName": "devotion",
+          "targetDefinitionId": "fcp_idols_favor",
+          "amount": 2
+        }
+      ],
+      "color": "Colorless",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "+2 devotion.",
+      "longDescription": "An unshakeable bond — nothing can separate the fan from their idol."
+    },
+    "fcp_fans_solace": {
+      "id": "fcp_fans_solace",
+      "name": "Fan's Solace",
+      "cost": 0,
+      "keywords": [
+        "Shield Trigger"
+      ],
+      "effects": [],
+      "shieldTriggerEffects": [
+        {
+          "type": "INCREMENT_COUNTERS",
+          "counterName": "devotion",
+          "targetDefinitionId": "fcp_idols_favor",
+          "amount": 5
+        }
+      ],
+      "color": "Colorless",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Shield Trigger: +5 devotion.",
+      "longDescription": "Even in defeat, the fan draws comfort from their devotion."
+    },
+    "fcp_crippling_fear": {
+      "id": "fcp_crippling_fear",
+      "name": "Crippling Fear",
+      "cost": 0,
+      "keywords": [
+        "Shield Trigger"
+      ],
+      "effects": [],
+      "shieldTriggerEffects": [
+        {
+          "type": "MODIFY_PRIORITY",
+          "value": -3,
+          "target": "opponent"
+        }
+      ],
+      "color": "Colorless",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Shield Trigger: the breaker loses 3 Priority.",
+      "longDescription": "Fear grips them when you get too close to the truth about what they saw."
+    },
+    "fcp_it_wasnt_me": {
+      "id": "fcp_it_wasnt_me",
+      "name": "It Wasn't Me",
+      "cost": 0,
+      "keywords": [
+        "Shield Trigger"
+      ],
+      "effects": [],
+      "shieldTriggerEffects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": 3
+        }
+      ],
+      "color": "Colorless",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Shield Trigger: restore 3 Patience.",
+      "longDescription": "Denial is a shield of its own — they cling to the lie that they were never involved."
+    },
+    "dev_push": {
+      "id": "dev_push",
+      "name": "Push",
+      "cost": 2,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "BREAK_SHIELDS",
+          "target": "opponent",
+          "count": 1
+        }
+      ],
+      "color": "Red",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Break 1 Guard Shield.",
+      "longDescription": "A forceful line of questioning that shatters one of the NPC's defences."
+    },
+    "dev_nudge": {
+      "id": "dev_nudge",
+      "name": "Nudge",
+      "cost": 1,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "MODIFY_PATIENCE",
+          "value": -1
+        }
+      ],
+      "color": "Red",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Pay 1 Patience.",
+      "longDescription": "A subtle provocation that spends a little of the conversation's goodwill."
+    },
+    "dev_hold": {
+      "id": "dev_hold",
+      "name": "Hold Ground",
+      "cost": 1,
+      "keywords": [
+        "Safety"
+      ],
+      "effects": [],
+      "color": "White",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "No effect when played. Safety: breaks as a shield for 0 Patience.",
+      "longDescription": "Brace yourself defensively. As a shield, the Safety keyword makes its break cost nothing."
+    },
+    "dev_quick_retort": {
+      "id": "dev_quick_retort",
+      "name": "Quick Retort",
+      "cost": 0,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "MODIFY_PRIORITY",
+          "value": 2
+        }
+      ],
+      "color": "Red",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "+2 Priority.",
+      "longDescription": "A sharp comeback that seizes back momentum in the conversation."
+    },
+    "dev_enemy_dismiss": {
+      "id": "dev_enemy_dismiss",
+      "name": "Dismiss",
+      "cost": 2,
+      "keywords": [],
+      "effects": [
+        {
+          "type": "BREAK_SHIELDS",
+          "target": "opponent",
+          "count": 1
+        }
+      ],
+      "color": "Colorless",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "Break 1 opponent shield.",
+      "longDescription": "The NPC dismisses your defences, breaking through one of your shields."
+    },
+    "dev_enemy_deflect": {
+      "id": "dev_enemy_deflect",
+      "name": "Deflect",
+      "cost": 1,
+      "keywords": [],
+      "effects": [],
+      "color": "Colorless",
+      "supertype": "Skill",
+      "subtype": null,
+      "effectText": "No additional effect.",
+      "longDescription": "The NPC deflects your approach, stalling for time."
+    },
+    "info_warehouse_logs": {
+      "id": "info_warehouse_logs",
+      "name": "Warehouse Logs",
+      "cost": 0,
+      "keywords": [],
+      "effects": [],
+      "color": "Colorless",
+      "supertype": "Information",
+      "subtype": null,
+      "nuggetId": "warehouse_activity",
+      "effectText": "???",
+      "longDescription": "Shipping manifests from the riverside warehouse. Someone was there after hours."
+    },
+    "info_personal_history": {
+      "id": "info_personal_history",
+      "name": "Personal History",
+      "cost": 0,
+      "keywords": [],
+      "effects": [],
+      "color": "Colorless",
+      "supertype": "Information",
+      "subtype": null,
+      "nuggetId": "personal_troubles",
+      "effectText": "???",
+      "longDescription": "Court records and old letters. The informant’s troubles are closer to home than they admit."
+    },
+    "info_incident_report": {
+      "id": "info_incident_report",
+      "name": "Incident Report",
+      "cost": 0,
+      "keywords": [],
+      "effects": [],
+      "color": "Colorless",
+      "supertype": "Information",
+      "subtype": null,
+      "nuggetId": "witnessed_incident",
+      "effectText": "???",
+      "longDescription": "The official report of the incident — with a witness line left conspicuously blank."
+    },
+    "info_fan_letters": {
+      "id": "info_fan_letters",
+      "name": "Bundle of Fan Letters",
+      "cost": 0,
+      "keywords": [],
+      "effects": [],
+      "color": "Colorless",
+      "supertype": "Information",
+      "subtype": null,
+      "nuggetId": "fcp_fan_letters",
+      "effectText": "???",
+      "longDescription": "Hundreds of letters, all unsent. The handwriting deteriorates with each one."
+    },
+    "info_idol_schedule": {
+      "id": "info_idol_schedule",
+      "name": "Idol's Tour Schedule",
+      "cost": 0,
+      "keywords": [],
+      "effects": [],
+      "color": "Colorless",
+      "supertype": "Information",
+      "subtype": null,
+      "nuggetId": "fcp_idol_schedule",
+      "effectText": "???",
+      "longDescription": "A tour schedule annotated in two different pens — one of them not the fan’s."
+    },
+    "info_passcode": {
+      "id": "info_passcode",
+      "name": "Backstage Passcode",
+      "cost": 0,
+      "keywords": [],
+      "effects": [],
+      "color": "Colorless",
+      "supertype": "Information",
+      "subtype": null,
+      "nuggetId": "fcp_passcode_knowledge",
+      "effectText": "???",
+      "longDescription": "A four-digit code scrawled on a ticket stub. Only staff should know it."
+    },
+    "info_physical_traces": {
+      "id": "info_physical_traces",
+      "name": "Physical Traces",
+      "cost": 0,
+      "keywords": [],
+      "effects": [],
+      "color": "Colorless",
+      "supertype": "Information",
+      "subtype": null,
+      "nuggetId": "fcp_physical_traces",
+      "effectText": "???",
+      "longDescription": "Fibres from a fan-club jacket, found where no fan should ever have stood."
+    },
+    "info_witness_statements": {
+      "id": "info_witness_statements",
+      "name": "Witness Statements",
+      "cost": 0,
+      "keywords": [],
+      "effects": [],
+      "color": "Colorless",
+      "supertype": "Information",
+      "subtype": null,
+      "nuggetId": "fcp_witness_statements",
+      "effectText": "???",
+      "longDescription": "Three accounts of the same night. All three mention the president of the fan club."
+    },
+    "dev_token_informant": {
+      "id": "dev_token_informant",
+      "name": "Informant Contact",
+      "cost": 0,
+      "keywords": [],
+      "effects": [],
+      "color": "Green",
+      "supertype": "Skill",
+      "subtype": "Token",
+      "effectText": "A contact on the field. {1}: Draw 1 card.",
+      "activatedAbilities": [
+        {
+          "id": "informant_tip",
+          "name": "Tip",
+          "cost": {
+            "priority": 1
+          },
+          "effects": [
+            {
+              "type": "DRAW_CARDS",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    "logical_chain": {
+      "id": "logical_chain",
+      "name": "Logical Chain",
+      "cost": 0,
+      "keywords": [],
+      "effects": [],
+      "color": "Blue",
+      "supertype": "Skill",
+      "subtype": "Token",
+      "effectText": "When this leaves the field, draw a card. {1}: Destroy this token.",
+      "leaveTriggerEffects": [
+        {
+          "type": "DRAW_CARDS",
+          "value": 1
+        }
+      ],
+      "activatedAbilities": [
+        {
+          "id": "logical_chain_sacrifice",
+          "name": "Sacrifice",
+          "cost": {
+            "priority": 1
+          },
+          "effects": [
+            {
+              "type": "DESTROY_SELF"
+            }
+          ]
+        }
+      ]
+    },
+    "captivating_sense": {
+      "id": "captivating_sense",
+      "name": "Captivating Sense",
+      "cost": 0,
+      "keywords": [],
+      "effects": [],
+      "color": "Blue",
+      "supertype": "Skill",
+      "subtype": "Token",
+      "effectText": "When this leaves the field, gain 3 Priority. {1}: Destroy this token.",
+      "leaveTriggerEffects": [
+        {
+          "type": "MODIFY_PRIORITY",
+          "value": 3
+        }
+      ],
+      "activatedAbilities": [
+        {
+          "id": "captivating_sense_release",
+          "name": "Release",
+          "cost": {
+            "priority": 1
+          },
+          "effects": [
+            {
+              "type": "DESTROY_SELF"
+            }
+          ]
+        }
+      ]
+    },
+    "impactful_conclusion": {
+      "id": "impactful_conclusion",
+      "name": "Impactful Conclusion",
+      "cost": 0,
+      "keywords": [],
+      "effects": [],
+      "color": "Blue",
+      "supertype": "Skill",
+      "subtype": "Token",
+      "effectText": "When this leaves the field, break 2 opponent Guard Shields. {4}: Destroy this token.",
+      "leaveTriggerEffects": [
+        {
+          "type": "BREAK_SHIELDS",
+          "target": "opponent",
+          "count": 2
+        }
+      ],
+      "activatedAbilities": [
+        {
+          "id": "impactful_conclusion_conclude",
+          "name": "Conclude",
+          "cost": {
+            "priority": 4
+          },
+          "effects": [
+            {
+              "type": "DESTROY_SELF"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "tokens": {
+    "dev_token_informant": {
+      "id": "dev_token_informant",
+      "name": "Informant Contact",
+      "cost": 0,
+      "keywords": [],
+      "effects": [],
+      "color": "Green",
+      "supertype": "Skill",
+      "subtype": "Token",
+      "effectText": "A contact on the field. {1}: Draw 1 card.",
+      "activatedAbilities": [
+        {
+          "id": "informant_tip",
+          "name": "Tip",
+          "cost": {
+            "priority": 1
+          },
+          "effects": [
+            {
+              "type": "DRAW_CARDS",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    "logical_chain": {
+      "id": "logical_chain",
+      "name": "Logical Chain",
+      "cost": 0,
+      "keywords": [],
+      "effects": [],
+      "color": "Blue",
+      "supertype": "Skill",
+      "subtype": "Token",
+      "effectText": "When this leaves the field, draw a card. {1}: Destroy this token.",
+      "leaveTriggerEffects": [
+        {
+          "type": "DRAW_CARDS",
+          "value": 1
+        }
+      ],
+      "activatedAbilities": [
+        {
+          "id": "logical_chain_sacrifice",
+          "name": "Sacrifice",
+          "cost": {
+            "priority": 1
+          },
+          "effects": [
+            {
+              "type": "DESTROY_SELF"
+            }
+          ]
+        }
+      ]
+    },
+    "captivating_sense": {
+      "id": "captivating_sense",
+      "name": "Captivating Sense",
+      "cost": 0,
+      "keywords": [],
+      "effects": [],
+      "color": "Blue",
+      "supertype": "Skill",
+      "subtype": "Token",
+      "effectText": "When this leaves the field, gain 3 Priority. {1}: Destroy this token.",
+      "leaveTriggerEffects": [
+        {
+          "type": "MODIFY_PRIORITY",
+          "value": 3
+        }
+      ],
+      "activatedAbilities": [
+        {
+          "id": "captivating_sense_release",
+          "name": "Release",
+          "cost": {
+            "priority": 1
+          },
+          "effects": [
+            {
+              "type": "DESTROY_SELF"
+            }
+          ]
+        }
+      ]
+    },
+    "impactful_conclusion": {
+      "id": "impactful_conclusion",
+      "name": "Impactful Conclusion",
+      "cost": 0,
+      "keywords": [],
+      "effects": [],
+      "color": "Blue",
+      "supertype": "Skill",
+      "subtype": "Token",
+      "effectText": "When this leaves the field, break 2 opponent Guard Shields. {4}: Destroy this token.",
+      "leaveTriggerEffects": [
+        {
+          "type": "BREAK_SHIELDS",
+          "target": "opponent",
+          "count": 2
+        }
+      ],
+      "activatedAbilities": [
+        {
+          "id": "impactful_conclusion_conclude",
+          "name": "Conclude",
+          "cost": {
+            "priority": 4
+          },
+          "effects": [
+            {
+              "type": "DESTROY_SELF"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "nuggets": {
+    "warehouse_activity": {
+      "id": "warehouse_activity",
+      "name": "Warehouse Activity",
+      "description": "Something moved through the riverside warehouse after hours — and the informant knows it."
+    },
+    "personal_troubles": {
+      "id": "personal_troubles",
+      "name": "Personal Troubles",
+      "description": "The informant’s hesitation is personal, not professional."
+    },
+    "witnessed_incident": {
+      "id": "witnessed_incident",
+      "name": "The Witnessed Incident",
+      "description": "The informant saw the incident happen — and is afraid to say so."
+    },
+    "fcp_fan_letters": {
+      "id": "fcp_fan_letters",
+      "name": "The Unsent Letters",
+      "description": "The fan club president wrote to the idol daily. None of the letters were ever sent."
+    },
+    "fcp_idol_schedule": {
+      "id": "fcp_idol_schedule",
+      "name": "The Annotated Schedule",
+      "description": "Someone tracked the idol’s movements far too precisely for an ordinary fan."
+    },
+    "fcp_passcode_knowledge": {
+      "id": "fcp_passcode_knowledge",
+      "name": "Backstage Passcode",
+      "description": "The president knew the backstage door code the night of the incident."
+    },
+    "fcp_physical_traces": {
+      "id": "fcp_physical_traces",
+      "name": "Physical Traces",
+      "description": "Physical evidence places a fan-club jacket backstage."
+    },
+    "fcp_witness_statements": {
+      "id": "fcp_witness_statements",
+      "name": "Witness Statements",
+      "description": "Multiple witnesses put the fan club president at the scene."
+    }
+  },
+  "encounters": {
+    "test_encounter": {
+      "id": "test_encounter",
+      "displayName": "The Informant",
+      "minTurnStartPriority": 3,
+      "firstTurnBonusPriority": 2,
+      "maxPriority": 10,
+      "startingSide": "player",
+      "opponentPatience": 10,
+      "npcGuardShieldCount": 10,
+      "opponentShields": [
+        {
+          "cardId": "info_warehouse_logs",
+          "isHint": false,
+          "loreDescription": "They looked away when you mentioned the warehouse.",
+          "keyNuggetIds": [
+            "warehouse_activity"
+          ]
+        },
+        {
+          "cardId": "hint_informant_personal",
+          "isHint": true,
+          "hintText": "They seem nervous about something.",
+          "loreDescription": "A hint: your subject is hiding something personal, not professional.",
+          "keyNuggetIds": [
+            "personal_troubles"
+          ]
+        },
+        {
+          "cardId": "info_incident_report",
+          "isHint": false,
+          "loreDescription": "The real secret: they witnessed the incident but are afraid to speak.",
+          "keyNuggetIds": [
+            "witnessed_incident",
+            "personal_troubles"
+          ]
+        }
+      ],
+      "npcHandLimit": 5,
+      "allowedCoreShields": [],
+      "nuggetOverrides": [
+        {
+          "nuggetId": "warehouse_activity",
+          "cost": 1,
+          "effects": [
+            {
+              "type": "MODIFY_PATIENCE",
+              "value": -2
+            },
+            {
+              "type": "DRAW_CARDS",
+              "value": 1
+            }
+          ],
+          "effectText": "Pay 2 Patience. Draw a card. (Confronting them with the logs rattles them.)"
+        },
+        {
+          "nuggetId": "personal_troubles",
+          "cost": 0,
+          "effects": [
+            {
+              "type": "MODIFY_PATIENCE",
+              "value": 2
+            }
+          ],
+          "effectText": "Restore 2 Patience. (Showing you understand their situation calms them.)"
+        },
+        {
+          "nuggetId": "witnessed_incident",
+          "cost": 2,
+          "effects": [
+            {
+              "type": "BREAK_SHIELDS",
+              "target": "opponent",
+              "count": 1
+            }
+          ],
+          "effectText": "Break 1 Guard Shield. (The report leaves them nowhere to hide.)"
+        }
+      ],
+      "traits": [
+        {
+          "id": "trait_nervous",
+          "name": "Nervous",
+          "description": "Cards with Intimidate have no effect."
+        }
+      ],
+      "retryable": true,
+      "lieThreshold": 3,
+      "enemyDeckCardIds": [
+        "dev_enemy_dismiss",
+        "dev_enemy_deflect",
+        "dev_enemy_deflect"
+      ]
+    },
+    "fan_club_president": {
+      "id": "fan_club_president",
+      "displayName": "The Fan Club President",
+      "minTurnStartPriority": 3,
+      "firstTurnBonusPriority": 2,
+      "maxPriority": 10,
+      "startingSide": "player",
+      "opponentPatience": 15,
+      "npcGuardShieldCount": 10,
+      "npcGuardShieldCardIds": [
+        "fcp_fans_solace",
+        "fcp_panicked_memories"
+      ],
+      "opponentShields": [
+        {
+          "cardId": "fcp_moment_of_clarity",
+          "isHint": true,
+          "hintText": "A crack in their obsession — push harder.",
+          "loreDescription": "For a fleeting moment, they see the truth.",
+          "keyNuggetIds": [
+            "fcp_idol_schedule"
+          ]
+        },
+        {
+          "cardId": "fcp_crippling_fear",
+          "isHint": false,
+          "loreDescription": "Fear grips them — they know what they saw.",
+          "keyNuggetIds": [
+            "fcp_passcode_knowledge",
+            "fcp_physical_traces"
+          ]
+        },
+        {
+          "cardId": "fcp_it_wasnt_me",
+          "isHint": false,
+          "loreDescription": "Desperate denial — they cling to the lie.",
+          "keyNuggetIds": [
+            "fcp_witness_statements"
+          ]
+        }
+      ],
+      "npcHandLimit": 5,
+      "allowedCoreShields": [],
+      "nuggetOverrides": [
+        {
+          "nuggetId": "fcp_fan_letters",
+          "cost": 1,
+          "effects": [
+            {
+              "type": "MODIFY_PATIENCE",
+              "value": 3
+            }
+          ],
+          "effectText": "Restore 3 Patience. (Handling the letters gently earns a sliver of trust.)"
+        },
+        {
+          "nuggetId": "fcp_idol_schedule",
+          "cost": 1,
+          "effects": [
+            {
+              "type": "DRAW_CARDS",
+              "value": 2
+            }
+          ],
+          "effectText": "Draw 2 cards. (The annotations tell you exactly what to ask next.)"
+        },
+        {
+          "nuggetId": "fcp_passcode_knowledge",
+          "cost": 2,
+          "effects": [
+            {
+              "type": "MODIFY_PATIENCE",
+              "value": -3
+            },
+            {
+              "type": "BREAK_SHIELDS",
+              "target": "opponent",
+              "count": 1
+            }
+          ],
+          "effectText": "Pay 3 Patience. Break 1 Guard Shield. (Reciting the code shakes them badly.)"
+        },
+        {
+          "nuggetId": "fcp_physical_traces",
+          "cost": 2,
+          "effects": [
+            {
+              "type": "BREAK_SHIELDS",
+              "target": "opponent",
+              "count": 1
+            }
+          ],
+          "effectText": "Break 1 Guard Shield. (The evidence is impossible to wave away.)"
+        },
+        {
+          "nuggetId": "fcp_witness_statements",
+          "cost": 1,
+          "effects": [
+            {
+              "type": "MODIFY_PATIENCE",
+              "value": -2
+            },
+            {
+              "type": "DRAW_CARDS",
+              "value": 1
+            }
+          ],
+          "effectText": "Pay 2 Patience. Draw a card. (Three accounts, one name. They flinch.)"
+        }
+      ],
+      "traits": [
+        {
+          "id": "trait_obsessive",
+          "name": "Obsessive",
+          "description": "Devotion fuels their every action."
+        }
+      ],
+      "retryable": true,
+      "lieThreshold": 3,
+      "enemyDeckCardIds": [
+        "fcp_youre_a_hindrance",
+        "fcp_panicked_memories",
+        "fcp_im_his",
+        "fcp_blind_loyalty",
+        "fcp_he_loves_me",
+        "fcp_he_really_loves_me",
+        "fcp_im_never_alone",
+        "fcp_fantasy",
+        "fcp_complete_devotion",
+        "fcp_his_loyal_fan",
+        "fcp_deranged_witness",
+        "fcp_my_only_meaning",
+        "fcp_and_hes_mine",
+        "fcp_impenetrable_insanity",
+        "fcp_lunatic_love",
+        "fcp_distracting_madness",
+        "fcp_unhinged_focus",
+        "fcp_youll_never_tear_us_apart"
+      ],
+      "scheduledPlays": [
+        {
+          "cardId": "fcp_my_only_meaning",
+          "afterTurn": 5
+        }
+      ],
+      "startingImpressions": [
+        "fcp_idols_favor"
+      ]
+    }
+  },
+  "recipes": [],
+  "devCollectionIds": [
+    "ponder",
+    "blue_modus_ponens",
+    "blue_modus_tollens",
+    "blue_anticipation",
+    "blue_decisive_punchline",
+    "blue_debunk",
+    "blue_powerful_clarity",
+    "blue_package",
+    "blue_hold_attention",
+    "blue_conversational_symmetry",
+    "blue_timely_follow_up",
+    "blue_crystallize",
+    "blue_cold_hard_facts",
+    "blue_find_fallacy",
+    "blue_eloquence",
+    "blue_sophistry",
+    "blue_lingering_words",
+    "red_baleful_shout",
+    "red_violent_intent",
+    "red_exude_authority",
+    "red_rally",
+    "red_reframed_perspective",
+    "red_press_the_attack",
+    "red_charismatic_conviction",
+    "red_gravitas",
+    "red_overwhelming_onslaught",
+    "red_magnetic_rhetoric",
+    "red_passionate_persuasion",
+    "red_vindication",
+    "red_submit",
+    "red_commanding_aura",
+    "red_ultimatum",
+    "red_intimidating_presence",
+    "green_listening_ear",
+    "green_rally",
+    "green_emotional_connection",
+    "green_deep_understanding",
+    "green_display_of_benevolence",
+    "green_empathy",
+    "green_keeping_an_open_mind",
+    "green_engaging_insight",
+    "green_like_an_open_book",
+    "green_sensitive_deflection",
+    "green_disarming_word",
+    "green_i_know_how_you_feel",
+    "green_shared_perspective",
+    "green_genuine_enjoyment",
+    "green_to_truly_know",
+    "orange_appeal_to_authority",
+    "orange_by_the_law",
+    "orange_exacting_decree",
+    "orange_mind_tax",
+    "orange_cognitive_burden",
+    "orange_strict_compliance",
+    "orange_fair_provision",
+    "orange_equal_ground",
+    "orange_gross_oversight",
+    "orange_artful_injunction",
+    "orange_semantic_quagmire",
+    "orange_generous_concession",
+    "orange_double_edged_approach",
+    "fcp_youre_a_hindrance",
+    "fcp_panicked_memories",
+    "fcp_moment_of_clarity",
+    "fcp_idols_favor",
+    "fcp_my_idol",
+    "fcp_im_his",
+    "fcp_blind_loyalty",
+    "fcp_he_loves_me",
+    "fcp_he_really_loves_me",
+    "fcp_im_never_alone",
+    "fcp_fantasy",
+    "fcp_complete_devotion",
+    "fcp_his_loyal_fan",
+    "fcp_deranged_witness",
+    "fcp_my_only_meaning",
+    "fcp_and_hes_mine",
+    "fcp_impenetrable_insanity",
+    "fcp_lunatic_love",
+    "fcp_distracting_madness",
+    "fcp_unhinged_focus",
+    "fcp_youll_never_tear_us_apart",
+    "fcp_fans_solace",
+    "fcp_crippling_fear",
+    "fcp_it_wasnt_me",
+    "dev_push",
+    "dev_nudge",
+    "dev_hold",
+    "dev_quick_retort",
+    "dev_enemy_dismiss",
+    "dev_enemy_deflect",
+    "info_warehouse_logs",
+    "info_personal_history",
+    "info_incident_report",
+    "info_fan_letters",
+    "info_idol_schedule",
+    "info_passcode",
+    "info_physical_traces",
+    "info_witness_statements"
+  ],
+  "starterDeckLists": {
+    "blue": [
+      "blue_modus_ponens",
+      "blue_modus_tollens",
+      "blue_anticipation",
+      "blue_decisive_punchline",
+      "blue_debunk",
+      "blue_powerful_clarity",
+      "blue_package",
+      "blue_hold_attention",
+      "blue_conversational_symmetry",
+      "blue_timely_follow_up",
+      "blue_crystallize",
+      "blue_cold_hard_facts",
+      "blue_find_fallacy",
+      "blue_eloquence",
+      "blue_sophistry",
+      "blue_lingering_words"
+    ],
+    "red": [
+      "red_baleful_shout",
+      "red_violent_intent",
+      "red_exude_authority",
+      "red_rally",
+      "red_reframed_perspective",
+      "red_press_the_attack",
+      "red_charismatic_conviction",
+      "red_gravitas",
+      "red_overwhelming_onslaught",
+      "red_magnetic_rhetoric",
+      "red_passionate_persuasion",
+      "red_vindication",
+      "red_submit",
+      "red_commanding_aura",
+      "red_ultimatum",
+      "red_intimidating_presence"
+    ],
+    "green": [
+      "green_listening_ear",
+      "green_rally",
+      "green_emotional_connection",
+      "green_deep_understanding",
+      "green_display_of_benevolence",
+      "green_empathy",
+      "green_keeping_an_open_mind",
+      "green_engaging_insight",
+      "green_like_an_open_book",
+      "green_sensitive_deflection",
+      "green_disarming_word",
+      "green_i_know_how_you_feel",
+      "green_shared_perspective",
+      "green_genuine_enjoyment",
+      "green_to_truly_know"
+    ],
+    "orange": [
+      "orange_appeal_to_authority",
+      "orange_by_the_law",
+      "orange_exacting_decree",
+      "orange_mind_tax",
+      "orange_cognitive_burden",
+      "orange_strict_compliance",
+      "orange_fair_provision",
+      "orange_equal_ground",
+      "orange_gross_oversight",
+      "orange_artful_injunction",
+      "orange_semantic_quagmire",
+      "orange_generous_concession",
+      "orange_double_edged_approach"
+    ],
+    "dev": [
+      "dev_push",
+      "dev_nudge",
+      "dev_hold",
+      "dev_quick_retort",
+      "dev_push",
+      "dev_nudge",
+      "dev_hold",
+      "dev_quick_retort",
+      "dev_push",
+      "dev_nudge",
+      "dev_hold",
+      "dev_quick_retort"
+    ]
+  }
+}
