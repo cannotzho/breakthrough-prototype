@@ -265,7 +265,7 @@ public partial class MindspaceArena : Node3D
             SetViewMode(ViewMode.Board);
 
         _hud.Refresh(v);
-        _director.Play(v.NewLog, v.NpcTurnInProgress);
+        _director.Play(v);
 
         _avatar.SetMood(v.StartingPatience <= 0 ? 0 : 1f - (float)v.Patience / v.StartingPatience);
         _avatar.SetLeaning(v.NpcTurnInProgress);
@@ -606,12 +606,8 @@ public partial class MindspaceArena : Node3D
             switch (pileId)
             {
                 case "player-discard":
-                    _hud.ShowPileBrowser($"Your discard pile ({v.PlayerDiscardCount})",
-                        v.PlayerDiscardNames.Reverse().ToList());
-                    break;
                 case "npc-discard":
-                    _hud.ShowPileBrowser($"Their discard pile ({v.NpcDiscardCount})",
-                        v.NpcDiscardNames.Reverse().ToList());
+                    _hud.TogglePileBrowser(pileId);
                     break;
                 case "player-deck":
                     _hud.Toast($"Your deck: {v.PlayerDeckCount} card(s) — contents hidden.");

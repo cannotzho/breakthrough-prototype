@@ -22,6 +22,10 @@ public partial class ArenaHud : CanvasLayer
     private PanelContainer _promptPanel = null!;
     private PanelContainer _detail = null!;
     private Label _detailTitle = null!, _detailMeta = null!, _detailBody = null!;
+    private PanelContainer _browser = null!;
+    private Label _browserTitle = null!;
+    private VBoxContainer _browserList = null!;
+    private string? _openPileId;
     /// <summary>A UI-owned overlay (hand picker, pile browser) is open — real engine prompts always win over it.</summary>
     private bool _transientOpen;
     private Tween? _toastTween;
@@ -78,10 +82,13 @@ public partial class ArenaHud : CanvasLayer
 
         // hover card-detail panel — Label3D has no tooltips, so full rules
         // text for whatever the cursor is over lives here (bottom-left).
-        _detail = new PanelContainer { Visible = false };
+        // MouseFilter Ignore throughout: it is read-only and must never eat
+        // clicks meant for the 3D scene beneath it (Ken round 4 — it was
+        // blocking the leftmost shield AND pile clicks in top-down view).
+        _detail = new PanelContainer { Visible = false, MouseFilter = Control.MouseFilterEnum.Ignore };
         _detail.SetAnchorsPreset(Control.LayoutPreset.BottomLeft);
         _detail.OffsetLeft = 16; _detail.OffsetTop = -240; _detail.OffsetRight = 396; _detail.OffsetBottom = -70;
-        var detailBox = new VBoxContainer();
+        var detailBox = new VBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
         detailBox.AddThemeConstantOverride("separation", 4);
         _detail.AddChild(detailBox);
         _detailTitle = HudLabel(detailBox, 17);
@@ -91,6 +98,27 @@ public partial class ArenaHud : CanvasLayer
         _detailBody.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _detailBody.CustomMinimumSize = new Vector2(360, 0);
         AddChild(_detail);
+
+        // pile browser — deliberately NON-modal (Ken round 4 ruling): browsing
+        // a discard during NPC actions is allowed; this side panel never dims
+        // or blocks the scene, live-refreshes as cards are discarded, and real
+        // engine prompts (modal) simply appear above it.
+        _browser = new PanelContainer { Visible = false };
+        _browser.SetAnchorsPreset(Control.LayoutPreset.CenterRight);
+        _browser.OffsetLeft = -320; _browser.OffsetTop = -210; _browser.OffsetRight = -14; _browser.OffsetBottom = 210;
+        var browserBox = new VBoxContainer();
+        browserBox.AddThemeConstantOverride("separation", 6);
+        _browser.AddChild(browserBox);
+        _browserTitle = HudLabel(browserBox, 15);
+        var browserScroll = new ScrollContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill };
+        _browserList = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        _browserList.AddThemeConstantOverride("separation", 2);
+        browserScroll.AddChild(_browserList);
+        browserBox.AddChild(browserScroll);
+        var browserClose = new Button { Text = "Close" };
+        browserClose.Pressed += CloseBrowser;
+        browserBox.AddChild(browserClose);
+        AddChild(_browser);
 
         _promptLayer = new Control { Visible = false };
         _promptLayer.SetAnchorsPreset(Control.LayoutPreset.FullRect);
@@ -126,6 +154,7 @@ public partial class ArenaHud : CanvasLayer
         _endTurn.Disabled = !v.CanAct;
 
         if (_bridge.LastError != null) Toast(_bridge.LastError);
+        RefreshBrowser(v);
         RebuildPrompt(v);
     }
 
@@ -328,27 +357,44 @@ public partial class ArenaHud : CanvasLayer
         Update();
     }
 
-    /// <summary>Browse a discard pile (Ken round 3): scrollable list, most recent first.</summary>
-    public void ShowPileBrowser(string title, IReadOnlyList<string> namesMostRecentFirst)
+    /// <summary>Open/close the discard browser for a pile; clicking the same pile again closes it.</summary>
+    public void TogglePileBrowser(string pileId)
     {
-        var box = OpenPromptBox(title);
-        _transientOpen = true;
-        var scroll = new ScrollContainer { CustomMinimumSize = new Vector2(420, 320) };
-        var list = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-        list.AddThemeConstantOverride("separation", 2);
-        scroll.AddChild(list);
-        box.AddChild(scroll);
-        if (namesMostRecentFirst.Count == 0)
+        if (_openPileId == pileId) { CloseBrowser(); return; }
+        _openPileId = pileId;
+        _browser.Visible = true;
+        if (_bridge.View is { } v) RefreshBrowser(v);
+    }
+
+    private void CloseBrowser()
+    {
+        _openPileId = null;
+        _browser.Visible = false;
+    }
+
+    /// <summary>Live contents: re-rendered every view while open (NPC may keep discarding).</summary>
+    private void RefreshBrowser(CombatView v)
+    {
+        if (_openPileId == null) return;
+        bool player = _openPileId == "player-discard";
+        var names = player ? v.PlayerDiscardNames : v.NpcDiscardNames;
+        _browserTitle.Text = $"{(player ? "Your" : "Their")} discard pile ({names.Count})";
+        foreach (var child in _browserList.GetChildren())
         {
-            list.AddChild(new Label { Text = "(empty)" });
+            _browserList.RemoveChild(child);
+            child.QueueFree();
         }
-        for (int i = 0; i < namesMostRecentFirst.Count; i++)
+        if (names.Count == 0)
         {
-            var row = new Label { Text = $"{i + 1}. {namesMostRecentFirst[i]}" };
-            if (i == 0) row.AddThemeColorOverride("font_color", new Color("ffe08a"));
-            list.AddChild(row);
+            _browserList.AddChild(new Label { Text = "(empty)" });
+            return;
         }
-        PromptButton(box, "Close", HidePrompt);
+        for (int i = names.Count - 1; i >= 0; i--) // most recent first
+        {
+            var row = new Label { Text = $"{names.Count - i}. {names[i]}" };
+            if (i == names.Count - 1) row.AddThemeColorOverride("font_color", new Color("ffe08a"));
+            _browserList.AddChild(row);
+        }
     }
 
     private void ShowResult(ResultView r)

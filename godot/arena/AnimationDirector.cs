@@ -53,9 +53,19 @@ public partial class AnimationDirector : Node3D
         }
     }
 
-    public void Play(IReadOnlyList<LogView> entries, bool npcActing)
+    /// <summary>
+    /// permanentId → (ownerKey, name), remembered across every view so a trap
+    /// that fires AFTER leaving the field can still be attributed. A trap that
+    /// never appeared in any view at all was necessarily played and consumed
+    /// inside one NPC dispatch chain — player plays are single dispatches, so
+    /// a player trap always crosses at least one view — hence: theirs.
+    /// </summary>
+    private readonly Dictionary<string, (string Owner, string Name)> _permanentHistory = new();
+
+    public void Play(CombatView v)
     {
-        foreach (var e in entries) MapCue(e, npcActing);
+        foreach (var p in v.Field) _permanentHistory[p.PermanentId] = (p.OwnerKey, p.Name);
+        foreach (var e in v.NewLog) MapCue(e, v.NpcTurnInProgress);
     }
 
     private void Enqueue(System.Action start, float duration) => _cues.Enqueue((start, duration));
@@ -161,13 +171,26 @@ public partial class AnimationDirector : Node3D
                 Enqueue(() => NpcPlayFlyby(e.Message), 1.7f);
                 break;
             case "trap-fired":
+            {
+                // Attribute the trap (Ken round 4 — a bare "TRAP!" reads as
+                // spurious when an unseen NPC trap fires at your turn start).
+                string permId = StrOf(e, "permanentId");
+                bool known = _permanentHistory.TryGetValue(permId, out var info);
+                bool ours = known && info.Owner == "player";
+                // "Trap <Name> fires" → <Name>
+                string name = known ? info.Name
+                    : e.Message.StartsWith("Trap ") && e.Message.EndsWith(" fires")
+                        ? e.Message[5..^6]
+                        : e.Message;
                 Enqueue(() =>
                 {
-                    FloatText("TRAP!", _r.TableCenter, new Color("ff5a4a"), big: true);
-                    _r.Rig.Shake(0.8f);
+                    FloatText(ours ? $"Your trap — {name}!" : $"Their trap — {name}!",
+                        _r.TableCenter, ours ? new Color("8ab4ff") : new Color("ff5a4a"), big: true);
+                    if (!ours) _r.Rig.Shake(0.8f);
                     _r.Rig.FocusOn(_r.TableCenter, 0.6f);
                 }, 1.7f);
                 break;
+            }
             case "break-prevented":
                 Enqueue(() => FloatText("Prevented", _r.GuardAnchor, new Color("8ab4ff")), 0.6f);
                 break;
