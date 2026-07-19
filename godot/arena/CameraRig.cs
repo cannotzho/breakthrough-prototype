@@ -11,7 +11,7 @@ namespace Breakthrough.GodotHost.Arena;
 
 public partial class CameraRig : Node3D
 {
-    public enum Framing { PlayerTurn, NpcTurn, Result, HandInspect }
+    public enum Framing { PlayerTurn, NpcTurn, Result, HandInspect, TopDown }
 
     private Camera3D _camera = null!;
 
@@ -32,6 +32,8 @@ public partial class CameraRig : Node3D
         Framing.PlayerTurn => (new Vector3(0, 4.6f, 4.4f), new Vector3(0, 0.9f, -1.0f)),
         Framing.NpcTurn => (new Vector3(0, 3.4f, 2.6f), new Vector3(0, 1.9f, -3.2f)),
         Framing.HandInspect => (new Vector3(0, 2.35f, 5.1f), new Vector3(0, 1.25f, 2.7f)),
+        // Near-vertical, kept slightly oblique so LookAt's up vector stays valid.
+        Framing.TopDown => (new Vector3(0, 8.4f, 1.6f), new Vector3(0, 0, -0.3f)),
         _ => (new Vector3(0, 6.5f, 6.0f), new Vector3(0, 0.5f, -1.5f)),
     };
 

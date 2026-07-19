@@ -38,9 +38,13 @@ public partial class MindspaceArena : Node3D
     private readonly List<Card3D> _guards = [];
     private readonly List<Card3D> _cores = [];
 
+    private enum ViewMode { Board, HandInspect, TopDown }
+
     private Card3D? _hovered;
     private string? _selectedShieldSlot;
-    private bool _inspectingHand;
+    private ViewMode _viewMode = ViewMode.Board;
+    private CardPile _playerDeckPile = null!, _playerDiscardPile = null!;
+    private CardPile _npcDeckPile = null!, _npcDiscardPile = null!;
     private int _menuHandIndex = -1;
     private string _menuPermanentId = "";
     private IReadOnlyList<AbilityView> _menuAbilities = [];
@@ -157,6 +161,14 @@ public partial class MindspaceArena : Node3D
         _npcStack.Position = NpcStackPos;
         AddChild(_npcStack);
 
+        // draw & discard piles on the table, aligned with the card exit anchors
+        _playerDeckPile = new CardPile { PileId = "player-deck", Position = new Vector3(PlayerDeckExit.X, 0, PlayerDeckExit.Z) };
+        _playerDiscardPile = new CardPile { PileId = "player-discard", FaceUp = true, Position = new Vector3(PlayerDiscardExit.X, 0, PlayerDiscardExit.Z) };
+        _npcDeckPile = new CardPile { PileId = "npc-deck", Position = new Vector3(3.0f, 0, -2.5f) };
+        _npcDiscardPile = new CardPile { PileId = "npc-discard", FaceUp = true, Position = new Vector3(NpcDiscardExit.X, 0, NpcDiscardExit.Z) };
+        foreach (var pile in new[] { _playerDeckPile, _playerDiscardPile, _npcDeckPile, _npcDiscardPile })
+            AddChild(pile);
+
         _director = new AnimationDirector();
         AddChild(_director);
         _director.Init(new AnimationDirector.ArenaRefs
@@ -206,12 +218,27 @@ public partial class MindspaceArena : Node3D
         return bell;
     }
 
-    // ── hand-inspect toggle (Tab / HUD button) ──────────────────────────────
+    // ── view cycle: board → hand-inspect → top-down (Tab / HUD button) ──────
 
     private void ToggleHandInspect()
     {
-        _inspectingHand = !_inspectingHand;
-        _hud.SetInspecting(_inspectingHand);
+        SetViewMode(_viewMode switch
+        {
+            ViewMode.Board => ViewMode.HandInspect,
+            ViewMode.HandInspect => ViewMode.TopDown,
+            _ => ViewMode.Board,
+        });
+    }
+
+    private void SetViewMode(ViewMode mode)
+    {
+        _viewMode = mode;
+        _hud.SetViewLabel(mode switch
+        {
+            ViewMode.HandInspect => "Hand",
+            ViewMode.TopDown => "Top-Down",
+            _ => "Board",
+        });
         var v = _bridge.View;
         if (v != null)
         {
@@ -224,7 +251,8 @@ public partial class MindspaceArena : Node3D
     {
         _rig.SetFraming(
             v.Result != null ? CameraRig.Framing.Result :
-            _inspectingHand ? CameraRig.Framing.HandInspect :
+            _viewMode == ViewMode.HandInspect ? CameraRig.Framing.HandInspect :
+            _viewMode == ViewMode.TopDown ? CameraRig.Framing.TopDown :
             v.NpcTurnInProgress ? CameraRig.Framing.NpcTurn : CameraRig.Framing.PlayerTurn);
     }
 
@@ -232,12 +260,9 @@ public partial class MindspaceArena : Node3D
 
     private void OnViewChanged(CombatView v)
     {
-        // The opponent acting or the game ending pulls you out of hand-inspect.
-        if (_inspectingHand && (v.NpcTurnInProgress || v.Result != null))
-        {
-            _inspectingHand = false;
-            _hud.SetInspecting(false);
-        }
+        // The opponent acting or the game ending pulls you back to board view.
+        if (_viewMode != ViewMode.Board && (v.NpcTurnInProgress || v.Result != null))
+            SetViewMode(ViewMode.Board);
 
         _hud.Refresh(v);
         _director.Play(v.NewLog, v.NpcTurnInProgress);
@@ -249,6 +274,10 @@ public partial class MindspaceArena : Node3D
         _candle.SetRatio(v.StartingPatience <= 0 ? 0 : (float)v.Patience / v.StartingPatience);
         _playerStack.SetCount(v.PlayerPriority);
         _npcStack.SetCount(v.NpcPriority);
+        _playerDeckPile.SetState(v.PlayerDeckCount, null);
+        _playerDiscardPile.SetState(v.PlayerDiscardCount, v.PlayerDiscardNames.Count > 0 ? v.PlayerDiscardNames[^1] : null);
+        _npcDeckPile.SetState(v.NpcDeckCount, null);
+        _npcDiscardPile.SetState(v.NpcDiscardCount, v.NpcDiscardNames.Count > 0 ? v.NpcDiscardNames[^1] : null);
         if (_bellLabel != null) _bellLabel.Modulate = _bellLabel.Modulate with { A = v.CanAct ? 1f : 0.25f };
 
         ReconcileHand(v);
@@ -273,7 +302,7 @@ public partial class MindspaceArena : Node3D
             }
             card.IndexInZone = cardView.HandIndex;
             card.SetFace(cardView.Name, cardView.EffectiveCost.ToString(), cardView.EffectText);
-            var (pos, rot) = _inspectingHand
+            var (pos, rot) = _viewMode == ViewMode.HandInspect
                 ? InspectSlot(cardView.HandIndex, n)
                 : HandSlot(cardView.HandIndex, n);
             card.GlideTo(pos, rot);
@@ -464,15 +493,51 @@ public partial class MindspaceArena : Node3D
             ? GetNodeOrNull<Card3D>(area.GetMeta("card3d").AsNodePath())
             : null;
 
+    private static string? PileIdFromCollider(GodotObject? collider) =>
+        collider is Area3D area && area.HasMeta("pile") ? area.GetMeta("pile").AsString() : null;
+
     private void UpdateHover(Vector2 screenPos)
     {
-        var card = CardFromCollider(PickAt(screenPos));
+        var collider = PickAt(screenPos);
+
+        if (PileIdFromCollider(collider) is string pileId)
+        {
+            _hovered?.SetHovered(false);
+            _hovered = null;
+            ShowPileDetail(pileId);
+            return;
+        }
+
+        var card = CardFromCollider(collider);
         if (card != null && card.Zone is not ("hand" or "shield" or "field" or "guard" or "core")) card = null;
         if (ReferenceEquals(card, _hovered)) return;
         _hovered?.SetHovered(false);
         _hovered = card;
         if (card != null && card.Zone is "hand" or "shield" or "field") card.SetHovered(true);
         RefreshDetailPanel(card);
+    }
+
+    private void ShowPileDetail(string pileId)
+    {
+        var v = _bridge.View;
+        if (v == null) return;
+        switch (pileId)
+        {
+            case "player-deck":
+                _hud.ShowCardDetail("Your deck", $"{v.PlayerDeckCount} card(s)", "Contents hidden — you draw from the top.");
+                break;
+            case "player-discard":
+                _hud.ShowCardDetail("Your discard pile", $"{v.PlayerDiscardCount} card(s)",
+                    (v.PlayerDiscardNames.Count > 0 ? $"Top: {v.PlayerDiscardNames[^1]}. " : "") + "Click to browse.");
+                break;
+            case "npc-deck":
+                _hud.ShowCardDetail("Their deck", $"{v.NpcDeckCount} card(s)", "Contents hidden.");
+                break;
+            case "npc-discard":
+                _hud.ShowCardDetail("Their discard pile", $"{v.NpcDiscardCount} card(s)",
+                    (v.NpcDiscardNames.Count > 0 ? $"Top: {v.NpcDiscardNames[^1]}. " : "") + "Click to browse.");
+                break;
+        }
     }
 
     /// <summary>Full rules text for whatever the cursor is over (no 3D tooltips).</summary>
@@ -533,6 +598,28 @@ public partial class MindspaceArena : Node3D
         {
             if (_bridge.View is { CanAct: true }) _bridge.EndPlayerTurn();
             else _hud.Toast("You can't end the turn right now.");
+            return;
+        }
+        if (PileIdFromCollider(collider) is string pileId)
+        {
+            var v = _bridge.View!;
+            switch (pileId)
+            {
+                case "player-discard":
+                    _hud.ShowPileBrowser($"Your discard pile ({v.PlayerDiscardCount})",
+                        v.PlayerDiscardNames.Reverse().ToList());
+                    break;
+                case "npc-discard":
+                    _hud.ShowPileBrowser($"Their discard pile ({v.NpcDiscardCount})",
+                        v.NpcDiscardNames.Reverse().ToList());
+                    break;
+                case "player-deck":
+                    _hud.Toast($"Your deck: {v.PlayerDeckCount} card(s) — contents hidden.");
+                    break;
+                case "npc-deck":
+                    _hud.Toast($"Their deck: {v.NpcDeckCount} card(s) — contents hidden.");
+                    break;
+            }
             return;
         }
         var card = CardFromCollider(collider);

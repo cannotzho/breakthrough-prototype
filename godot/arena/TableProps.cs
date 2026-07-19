@@ -139,3 +139,101 @@ public partial class PriorityStack : Node3D
     /// <summary>Where focus beats should look (mid-stack).</summary>
     public Vector3 FocusPoint => GlobalPosition + new Vector3(0, 0.4f, 0);
 }
+
+/// <summary>
+/// A draw or discard pile on the table: stacked card backs whose height
+/// tracks the count, a floating count label, and — for face-up piles — the
+/// most recent card shown on top. Clickable (Area3D meta "pile" = PileId);
+/// MindspaceArena opens the discard browser from it.
+/// </summary>
+public partial class CardPile : Node3D
+{
+    private const float CardThickness = 0.022f;
+    private const int MaxVisualCards = 14;
+
+    public string PileId = "";
+    public bool FaceUp;
+
+    private readonly System.Collections.Generic.List<MeshInstance3D> _cards = [];
+    private Label3D _count = null!;
+    private Label3D _topName = null!;
+    private int _lastCount = -1;
+
+    public override void _Ready()
+    {
+        _count = new Label3D
+        {
+            Text = "0",
+            Position = new Vector3(0, 0.85f, 0),
+            FontSize = 110,
+            PixelSize = 0.002f,
+            Modulate = new Color("e8dcc2"),
+            OutlineSize = 18,
+            OutlineModulate = new Color("14101e"),
+            Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+        };
+        AddChild(_count);
+
+        _topName = new Label3D
+        {
+            FontSize = 64,
+            PixelSize = 0.0012f,
+            Modulate = new Color("241c12"),
+            OutlineSize = 10,
+            OutlineModulate = new Color("e8dcc2"),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Width = 520,
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            Visible = false,
+        };
+        AddChild(_topName);
+
+        var area = new Area3D { Monitoring = false };
+        var shape = new CollisionShape3D
+        {
+            Shape = new BoxShape3D { Size = new Vector3(0.85f, 0.6f, 1.15f) },
+        };
+        area.AddChild(shape);
+        area.Position = new Vector3(0, 0.3f, 0);
+        area.SetMeta("pile", PileId);
+        AddChild(area);
+    }
+
+    public void SetState(int count, string? topCardName)
+    {
+        if (count != _lastCount)
+        {
+            _lastCount = count;
+            _count.Text = count.ToString();
+            int visual = Mathf.Min(count, MaxVisualCards);
+            while (_cards.Count > visual)
+            {
+                _cards[^1].QueueFree();
+                _cards.RemoveAt(_cards.Count - 1);
+            }
+            while (_cards.Count < visual)
+            {
+                var mesh = new MeshInstance3D
+                {
+                    Mesh = ArtLibrary.CardMesh(),
+                    MaterialOverride = ArtLibrary.Mat("card_back"),
+                    Position = new Vector3(0, _cards.Count * CardThickness + 0.01f, 0),
+                    RotationDegrees = new Vector3(-90, GD.Randf() * 8f - 4f, 0),
+                };
+                AddChild(mesh);
+                _cards.Add(mesh);
+            }
+        }
+
+        bool showTop = FaceUp && count > 0 && topCardName != null;
+        if (_cards.Count > 0)
+            _cards[^1].MaterialOverride = ArtLibrary.Mat(showTop ? "card_front" : "card_back");
+        _topName.Visible = showTop;
+        if (showTop)
+        {
+            _topName.Text = topCardName!;
+            _topName.Position = new Vector3(0, _cards.Count * CardThickness + 0.02f, 0);
+            _topName.RotationDegrees = new Vector3(-90, 0, 0);
+        }
+    }
+}

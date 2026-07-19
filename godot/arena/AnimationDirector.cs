@@ -36,6 +36,11 @@ public partial class AnimationDirector : Node3D
     private readonly Queue<(System.Action Start, float Duration)> _cues = new();
     private double _timer;
 
+    // TODO(fast-forward, Ken 2026-07-19): future feature — a hold-to-skip that
+    // compresses the cue queue (scale durations here + CombatBridge
+    // NpcStepDelaySeconds). Hook point: divide `cue.Duration` and tween times
+    // by a speed factor before starting each cue. Deliberately not built yet.
+
     public void Init(ArenaRefs refs) => _r = refs;
 
     public override void _Process(double delta)
@@ -69,8 +74,17 @@ public partial class AnimationDirector : Node3D
                     _r.Candle.Pulse();
                     if (delta < 0) _r.Avatar.Flinch(Mathf.Clamp(-delta * 0.4f, 0.4f, 1.6f));
                     var color = delta < 0 ? new Color("ff9a5a") : new Color("8ae08a");
-                    FloatText($"{(delta > 0 ? "+" : "")}{delta} Patience", _r.Candle.GlobalPosition + new Vector3(0, 1.9f, 0), color);
-                    if (bigBeat) _r.Rig.FocusOn(_r.Candle.GlobalPosition + new Vector3(0, 0.9f, 0));
+                    string text = $"{(delta > 0 ? "+" : "")}{delta} Patience";
+                    var at = _r.Candle.GlobalPosition + new Vector3(0, 1.9f, 0);
+                    if (bigBeat)
+                    {
+                        _r.Rig.FocusOn(_r.Candle.GlobalPosition + new Vector3(0, 0.9f, 0));
+                        DelayedFloat(0.45f, text, at, color); // spawn once zoomed so it sizes to the close camera
+                    }
+                    else
+                    {
+                        FloatText(text, at, color);
+                    }
                 }, bigBeat ? 1.8f : 0.6f);
                 break;
             }
@@ -86,9 +100,18 @@ public partial class AnimationDirector : Node3D
                 Enqueue(() =>
                 {
                     stack.Pulse();
-                    FloatText($"{(delta > 0 ? "+" : "")}{delta} Priority", stack.FocusPoint + new Vector3(0, 0.7f, 0),
-                        delta < 0 ? new Color("d0d0d0") : new Color("ffe08a"));
-                    if (bigBeat) _r.Rig.FocusOn(stack.FocusPoint);
+                    string text = $"{(delta > 0 ? "+" : "")}{delta} Priority";
+                    var at = stack.FocusPoint + new Vector3(0, 0.7f, 0);
+                    var color = delta < 0 ? new Color("d0d0d0") : new Color("ffe08a");
+                    if (bigBeat)
+                    {
+                        _r.Rig.FocusOn(stack.FocusPoint);
+                        DelayedFloat(0.45f, text, at, color);
+                    }
+                    else
+                    {
+                        FloatText(text, at, color);
+                    }
                 }, bigBeat ? 1.8f : 0.45f);
                 break;
             }
@@ -177,14 +200,27 @@ public partial class AnimationDirector : Node3D
         }));
     }
 
+    private void DelayedFloat(float delay, string text, Vector3 at, Color color, bool big = false)
+    {
+        var t = CreateTween();
+        t.TweenInterval(delay);
+        t.TweenCallback(Callable.From(() => FloatText(text, at, color, big)));
+    }
+
     public void FloatText(string text, Vector3 at, Color color, bool big = false)
     {
+        // Size against the CURRENT camera distance so callouts stay reasonable
+        // when a focus beat or the NpcTurn framing has the camera zoomed in
+        // (Ken round 3). 6.5 ≈ the default player-turn distance to the table.
+        float dist = _r.Rig.Camera.GlobalPosition.DistanceTo(at);
+        float sizeScale = Mathf.Clamp(dist / 6.5f, 0.35f, 1.15f);
+
         var label = new Label3D
         {
             Text = Truncate(text, big ? 24 : 34),
             Position = at,
             FontSize = big ? 180 : 120,
-            PixelSize = 0.003f,
+            PixelSize = 0.003f * sizeScale,
             Modulate = color,
             OutlineSize = big ? 26 : 14,
             OutlineModulate = new Color("0a0810"),

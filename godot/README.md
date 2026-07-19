@@ -72,10 +72,13 @@ sequencing should key off.
   Back-of-Mind, deck reveal) appear as overlays; NPC turns advance
   automatically (toggle Auto NPC for manual stepping). In the arena, click
   the bell (or the HUD button) to end your turn, press **Tab** (or the HUD
-  button) to toggle board view ⇄ hand inspect, and hover anything — cards,
-  shields, guards, props — to read its full text on the bottom-left detail
-  panel. Patience is the melting candle; each side's Priority is its token
-  stack; big state changes get a camera focus beat before play continues.
+  button) to cycle board view → hand inspect → top-down, and hover
+  anything — cards, shields, guards, piles, props — to read its full text
+  on the bottom-left detail panel. Patience is the melting candle; each
+  side's Priority is its token stack; draw and discard piles sit on the
+  table (click a discard pile to browse its contents — public info by
+  Ken's ruling; decks stay hidden, counts only); big state changes get a
+  camera focus beat before play continues.
 - **Headless (CI-style):** `godot --headless --path godot` from the repo
   root. Exits 0 on PASS, 1 on FAIL.
 - **GDScript interop demo:** open `GatewayDemo.tscn` and run the scene

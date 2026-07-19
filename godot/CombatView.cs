@@ -102,6 +102,14 @@ public sealed record CombatView
     public required int NpcHandCount { get; init; }
     public required int NpcDeckCount { get; init; }
     public required int NpcDiscardCount { get; init; }
+
+    /// <summary>
+    /// Discard contents in discard order (last = most recent). Public info by
+    /// Ken's ruling (2026-07-19): every discarded card was seen in play, so
+    /// both piles are browsable. Deck CONTENTS stay hidden — counts only.
+    /// </summary>
+    public required IReadOnlyList<string> PlayerDiscardNames { get; init; }
+    public required IReadOnlyList<string> NpcDiscardNames { get; init; }
     /// <summary>Populated only while an effect has revealed the NPC hand.</summary>
     public IReadOnlyList<string>? NpcHandNames { get; init; }
 
@@ -162,6 +170,8 @@ public static class CombatViewBuilder
             NpcHandNames = s.NpcHandRevealed
                 ? s.Npc.Hand.Select(c => NameOf(s, c.DefinitionId)).ToList()
                 : null,
+            PlayerDiscardNames = s.Player.Discard.Select(c => NameOf(s, c.DefinitionId)).ToList(),
+            NpcDiscardNames = s.Npc.Discard.Select(c => NameOf(s, c.DefinitionId)).ToList(),
             Hand = hand,
             BackOfMindNames = s.BackOfMind.Select(c => NameOf(s, c.DefinitionId)).ToList(),
             BotmLimit = Core.EffectiveBotmLimit(s),

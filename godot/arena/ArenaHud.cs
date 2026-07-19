@@ -22,7 +22,8 @@ public partial class ArenaHud : CanvasLayer
     private PanelContainer _promptPanel = null!;
     private PanelContainer _detail = null!;
     private Label _detailTitle = null!, _detailMeta = null!, _detailBody = null!;
-    private bool _handPickerOpen;
+    /// <summary>A UI-owned overlay (hand picker, pile browser) is open — real engine prompts always win over it.</summary>
+    private bool _transientOpen;
     private Tween? _toastTween;
     private System.Action? _toggleInspect;
 
@@ -54,7 +55,7 @@ public partial class ArenaHud : CanvasLayer
         _priority = HudLabel(bottom, 20);
         _priority.AddThemeColorOverride("font_color", new Color("6ad46a"));
         bottom.AddChild(new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
-        _inspect = new Button { Text = "Inspect Hand (Tab)" };
+        _inspect = new Button { Text = "View: Board (Tab)" };
         _inspect.Pressed += () => _toggleInspect?.Invoke();
         bottom.AddChild(_inspect);
         _endTurn = new Button { Text = "End Turn (or ring the bell)" };
@@ -128,8 +129,7 @@ public partial class ArenaHud : CanvasLayer
         RebuildPrompt(v);
     }
 
-    public void SetInspecting(bool inspecting) =>
-        _inspect.Text = inspecting ? "Back to Board (Tab)" : "Inspect Hand (Tab)";
+    public void SetViewLabel(string label) => _inspect.Text = $"View: {label} (Tab)";
 
     public void ShowCardDetail(string title, string meta, string body)
     {
@@ -156,8 +156,10 @@ public partial class ArenaHud : CanvasLayer
 
     private void RebuildPrompt(CombatView v)
     {
-        if (_promptLayer.Visible && _handPickerOpen) return;
+        // Real engine prompts and results always displace transient overlays;
+        // a transient only persists while the engine has nothing to say.
         if (v.Result != null) { ShowResult(v.Result); return; }
+        if (v.Prompt == null && _promptLayer.Visible && _transientOpen) return;
         switch (v.Prompt)
         {
             case RevealPromptView r: ShowReveal(r); break;
@@ -170,7 +172,7 @@ public partial class ArenaHud : CanvasLayer
 
     private VBoxContainer OpenPromptBox(string title)
     {
-        _handPickerOpen = false;
+        _transientOpen = false;
         foreach (var child in _promptPanel.GetChildren())
         {
             _promptPanel.RemoveChild(child);
@@ -189,7 +191,7 @@ public partial class ArenaHud : CanvasLayer
     private void HidePrompt()
     {
         _promptLayer.Visible = false;
-        _handPickerOpen = false;
+        _transientOpen = false;
     }
 
     private void ShowReveal(RevealPromptView r)
@@ -262,7 +264,7 @@ public partial class ArenaHud : CanvasLayer
         System.Action<List<int>> onConfirm)
     {
         var box = OpenPromptBox($"{abilityName}: choose {count} card(s) to discard");
-        _handPickerOpen = true;
+        _transientOpen = true;
         BuildPicker(box, hand,
             confirmText: picks => $"Confirm ({picks.Count}/{count})",
             confirmEnabled: picks => picks.Count == count,
@@ -324,6 +326,29 @@ public partial class ArenaHud : CanvasLayer
             box.AddChild(cancel);
         }
         Update();
+    }
+
+    /// <summary>Browse a discard pile (Ken round 3): scrollable list, most recent first.</summary>
+    public void ShowPileBrowser(string title, IReadOnlyList<string> namesMostRecentFirst)
+    {
+        var box = OpenPromptBox(title);
+        _transientOpen = true;
+        var scroll = new ScrollContainer { CustomMinimumSize = new Vector2(420, 320) };
+        var list = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        list.AddThemeConstantOverride("separation", 2);
+        scroll.AddChild(list);
+        box.AddChild(scroll);
+        if (namesMostRecentFirst.Count == 0)
+        {
+            list.AddChild(new Label { Text = "(empty)" });
+        }
+        for (int i = 0; i < namesMostRecentFirst.Count; i++)
+        {
+            var row = new Label { Text = $"{i + 1}. {namesMostRecentFirst[i]}" };
+            if (i == 0) row.AddThemeColorOverride("font_color", new Color("ffe08a"));
+            list.AddChild(row);
+        }
+        PromptButton(box, "Close", HidePrompt);
     }
 
     private void ShowResult(ResultView r)
