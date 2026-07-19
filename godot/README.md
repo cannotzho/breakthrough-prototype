@@ -28,9 +28,9 @@ no code changes:
 
 | Kind | Path | Slots |
 | --- | --- | --- |
-| Material | `art/materials/<slot>.tres` | `card_front`, `card_back`, `shield_slab`, `shield_core`, `guard_back`, `core_shield`, `core_shield_broken`, `table`, `avatar_body`, `void_dome`, `bell` |
+| Material | `art/materials/<slot>.tres` | `card_front`, `card_back`, `shield_slab`, `shield_core`, `guard_back`, `core_shield`, `core_shield_broken`, `table`, `avatar_body`, `void_dome`, `bell`, `candle_wax`, `candle_flame`, `priority_token` |
 | Mesh | `art/models/card.res` / `.tres` | `card` — unit card in the XY plane, ~0.7 × 1.0, facing +Z |
-| Scene | `art/models/<slot>.tscn` | `avatar` (whole opponent prop), `table_prop`, `bell_prop` |
+| Scene | `art/models/<slot>.tscn` | `avatar` (whole opponent prop), `table_prop`, `bell_prop`, `patience_prop` (root must keep the PatienceCandle script), `priority_prop` (root keeps PriorityStack) |
 
 Placeholder shaders live in `art/shaders/` (`painterly_surface`,
 `avatar_mood`, `mindspace_void`) — all knobs are named uniforms, so retints
@@ -71,7 +71,11 @@ sequencing should key off.
   shields to swap their break order; prompts (reveal, choose-number,
   Back-of-Mind, deck reveal) appear as overlays; NPC turns advance
   automatically (toggle Auto NPC for manual stepping). In the arena, click
-  the bell (or the HUD button) to end your turn.
+  the bell (or the HUD button) to end your turn, press **Tab** (or the HUD
+  button) to toggle board view ⇄ hand inspect, and hover anything — cards,
+  shields, guards, props — to read its full text on the bottom-left detail
+  panel. Patience is the melting candle; each side's Priority is its token
+  stack; big state changes get a camera focus beat before play continues.
 - **Headless (CI-style):** `godot --headless --path godot` from the repo
   root. Exits 0 on PASS, 1 on FAIL.
 - **GDScript interop demo:** open `GatewayDemo.tscn` and run the scene

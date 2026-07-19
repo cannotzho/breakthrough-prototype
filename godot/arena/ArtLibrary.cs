@@ -13,9 +13,10 @@
 //
 // Material slots: card_front, card_back, shield_slab, shield_core,
 //                 guard_back, core_shield, core_shield_broken, table,
-//                 avatar_body, void_dome, bell
+//                 avatar_body, void_dome, bell, candle_wax, candle_flame,
+//                 priority_token
 // Mesh slots:     card  (a unit card in the XY plane, ~0.7 × 1.0, facing +Z)
-// Scene slots:    avatar, table_prop, bell_prop
+// Scene slots:    avatar, table_prop, bell_prop, patience_prop, priority_prop
 //
 // Placeholder materials are ShaderMaterials over art/shaders/*.gdshader with
 // per-slot uniform tints; artists may also just edit those shaders/uniforms.
@@ -76,6 +77,9 @@ public static class ArtLibrary
             "core_shield_broken" => (new Color("3a4a3a"), new Color("1a241a")),
             "table" => (new Color("54402e"), new Color("2a1e14")),
             "bell" => (new Color("b89a4a"), new Color("5e4a1e")),
+            "candle_wax" => (new Color("e0d4b8"), new Color("8a7a5e")),
+            "candle_flame" => (new Color("ffcf8a"), new Color("b8702a")),
+            "priority_token" => (new Color("d4b44a"), new Color("6e5a1e")),
             _ => (new Color("999999"), new Color("444444")),
         };
         m.SetShaderParameter("base_tint", baseTint);

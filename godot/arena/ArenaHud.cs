@@ -16,14 +16,21 @@ public partial class ArenaHud : CanvasLayer
 
     private Label _patience = null!, _phase = null!, _priority = null!, _lies = null!, _botm = null!;
     private Label _toast = null!;
-    private Button _endTurn = null!;
+    private Button _endTurn = null!, _inspect = null!;
     private CheckBox _autoNpc = null!;
     private Control _promptLayer = null!;
     private PanelContainer _promptPanel = null!;
+    private PanelContainer _detail = null!;
+    private Label _detailTitle = null!, _detailMeta = null!, _detailBody = null!;
     private bool _handPickerOpen;
     private Tween? _toastTween;
+    private System.Action? _toggleInspect;
 
-    public void Init(CombatBridge bridge) => _bridge = bridge;
+    public void Init(CombatBridge bridge, System.Action? toggleInspect = null)
+    {
+        _bridge = bridge;
+        _toggleInspect = toggleInspect;
+    }
 
     public override void _Ready()
     {
@@ -47,6 +54,9 @@ public partial class ArenaHud : CanvasLayer
         _priority = HudLabel(bottom, 20);
         _priority.AddThemeColorOverride("font_color", new Color("6ad46a"));
         bottom.AddChild(new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
+        _inspect = new Button { Text = "Inspect Hand (Tab)" };
+        _inspect.Pressed += () => _toggleInspect?.Invoke();
+        bottom.AddChild(_inspect);
         _endTurn = new Button { Text = "End Turn (or ring the bell)" };
         _endTurn.Pressed += () => _bridge.EndPlayerTurn();
         bottom.AddChild(_endTurn);
@@ -64,6 +74,22 @@ public partial class ArenaHud : CanvasLayer
         _toast.SetAnchorsPreset(Control.LayoutPreset.CenterBottom);
         _toast.OffsetTop = -110; _toast.OffsetLeft = -400; _toast.OffsetRight = 400;
         AddChild(_toast);
+
+        // hover card-detail panel — Label3D has no tooltips, so full rules
+        // text for whatever the cursor is over lives here (bottom-left).
+        _detail = new PanelContainer { Visible = false };
+        _detail.SetAnchorsPreset(Control.LayoutPreset.BottomLeft);
+        _detail.OffsetLeft = 16; _detail.OffsetTop = -240; _detail.OffsetRight = 396; _detail.OffsetBottom = -70;
+        var detailBox = new VBoxContainer();
+        detailBox.AddThemeConstantOverride("separation", 4);
+        _detail.AddChild(detailBox);
+        _detailTitle = HudLabel(detailBox, 17);
+        _detailMeta = HudLabel(detailBox, 12);
+        _detailMeta.AddThemeColorOverride("font_color", new Color("9a9aa8"));
+        _detailBody = HudLabel(detailBox, 14);
+        _detailBody.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _detailBody.CustomMinimumSize = new Vector2(360, 0);
+        AddChild(_detail);
 
         _promptLayer = new Control { Visible = false };
         _promptLayer.SetAnchorsPreset(Control.LayoutPreset.FullRect);
@@ -101,6 +127,19 @@ public partial class ArenaHud : CanvasLayer
         if (_bridge.LastError != null) Toast(_bridge.LastError);
         RebuildPrompt(v);
     }
+
+    public void SetInspecting(bool inspecting) =>
+        _inspect.Text = inspecting ? "Back to Board (Tab)" : "Inspect Hand (Tab)";
+
+    public void ShowCardDetail(string title, string meta, string body)
+    {
+        _detailTitle.Text = title;
+        _detailMeta.Text = meta;
+        _detailBody.Text = body;
+        _detail.Visible = true;
+    }
+
+    public void HideCardDetail() => _detail.Visible = false;
 
     /// <summary>Toast-style rejection (and general notices): fades in, holds, fades out.</summary>
     public void Toast(string message)

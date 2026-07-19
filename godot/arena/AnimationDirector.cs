@@ -1,12 +1,14 @@
 // Event-driven presentation: maps CombatView.NewLog deltas (type + structured
-// data, the seam's animation contract) to arena cues — avatar flinches,
-// floating numbers, camera shakes, NPC play flybys. Positional card movement
-// is NOT done here; MindspaceArena's reconciliation glides cards to their
-// slots. This layer adds the one-shot flourishes a snapshot diff can't infer.
+// data, the seam's animation contract) to arena cues. Positional card
+// movement is NOT done here (MindspaceArena's reconciliation glides cards);
+// this layer adds the beats a snapshot diff can't infer.
 //
-// Placeholder policy: cues fire immediately and may overlap; the engine's
-// NPC pacing (one Advance per 1.1 s) already spaces the dense sequences.
-// A step-4 polish pass can serialize cues into a timeline if needed.
+// Round-2 design (Ken playtest): cues run through a SERIAL queue, and the
+// significant state changes get an Inscryption-style focus-then-resolve
+// beat — the camera dollies to the affected object (patience candle,
+// priority stack, shield rows), the prop pulses, a callout floats, then the
+// camera returns. NPC pacing (2.4 s per step, set by MindspaceArena) leaves
+// room for one full beat per engine action.
 
 using System.Collections.Generic;
 using Godot;
@@ -15,44 +17,86 @@ namespace Breakthrough.GodotHost.Arena;
 
 public partial class AnimationDirector : Node3D
 {
-    private OpponentAvatar _avatar = null!;
-    private CameraRig _rig = null!;
-    private Vector3 _avatarAnchor, _playerShieldAnchor, _guardAnchor, _tableCenter, _npcDiscardExit;
-
-    public void Init(OpponentAvatar avatar, CameraRig rig,
-        Vector3 avatarAnchor, Vector3 playerShieldAnchor, Vector3 guardAnchor,
-        Vector3 tableCenter, Vector3 npcDiscardExit)
+    public sealed class ArenaRefs
     {
-        _avatar = avatar;
-        _rig = rig;
-        _avatarAnchor = avatarAnchor;
-        _playerShieldAnchor = playerShieldAnchor;
-        _guardAnchor = guardAnchor;
-        _tableCenter = tableCenter;
-        _npcDiscardExit = npcDiscardExit;
+        public required OpponentAvatar Avatar;
+        public required CameraRig Rig;
+        public required PatienceCandle Candle;
+        public required PriorityStack PlayerStack;
+        public required PriorityStack NpcStack;
+        public required Vector3 AvatarAnchor;
+        public required Vector3 PlayerShieldAnchor;
+        public required Vector3 GuardAnchor;
+        public required Vector3 CoreAnchor;
+        public required Vector3 TableCenter;
+        public required Vector3 NpcDiscardExit;
     }
 
-    public void Play(IReadOnlyList<LogView> entries)
+    private ArenaRefs _r = null!;
+    private readonly Queue<(System.Action Start, float Duration)> _cues = new();
+    private double _timer;
+
+    public void Init(ArenaRefs refs) => _r = refs;
+
+    public override void _Process(double delta)
     {
-        foreach (var e in entries) PlayOne(e);
+        _timer -= delta;
+        if (_timer <= 0 && _cues.TryDequeue(out var cue))
+        {
+            cue.Start();
+            _timer = cue.Duration;
+        }
     }
 
-    private void PlayOne(LogView e)
+    public void Play(IReadOnlyList<LogView> entries, bool npcActing)
+    {
+        foreach (var e in entries) MapCue(e, npcActing);
+    }
+
+    private void Enqueue(System.Action start, float duration) => _cues.Enqueue((start, duration));
+
+    private void MapCue(LogView e, bool npcActing)
     {
         switch (e.Type)
         {
             case "patience":
             {
                 int delta = IntOf(e, "delta");
-                if (delta < 0)
+                if (delta == 0) break;
+                bool bigBeat = npcActing || Mathf.Abs(delta) >= 2;
+                Enqueue(() =>
                 {
-                    _avatar.Flinch(Mathf.Clamp(-delta * 0.4f, 0.4f, 1.6f));
-                    FloatText($"{delta} Patience", _avatarAnchor, new Color("ff9a5a"));
-                }
-                else if (delta > 0)
+                    _r.Candle.Pulse();
+                    if (delta < 0) _r.Avatar.Flinch(Mathf.Clamp(-delta * 0.4f, 0.4f, 1.6f));
+                    var color = delta < 0 ? new Color("ff9a5a") : new Color("8ae08a");
+                    FloatText($"{(delta > 0 ? "+" : "")}{delta} Patience", _r.Candle.GlobalPosition + new Vector3(0, 1.9f, 0), color);
+                    if (bigBeat) _r.Rig.FocusOn(_r.Candle.GlobalPosition + new Vector3(0, 0.9f, 0));
+                }, bigBeat ? 1.8f : 0.6f);
+                break;
+            }
+            case "priority":
+            {
+                int delta = IntOf(e, "delta");
+                string side = StrOf(e, "side");
+                if (delta == 0) break;
+                var stack = side == "npc" ? _r.NpcStack : _r.PlayerStack;
+                // Spends during your own combos shouldn't drag the camera around;
+                // focus only on the opponent's meter moving, or big swings.
+                bool bigBeat = (npcActing && side == "npc") || Mathf.Abs(delta) >= 3;
+                Enqueue(() =>
                 {
-                    FloatText($"+{delta} Patience", _avatarAnchor, new Color("8ae08a"));
-                }
+                    stack.Pulse();
+                    FloatText($"{(delta > 0 ? "+" : "")}{delta} Priority", stack.FocusPoint + new Vector3(0, 0.7f, 0),
+                        delta < 0 ? new Color("d0d0d0") : new Color("ffe08a"));
+                    if (bigBeat) _r.Rig.FocusOn(stack.FocusPoint);
+                }, bigBeat ? 1.8f : 0.45f);
+                break;
+            }
+            case "turn-start-priority":
+            {
+                string side = StrOf(e, "side");
+                var stack = side == "npc" ? _r.NpcStack : _r.PlayerStack;
+                Enqueue(stack.Pulse, 0.4f);
                 break;
             }
             case "shield-broken":
@@ -60,39 +104,55 @@ public partial class AnimationDirector : Node3D
                 string shieldType = StrOf(e, "shieldType");
                 if (shieldType == "guard")
                 {
-                    FloatText("Guard broken", _guardAnchor, new Color("ffcf8a"));
-                    _rig.Shake(0.5f);
+                    Enqueue(() =>
+                    {
+                        FloatText("Guard broken", _r.GuardAnchor, new Color("ffcf8a"));
+                        _r.Rig.Shake(0.5f);
+                        _r.Rig.FocusOn(_r.GuardAnchor, 0.55f);
+                    }, 1.6f);
                 }
                 else if (shieldType == "npcCore")
                 {
-                    FloatText("CORE SHIELD BROKEN", _guardAnchor + new Vector3(0, 0.6f, 0), new Color("d8a8ff"), big: true);
-                    _rig.Shake(1.6f);
+                    Enqueue(() =>
+                    {
+                        FloatText("CORE SHIELD BROKEN", _r.CoreAnchor + new Vector3(0, 0.5f, 0), new Color("d8a8ff"), big: true);
+                        _r.Rig.Shake(1.6f);
+                        _r.Rig.FocusOn(_r.CoreAnchor, 1.0f);
+                    }, 2.2f);
                 }
                 else // a player shield
                 {
-                    FloatText("Shield broken!", _playerShieldAnchor, new Color("ff7a6a"));
-                    _rig.Shake(1.0f);
+                    Enqueue(() =>
+                    {
+                        FloatText("Shield broken!", _r.PlayerShieldAnchor, new Color("ff7a6a"));
+                        _r.Rig.Shake(1.0f);
+                        _r.Rig.FocusOn(_r.PlayerShieldAnchor, 0.7f);
+                    }, 1.8f);
                 }
                 break;
             }
             case "lie":
-                FloatText("Lie ↑", _avatarAnchor + new Vector3(0.6f, 0.2f, 0), new Color("c88aff"));
+                Enqueue(() => FloatText("Lie ↑", _r.AvatarAnchor + new Vector3(0.6f, 0.2f, 0), new Color("c88aff")), 0.6f);
                 break;
             case "play" when StrOf(e, "controller") == "npc":
-                NpcPlayFlyby(e.Message);
+                Enqueue(() => NpcPlayFlyby(e.Message), 1.7f);
                 break;
             case "trap-fired":
-                FloatText("TRAP!", _tableCenter, new Color("ff5a4a"), big: true);
-                _rig.Shake(0.8f);
+                Enqueue(() =>
+                {
+                    FloatText("TRAP!", _r.TableCenter, new Color("ff5a4a"), big: true);
+                    _r.Rig.Shake(0.8f);
+                    _r.Rig.FocusOn(_r.TableCenter, 0.6f);
+                }, 1.7f);
                 break;
             case "break-prevented":
-                FloatText("Prevented", _guardAnchor, new Color("8ab4ff"));
+                Enqueue(() => FloatText("Prevented", _r.GuardAnchor, new Color("8ab4ff")), 0.6f);
                 break;
             case "discovery":
-                FloatText("Info nugget discovered", _tableCenter + new Vector3(0, 0.5f, 0), new Color("ffe08a"));
+                Enqueue(() => FloatText("Info nugget discovered", _r.TableCenter + new Vector3(0, 0.5f, 0), new Color("ffe08a")), 0.8f);
                 break;
             case "debt-transfer":
-                FloatText("Priority debt transfers", _tableCenter, new Color("aaaaaa"));
+                Enqueue(() => FloatText("Priority debt transfers", _r.TableCenter, new Color("aaaaaa")), 0.6f);
                 break;
         }
     }
@@ -102,18 +162,18 @@ public partial class AnimationDirector : Node3D
     {
         var card = new Card3D { Zone = "fx" };
         AddChild(card);
-        card.Position = _avatarAnchor + new Vector3(0, -0.3f, 0.3f);
+        card.Position = _r.AvatarAnchor + new Vector3(0, -0.3f, 0.3f);
         card.RotationDegrees = new Vector3(-70, 0, 0);
-        card.Scale = Vector3.One * 0.75f;
+        card.Scale = Vector3.One * 0.8f;
         card.SetFaceDown(true);
-        card.GlideTo(_tableCenter + new Vector3(0, 0.25f, 0), new Vector3(-90, 0, 0), 0.45f);
-        FloatText(message, _tableCenter + new Vector3(0, 0.8f, 0), new Color("e8c8a8"));
+        card.GlideTo(_r.TableCenter + new Vector3(0, 0.25f, 0), new Vector3(-90, 0, 0), 0.7f);
+        FloatText(Truncate(message, 34), _r.TableCenter + new Vector3(0, 0.9f, 0), new Color("e8c8a8"));
 
         var exitTween = CreateTween();
-        exitTween.TweenInterval(0.8);
+        exitTween.TweenInterval(1.5);
         exitTween.TweenCallback(Callable.From(() =>
         {
-            if (IsInstanceValid(card)) card.DepartAndFree(_npcDiscardExit);
+            if (IsInstanceValid(card)) card.DepartAndFree(_r.NpcDiscardExit);
         }));
     }
 
@@ -121,22 +181,26 @@ public partial class AnimationDirector : Node3D
     {
         var label = new Label3D
         {
-            Text = text,
+            Text = Truncate(text, big ? 24 : 34),
             Position = at,
-            FontSize = big ? 220 : 130,
+            FontSize = big ? 180 : 120,
             PixelSize = 0.003f,
             Modulate = color,
-            OutlineSize = big ? 24 : 12,
+            OutlineSize = big ? 26 : 14,
+            OutlineModulate = new Color("0a0810"),
             Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
             NoDepthTest = true,
         };
         AddChild(label);
         var tween = CreateTween().SetParallel();
-        tween.TweenProperty(label, "position", at + new Vector3(0, 0.9f, 0), 1.2)
+        tween.TweenProperty(label, "position", at + new Vector3(0, 0.9f, 0), 1.4)
             .SetTrans(Tween.TransitionType.Cubic).SetEase(Tween.EaseType.Out);
-        tween.TweenProperty(label, "modulate:a", 0.0f, 1.2).SetDelay(0.4);
+        tween.TweenProperty(label, "modulate:a", 0.0f, 1.4).SetDelay(0.5);
         tween.Chain().TweenCallback(Callable.From(label.QueueFree));
     }
+
+    private static string Truncate(string s, int max) =>
+        s.Length <= max ? s : s[..(max - 1)] + "…";
 
     private static int IntOf(LogView e, string key) =>
         e.Data != null && e.Data.TryGetValue(key, out var v) && v is int i ? i : 0;

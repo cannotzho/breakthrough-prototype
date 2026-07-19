@@ -3,16 +3,15 @@
 // avatar inside their mindspace. All visuals are ArtLibrary slots
 // (procedural placeholders until an artist drops real assets in).
 //
-// Responsibilities:
-//  - build the world (dome, table, lights, avatar, bell, camera rig)
-//  - reconcile CombatView → persistent Card3D nodes (keyed by instance /
-//    slot / permanent id) with glide/depart tweens
-//  - hand AnimationDirector the NewLog delta each view for one-shot cues
-//  - mouse-ray picking: hand card menus, shield swap, ability menus, the bell
-//  - camera framing + avatar mood per view
+// Round-2 changes (Ken playtest): board ⇄ hand-inspect camera toggle (Tab or
+// HUD button), hover detail panel on the HUD (Label3D has no tooltips), bell
+// moved clear of the hand with an End Turn label, physical patience candle +
+// priority token stacks on the table, slower NPC pacing (2.4 s) with serial
+// focus-then-resolve beats, viewport stretch in project.godot. The
+// patience-driven avatar mood stays exactly as it was (Ken's keep).
 //
 // The bridge/seam is NOT modified by this layer (one additive exception made
-// in step 3: LogView now carries the engine's structured Data payload).
+// in step 3: LogView carries the engine's structured Data payload).
 
 using System.Collections.Generic;
 using System.Linq;
@@ -28,6 +27,9 @@ public partial class MindspaceArena : Node3D
     private OpponentAvatar _avatar = null!;
     private AnimationDirector _director = null!;
     private Node3D _bell = null!;
+    private Label3D _bellLabel = null!;
+    private PatienceCandle _candle = null!;
+    private PriorityStack _playerStack = null!, _npcStack = null!;
     private PopupMenu _cardMenu = null!, _abilityMenu = null!;
 
     private readonly Dictionary<string, Card3D> _hand = new();
@@ -38,6 +40,7 @@ public partial class MindspaceArena : Node3D
 
     private Card3D? _hovered;
     private string? _selectedShieldSlot;
+    private bool _inspectingHand;
     private int _menuHandIndex = -1;
     private string _menuPermanentId = "";
     private IReadOnlyList<AbilityView> _menuAbilities = [];
@@ -45,19 +48,23 @@ public partial class MindspaceArena : Node3D
     // anchors
     private static readonly Vector3 AvatarPos = new(0, 0, -3.4f);
     private static readonly Vector3 TableCenter = new(0, 0.3f, 0.2f);
+    private static readonly Vector3 BellPos = new(3.15f, 0, 0.55f);
+    private static readonly Vector3 CandlePos = new(-3.0f, 0, -1.4f);
+    private static readonly Vector3 PlayerStackPos = new(-3.0f, 0, 1.35f);
+    private static readonly Vector3 NpcStackPos = new(2.95f, 0, -1.55f);
     private static readonly Vector3 PlayerDeckExit = new(3.3f, 0.6f, 2.3f);
     private static readonly Vector3 PlayerDiscardExit = new(-3.3f, 0.6f, 2.3f);
     private static readonly Vector3 NpcDiscardExit = new(-3.0f, 0.7f, -2.5f);
 
     public override void _Ready()
     {
-        _bridge = new CombatBridge { Name = "CombatBridge" };
+        _bridge = new CombatBridge { Name = "CombatBridge", NpcStepDelaySeconds = 2.4 };
         AddChild(_bridge);
 
         BuildWorld();
 
         _hud = new ArenaHud();
-        _hud.Init(_bridge);
+        _hud.Init(_bridge, ToggleHandInspect);
         AddChild(_hud);
 
         _cardMenu = new PopupMenu();
@@ -136,17 +143,36 @@ public partial class MindspaceArena : Node3D
         AddChild(_rig);
 
         _bell = ArtLibrary.SceneOverride("bell_prop") ?? BuildBell();
-        _bell.Position = new Vector3(2.5f, 0.0f, 1.7f);
+        _bell.Position = BellPos;
         AddChild(_bell);
+
+        _candle = (ArtLibrary.SceneOverride("patience_prop") as PatienceCandle) ?? new PatienceCandle();
+        _candle.Position = CandlePos;
+        AddChild(_candle);
+
+        _playerStack = (ArtLibrary.SceneOverride("priority_prop") as PriorityStack) ?? new PriorityStack();
+        _playerStack.Position = PlayerStackPos;
+        AddChild(_playerStack);
+        _npcStack = (ArtLibrary.SceneOverride("priority_prop") as PriorityStack) ?? new PriorityStack();
+        _npcStack.Position = NpcStackPos;
+        AddChild(_npcStack);
 
         _director = new AnimationDirector();
         AddChild(_director);
-        _director.Init(_avatar, _rig,
-            avatarAnchor: AvatarPos + new Vector3(0, 2.0f, 0.6f),
-            playerShieldAnchor: new Vector3(0, 1.0f, 0.9f),
-            guardAnchor: new Vector3(0, 1.1f, -1.65f),
-            tableCenter: TableCenter,
-            npcDiscardExit: NpcDiscardExit);
+        _director.Init(new AnimationDirector.ArenaRefs
+        {
+            Avatar = _avatar,
+            Rig = _rig,
+            Candle = _candle,
+            PlayerStack = _playerStack,
+            NpcStack = _npcStack,
+            AvatarAnchor = AvatarPos + new Vector3(0, 2.0f, 0.6f),
+            PlayerShieldAnchor = new Vector3(0, 1.0f, 1.05f),
+            GuardAnchor = new Vector3(0, 1.1f, -1.65f),
+            CoreAnchor = new Vector3(0, 1.2f, -2.35f),
+            TableCenter = TableCenter,
+            NpcDiscardExit = NpcDiscardExit,
+        });
     }
 
     private Node3D BuildBell()
@@ -159,27 +185,71 @@ public partial class MindspaceArena : Node3D
             Position = new Vector3(0, 0.11f, 0),
         };
         bell.AddChild(body);
+        _bellLabel = new Label3D
+        {
+            Text = "End Turn",
+            Position = new Vector3(0, 0.62f, 0),
+            FontSize = 96,
+            PixelSize = 0.002f,
+            Modulate = new Color("ffe8b8"),
+            OutlineSize = 16,
+            OutlineModulate = new Color("14101e"),
+            Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+        };
+        bell.AddChild(_bellLabel);
         var area = new Area3D { Monitoring = false };
-        var shape = new CollisionShape3D { Shape = new CylinderShape3D { Radius = 0.34f, Height = 0.4f } };
+        var shape = new CollisionShape3D { Shape = new CylinderShape3D { Radius = 0.38f, Height = 0.5f } };
         area.AddChild(shape);
-        area.Position = new Vector3(0, 0.2f, 0);
+        area.Position = new Vector3(0, 0.25f, 0);
         area.SetMeta("bell", true);
         bell.AddChild(area);
         return bell;
+    }
+
+    // ── hand-inspect toggle (Tab / HUD button) ──────────────────────────────
+
+    private void ToggleHandInspect()
+    {
+        _inspectingHand = !_inspectingHand;
+        _hud.SetInspecting(_inspectingHand);
+        var v = _bridge.View;
+        if (v != null)
+        {
+            ApplyFraming(v);
+            ReconcileHand(v);
+        }
+    }
+
+    private void ApplyFraming(CombatView v)
+    {
+        _rig.SetFraming(
+            v.Result != null ? CameraRig.Framing.Result :
+            _inspectingHand ? CameraRig.Framing.HandInspect :
+            v.NpcTurnInProgress ? CameraRig.Framing.NpcTurn : CameraRig.Framing.PlayerTurn);
     }
 
     // ── view reconciliation ─────────────────────────────────────────────────
 
     private void OnViewChanged(CombatView v)
     {
+        // The opponent acting or the game ending pulls you out of hand-inspect.
+        if (_inspectingHand && (v.NpcTurnInProgress || v.Result != null))
+        {
+            _inspectingHand = false;
+            _hud.SetInspecting(false);
+        }
+
         _hud.Refresh(v);
-        _director.Play(v.NewLog);
+        _director.Play(v.NewLog, v.NpcTurnInProgress);
 
         _avatar.SetMood(v.StartingPatience <= 0 ? 0 : 1f - (float)v.Patience / v.StartingPatience);
         _avatar.SetLeaning(v.NpcTurnInProgress);
-        _rig.SetFraming(
-            v.Result != null ? CameraRig.Framing.Result :
-            v.NpcTurnInProgress ? CameraRig.Framing.NpcTurn : CameraRig.Framing.PlayerTurn);
+        ApplyFraming(v);
+
+        _candle.SetRatio(v.StartingPatience <= 0 ? 0 : (float)v.Patience / v.StartingPatience);
+        _playerStack.SetCount(v.PlayerPriority);
+        _npcStack.SetCount(v.NpcPriority);
+        if (_bellLabel != null) _bellLabel.Modulate = _bellLabel.Modulate with { A = v.CanAct ? 1f : 0.25f };
 
         ReconcileHand(v);
         ReconcileShields(v);
@@ -203,19 +273,32 @@ public partial class MindspaceArena : Node3D
             }
             card.IndexInZone = cardView.HandIndex;
             card.SetFace(cardView.Name, cardView.EffectiveCost.ToString(), cardView.EffectText);
-            var (pos, rot) = HandSlot(cardView.HandIndex, n);
+            var (pos, rot) = _inspectingHand
+                ? InspectSlot(cardView.HandIndex, n)
+                : HandSlot(cardView.HandIndex, n);
             card.GlideTo(pos, rot);
         }
         DepartStale(_hand, seen, PlayerDiscardExit);
     }
 
+    /// <summary>Default fan: low and clear of the bell/table props.</summary>
     private static (Vector3, Vector3) HandSlot(int i, int n)
     {
-        float spread = Mathf.Min(0.78f, 4.8f / Mathf.Max(n, 1));
+        float spread = Mathf.Min(0.72f, 4.6f / Mathf.Max(n, 1));
         float x = (i - (n - 1) * 0.5f) * spread;
         return (
-            new Vector3(x, 1.28f + Mathf.Abs(x) * -0.03f, 2.75f + Mathf.Abs(x) * 0.05f),
-            new Vector3(-38, 0, -x * 4f));
+            new Vector3(x, 0.98f + Mathf.Abs(x) * -0.03f, 2.62f + Mathf.Abs(x) * 0.05f),
+            new Vector3(-42, 0, -x * 3f));
+    }
+
+    /// <summary>Inspect layout: a flat, wide row square to the inspect camera.</summary>
+    private static (Vector3, Vector3) InspectSlot(int i, int n)
+    {
+        float spread = Mathf.Min(1.0f, 6.2f / Mathf.Max(n, 1));
+        float x = (i - (n - 1) * 0.5f) * spread;
+        return (
+            new Vector3(x, 1.32f, 3.05f),
+            new Vector3(-24, 0, 0));
     }
 
     private void ReconcileShields(CombatView v)
@@ -243,7 +326,7 @@ public partial class MindspaceArena : Node3D
             float spread = Mathf.Min(0.55f, 6.0f / Mathf.Max(n, 1));
             float x = (slot.Index - (n - 1) * 0.5f) * spread;
             float lift = slot.SlotId == _selectedShieldSlot ? 0.22f : 0f;
-            card.GlideTo(new Vector3(x, 0.42f + lift, 1.05f), new Vector3(-62, 0, 0));
+            card.GlideTo(new Vector3(x, 0.42f + lift, 1.2f), new Vector3(-62, 0, 0));
         }
         DepartStale(_shields, seen, PlayerDiscardExit);
     }
@@ -346,12 +429,15 @@ public partial class MindspaceArena : Node3D
         }
     }
 
-    // ── input: mouse-ray picking ────────────────────────────────────────────
+    // ── input ───────────────────────────────────────────────────────────────
 
     public override void _UnhandledInput(InputEvent ev)
     {
         switch (ev)
         {
+            case InputEventKey { Keycode: Key.Tab, Pressed: true, Echo: false }:
+                ToggleHandInspect();
+                break;
             case InputEventMouseMotion motion:
                 UpdateHover(motion.Position);
                 break;
@@ -381,11 +467,63 @@ public partial class MindspaceArena : Node3D
     private void UpdateHover(Vector2 screenPos)
     {
         var card = CardFromCollider(PickAt(screenPos));
-        if (card != null && card.Zone is not ("hand" or "shield" or "field")) card = null;
+        if (card != null && card.Zone is not ("hand" or "shield" or "field" or "guard" or "core")) card = null;
         if (ReferenceEquals(card, _hovered)) return;
         _hovered?.SetHovered(false);
         _hovered = card;
-        _hovered?.SetHovered(true);
+        if (card != null && card.Zone is "hand" or "shield" or "field") card.SetHovered(true);
+        RefreshDetailPanel(card);
+    }
+
+    /// <summary>Full rules text for whatever the cursor is over (no 3D tooltips).</summary>
+    private void RefreshDetailPanel(Card3D? card)
+    {
+        var v = _bridge.View;
+        if (card == null || v == null)
+        {
+            _hud.HideCardDetail();
+            return;
+        }
+        switch (card.Zone)
+        {
+            case "hand":
+                var h = v.Hand.FirstOrDefault(c => c.InstanceId == card.Key);
+                if (h == null) break;
+                _hud.ShowCardDetail(h.Name,
+                    $"Cost {h.EffectiveCost} · {h.Color} {h.Supertype}" +
+                    (h.HasHeavyHand ? " · Heavy Hand available" : "") +
+                    (h.IsAssembled ? " · assembled" : ""),
+                    h.EffectText);
+                return;
+            case "field":
+                var p = v.Field.FirstOrDefault(f => f.PermanentId == card.Key);
+                if (p == null) break;
+                string counters = p.Counters.Count == 0
+                    ? ""
+                    : "\nCounters: " + string.Join(", ", p.Counters.Select(kv => $"{kv.Key} {kv.Value}"));
+                string abilities = p.Abilities.Count == 0
+                    ? ""
+                    : "\n" + string.Join("\n", p.Abilities.Select(a => $"Ability: {a.Name} ({a.CostText})"));
+                _hud.ShowCardDetail(p.Name,
+                    $"{p.Kind} · {p.OwnerKey}" + (p.TurnsRemaining is int t ? $" · {t} turn(s) left" : ""),
+                    p.EffectText + counters + abilities);
+                return;
+            case "shield":
+                var s = v.PlayerShields.FirstOrDefault(x => x.SlotId == card.Key);
+                if (s == null) break;
+                _hud.ShowCardDetail(s.CardName ?? "Placeholder Shield", $"{s.ShieldType} shield",
+                    $"Breaks for {s.PatienceCostOnBreak} patience. Leftmost shield breaks first — click two shields to swap order.");
+                return;
+            case "guard":
+                _hud.ShowCardDetail("Guard Shield", "face-down",
+                    "Generic break effects hit Guard Shields first; leftmost breaks first. Some guards carry a card with a Shield Trigger.");
+                return;
+            case "core":
+                _hud.ShowCardDetail("Core Shield", "the real defenses",
+                    "Breaks only when its key Info Nuggets are played while no Guards stand. Broken cores reveal lore — '?' marks a hint.");
+                return;
+        }
+        _hud.HideCardDetail();
     }
 
     private void HandleClick(Vector2 screenPos)
