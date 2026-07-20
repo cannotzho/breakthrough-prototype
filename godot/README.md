@@ -20,6 +20,29 @@ driven by `arena/AnimationDirector.cs` off `CombatView.NewLog` — the seam's
 event-delta contract. Prompts and toast-style rejection live on a 2D HUD
 layer (`arena/ArenaHud.cs`).
 
+## Card Designer (roadmap step 5 — the one full content editor)
+
+Launcher → **Card Designer ✎**. Edits the CANONICAL checked-in
+`../content/content.json` (Option-B pipeline, Ken sign-off): card list with
+filter on the left, a WYSIWYG preview through the **real `Card3D` renderer**
+in the middle, and the edit panel on the right — name, cost, color, effect
+text, and the card's **effect structures as canonical JSON** (full power to
+fix any card; the ported C# `Validation.ValidateCard` runs on every
+apply/save and errors block saving). Card IDs are immutable, so encounter
+and deck references can't break. Saves are diff-minimal (verified: a
+no-op save is byte-identical to the TS-era file).
+
+**Card art contract** (also usable by artists without the tool):
+
+- Artwork: `art/cards/<definitionId>.png` (also jpg/jpeg/webp) — the
+  designer's *Import Art…* copies files here, keyed by card id.
+- Compositing: `art/cards/manifest.json` maps id → `{ texture, overlay:
+  none|glow|tint, overlayColor, artScale, artOffsetY }` (see `arena/CardArt.cs`).
+- A correctly-named image with no manifest entry renders plain and
+  centered; no image = the text-only face. Textures load without a Godot
+  reimport pass, so drop-ins show up immediately. Commit both the images
+  and the manifest.
+
 ## Artist slots (how real art gets in)
 
 Every visual is requested from `arena/ArtLibrary.cs` by slot name. Drop a

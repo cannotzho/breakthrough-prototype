@@ -306,7 +306,7 @@ public partial class MindspaceArena : Node3D
                 _hand[cardView.InstanceId] = card;
             }
             card.IndexInZone = cardView.HandIndex;
-            card.SetFace(cardView.Name, cardView.EffectiveCost.ToString(), cardView.EffectText);
+            card.SetFace(cardView.Name, cardView.EffectiveCost.ToString(), cardView.EffectText, cardView.DefinitionId);
             var (pos, rot) = _viewMode == ViewMode.HandInspect
                 ? InspectSlot(cardView.HandIndex, n)
                 : HandSlot(cardView.HandIndex, n);
@@ -394,7 +394,7 @@ public partial class MindspaceArena : Node3D
                 : string.Join(" ", p.Counters.Select(kv => $"{kv.Key}:{kv.Value}"));
             string sub = p.Kind + (p.TurnsRemaining is int t ? $" · {t}t" : "") +
                 (p.Abilities.Count > 0 ? " · click for abilities" : "");
-            card.SetFace(p.Name, counters, sub);
+            card.SetFace(p.Name, counters, sub, p.DefinitionId);
             // Counter total as a corner badge, readable from table view.
             int counterTotal = p.Counters.Values.Sum();
             card.SetCounterBadge(counterTotal > 0 ? counterTotal.ToString() : "");

@@ -79,6 +79,10 @@ public partial class Main : Control
             GetTree().ChangeSceneToFile("res://MindspaceArena.tscn");
         };
         bar.AddChild(arena);
+
+        var designer = new Button { Text = "Card Designer ✎" };
+        designer.Pressed += () => GetTree().ChangeSceneToFile("res://CardDesigner.tscn");
+        bar.AddChild(designer);
     }
 
     private static void ApplyLaunchConfig(OptionButton encounter, OptionButton deck, SpinBox seed)

@@ -123,11 +123,89 @@ public partial class Card3D : Node3D
         _badge.Text = text;
     }
 
-    public void SetFace(string name, string costText, string effectText)
+    private MeshInstance3D? _art, _artOverlay;
+    private string _artDefId = "";
+
+    public void SetFace(string name, string costText, string effectText, string? artDefId = null)
     {
         _name.Text = name;
         _cost.Text = costText;
         _text.Text = effectText.Length > 80 ? effectText[..79] + "…" : effectText;
+        if (artDefId != null && artDefId != _artDefId)
+        {
+            _artDefId = artDefId;
+            ApplyCardArt(artDefId);
+        }
+    }
+
+    /// <summary>Composite art from the CardArtLibrary contract (normal gameplay path).</summary>
+    public void ApplyCardArt(string definitionId) =>
+        ApplyCardArt(CardArtLibrary.Texture(definitionId), CardArtLibrary.Entry(definitionId));
+
+    /// <summary>
+    /// Composite an explicit texture + entry onto the face (the Card Designer
+    /// previews UNSAVED settings through this overload): image quad
+    /// center-face, optional glow halo / tint overlay, effect text pushed to
+    /// the bottom band. Text-only layout when no art exists.
+    /// </summary>
+    public void ApplyCardArt(Texture2D? tex, CardArtEntry? entry)
+    {
+        _art?.QueueFree(); _art = null;
+        _artOverlay?.QueueFree(); _artOverlay = null;
+
+        if (tex == null || entry == null)
+        {
+            _text.Position = new Vector3(0, -0.04f, 0.01f);
+            return;
+        }
+
+        _art = new MeshInstance3D
+        {
+            Mesh = new QuadMesh { Size = new Vector2(0.6f, 0.42f) * entry.ArtScale },
+            MaterialOverride = new StandardMaterial3D
+            {
+                AlbedoTexture = tex,
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            },
+            Position = new Vector3(0, 0.08f + entry.ArtOffsetY, 0.006f),
+        };
+        AddChild(_art);
+        _text.Position = new Vector3(0, -0.335f, 0.01f);
+
+        switch (entry.Overlay)
+        {
+            case "glow":
+                _artOverlay = new MeshInstance3D
+                {
+                    Mesh = new QuadMesh { Size = new Vector2(0.78f, 1.08f) },
+                    MaterialOverride = new StandardMaterial3D
+                    {
+                        ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                        Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                        AlbedoColor = entry.OverlayColor with { A = 0.35f },
+                        EmissionEnabled = true,
+                        Emission = entry.OverlayColor,
+                        EmissionEnergyMultiplier = 1.4f,
+                    },
+                    Position = new Vector3(0, 0, -0.006f),
+                };
+                AddChild(_artOverlay);
+                break;
+            case "tint":
+                _artOverlay = new MeshInstance3D
+                {
+                    Mesh = new QuadMesh { Size = new Vector2(0.6f, 0.42f) * entry.ArtScale },
+                    MaterialOverride = new StandardMaterial3D
+                    {
+                        ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                        Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                        AlbedoColor = entry.OverlayColor with { A = 0.35f },
+                    },
+                    Position = new Vector3(0, 0.08f + entry.ArtOffsetY, 0.007f),
+                };
+                AddChild(_artOverlay);
+                break;
+        }
     }
 
     public void SetFaceDown(bool faceDown)
