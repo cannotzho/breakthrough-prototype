@@ -123,8 +123,15 @@ public partial class Card3D : Node3D
         _badge.Text = text;
     }
 
-    private MeshInstance3D? _art, _artOverlay;
+    private MeshInstance3D? _art, _artOverlay, _artBand;
     private string _artDefId = "";
+
+    // default (text-only) label styling, restored when art is removed
+    private static readonly Color NameInk = new("241c12");
+    private static readonly Color NameInkOutline = new("e8dcc2");
+    private static readonly Color TextInk = new("32291e");
+    private static readonly Color BandInk = new("f0e8d8");
+    private static readonly Color BandInkOutline = new("14100a");
 
     public void SetFace(string name, string costText, string effectText, string? artDefId = null)
     {
@@ -144,33 +151,65 @@ public partial class Card3D : Node3D
 
     /// <summary>
     /// Composite an explicit texture + entry onto the face (the Card Designer
-    /// previews UNSAVED settings through this overload): image quad
-    /// center-face, optional glow halo / tint overlay, effect text pushed to
-    /// the bottom band. Text-only layout when no art exists.
+    /// previews UNSAVED settings through this overload).
+    ///
+    /// FULL-ART layout (Ken designer round 1): the artwork covers the entire
+    /// card face; the title and effect text sit on a high-contrast dark band
+    /// over the bottom half, with the ink flipped light. artScale/artOffsetY
+    /// still frame the artwork within the face. Text-only layout when no art
+    /// exists.
     /// </summary>
     public void ApplyCardArt(Texture2D? tex, CardArtEntry? entry)
     {
         _art?.QueueFree(); _art = null;
         _artOverlay?.QueueFree(); _artOverlay = null;
+        _artBand?.QueueFree(); _artBand = null;
 
         if (tex == null || entry == null)
         {
+            // restore the text-only face
+            _name.Position = new Vector3(0, 0.455f, 0.01f);
+            _name.Modulate = NameInk;
+            _name.OutlineModulate = NameInkOutline;
             _text.Position = new Vector3(0, -0.04f, 0.01f);
+            _text.Modulate = TextInk;
+            _text.OutlineModulate = NameInkOutline;
             return;
         }
 
+        // full-face artwork
         _art = new MeshInstance3D
         {
-            Mesh = new QuadMesh { Size = new Vector2(0.6f, 0.42f) * entry.ArtScale },
+            Mesh = new QuadMesh { Size = new Vector2(0.7f, 1.0f) * entry.ArtScale },
             MaterialOverride = new StandardMaterial3D
             {
                 AlbedoTexture = tex,
                 ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
             },
-            Position = new Vector3(0, 0.08f + entry.ArtOffsetY, 0.006f),
+            Position = new Vector3(0, entry.ArtOffsetY, 0.004f),
         };
         AddChild(_art);
-        _text.Position = new Vector3(0, -0.335f, 0.01f);
+
+        // high-contrast band across the bottom half, title + text over it
+        _artBand = new MeshInstance3D
+        {
+            Mesh = new QuadMesh { Size = new Vector2(0.7f, 0.46f) },
+            MaterialOverride = new StandardMaterial3D
+            {
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                AlbedoColor = new Color(0.04f, 0.03f, 0.06f, 0.78f),
+            },
+            Position = new Vector3(0, -0.27f, 0.006f),
+        };
+        AddChild(_artBand);
+
+        _name.Position = new Vector3(0, -0.075f, 0.01f);
+        _name.Modulate = BandInk;
+        _name.OutlineModulate = BandInkOutline;
+        _text.Position = new Vector3(0, -0.29f, 0.01f);
+        _text.Modulate = BandInk;
+        _text.OutlineModulate = BandInkOutline;
 
         switch (entry.Overlay)
         {
@@ -194,14 +233,14 @@ public partial class Card3D : Node3D
             case "tint":
                 _artOverlay = new MeshInstance3D
                 {
-                    Mesh = new QuadMesh { Size = new Vector2(0.6f, 0.42f) * entry.ArtScale },
+                    Mesh = new QuadMesh { Size = new Vector2(0.7f, 1.0f) * entry.ArtScale },
                     MaterialOverride = new StandardMaterial3D
                     {
                         ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
                         Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
                         AlbedoColor = entry.OverlayColor with { A = 0.35f },
                     },
-                    Position = new Vector3(0, 0.08f + entry.ArtOffsetY, 0.007f),
+                    Position = new Vector3(0, entry.ArtOffsetY, 0.005f),
                 };
                 AddChild(_artOverlay);
                 break;

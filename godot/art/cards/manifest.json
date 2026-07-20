@@ -1,1 +1,9 @@
-{}
+{
+  "fcp_complete_devotion": {
+    "texture": "res://art/cards/fcp_complete_devotion.jpg",
+    "overlay": "none",
+    "overlayColor": "#ffffff",
+    "artScale": 1,
+    "artOffsetY": 0
+  }
+}
