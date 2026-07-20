@@ -90,6 +90,26 @@ public partial class Card3D : Node3D
         if (back != null) _back.MaterialOverride = back;
     }
 
+    private Label3D? _counterBadge;
+
+    /// <summary>
+    /// Prominent number badge (top-right corner) for permanents carrying
+    /// counters — readable from table view without hovering (Ken round 6).
+    /// Empty string hides it.
+    /// </summary>
+    public void SetCounterBadge(string text)
+    {
+        if (_counterBadge == null)
+        {
+            if (text.Length == 0) return;
+            _counterBadge = MakeLabel(new Vector3(0.26f, 0.42f, 0.014f), 150, new Color("ffe08a"));
+            _counterBadge.OutlineSize = 26;
+            _counterBadge.OutlineModulate = new Color("3a2a10");
+        }
+        _counterBadge.Text = text;
+        _counterBadge.Visible = text.Length > 0 && !_faceDown;
+    }
+
     /// <summary>Marker shown on the back face (hint '?', broken '✔').</summary>
     public void SetBackBadge(string text)
     {

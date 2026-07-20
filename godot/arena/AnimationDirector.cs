@@ -30,6 +30,12 @@ public partial class AnimationDirector : Node3D
         public required Vector3 CoreAnchor;
         public required Vector3 TableCenter;
         public required Vector3 NpcDiscardExit;
+        public required Vector3 PlayerDeckAnchor;
+        public required Vector3 NpcDeckAnchor;
+        /// <summary>permanentId → current world position (null once it left the field).</summary>
+        public required System.Func<string, Vector3?> ResolvePermanentPos;
+        /// <summary>definitionId → card face data (for the NPC play flyby).</summary>
+        public required System.Func<string, CombatSession.CardInfo?> ResolveCard;
     }
 
     private ArenaRefs _r = null!;
@@ -168,8 +174,40 @@ public partial class AnimationDirector : Node3D
                 Enqueue(() => FloatText("Lie ↑", _r.AvatarAnchor + new Vector3(0.6f, 0.2f, 0), new Color("c88aff")), 0.6f);
                 break;
             case "play" when StrOf(e, "controller") == "npc":
-                Enqueue(() => NpcPlayFlyby(e.Message), 1.7f);
+            {
+                string defId = StrOf(e, "definitionId");
+                Enqueue(() => NpcPlayFlyby(defId, e.Message), 3.0f);
                 break;
+            }
+            case "draw":
+            {
+                // Card draws get a focus beat (Ken round 6) — brief, since
+                // draws happen every turn start.
+                int count = IntOf(e, "count");
+                bool player = StrOf(e, "side") == "player";
+                var anchor = player ? _r.PlayerDeckAnchor : _r.NpcDeckAnchor;
+                Enqueue(() =>
+                {
+                    _r.Rig.FocusOn(anchor, 0.45f);
+                    DelayedFloat(0.4f, $"draws {count} card{(count == 1 ? "" : "s")}", anchor + new Vector3(0, 0.6f, 0),
+                        player ? new Color("aecbff") : new Color("e8c8a8"));
+                }, 1.5f);
+                break;
+            }
+            case "counters":
+            {
+                // Counter changes get a focus beat on the permanent (Ken round 6).
+                string permId = StrOf(e, "permanentId");
+                string counterName = StrOf(e, "counterName");
+                int total = IntOf(e, "total");
+                Enqueue(() =>
+                {
+                    var pos = _r.ResolvePermanentPos(permId) ?? _r.TableCenter;
+                    _r.Rig.FocusOn(pos, 0.6f);
+                    DelayedFloat(0.4f, $"{counterName} → {total}", pos + new Vector3(0, 0.6f, 0), new Color("ffe08a"));
+                }, 1.7f);
+                break;
+            }
             case "trap-fired":
             {
                 // Attribute the trap (Ken round 4 — a bare "TRAP!" reads as
@@ -203,20 +241,37 @@ public partial class AnimationDirector : Node3D
         }
     }
 
-    /// <summary>A card back sweeps from the avatar to table center, then exits.</summary>
-    private void NpcPlayFlyby(string message)
+    /// <summary>
+    /// The opponent's play sweeps from the avatar to table center FACE-UP with
+    /// its name, cost and effect text, and lingers so the player can read it
+    /// (Ken round 6 — and where the card art will live once it exists).
+    /// </summary>
+    private void NpcPlayFlyby(string definitionId, string message)
     {
         var card = new Card3D { Zone = "fx" };
         AddChild(card);
         card.Position = _r.AvatarAnchor + new Vector3(0, -0.3f, 0.3f);
         card.RotationDegrees = new Vector3(-70, 0, 0);
         card.Scale = Vector3.One * 0.8f;
-        card.SetFaceDown(true);
-        card.GlideTo(_r.TableCenter + new Vector3(0, 0.25f, 0), new Vector3(-90, 0, 0), 0.7f);
-        FloatText(Truncate(message, 34), _r.TableCenter + new Vector3(0, 0.9f, 0), new Color("e8c8a8"));
+
+        var info = definitionId.Length > 0 ? _r.ResolveCard(definitionId) : null;
+        if (info != null)
+        {
+            card.SetFace(info.Name, info.Cost.ToString(), info.EffectText);
+            // Present upright toward the camera, slightly raised and enlarged.
+            card.GlideTo(_r.TableCenter + new Vector3(0, 1.05f, 0.4f), new Vector3(-28, 0, 0), 0.7f);
+            var grow = card.CreateTween();
+            grow.TweenProperty(card, "scale", Vector3.One * 1.15f, 0.7);
+        }
+        else
+        {
+            card.SetFaceDown(true);
+            card.GlideTo(_r.TableCenter + new Vector3(0, 0.25f, 0), new Vector3(-90, 0, 0), 0.7f);
+            FloatText(Truncate(message, 34), _r.TableCenter + new Vector3(0, 0.9f, 0), new Color("e8c8a8"));
+        }
 
         var exitTween = CreateTween();
-        exitTween.TweenInterval(1.5);
+        exitTween.TweenInterval(info != null ? 2.6 : 1.5);
         exitTween.TweenCallback(Callable.From(() =>
         {
             if (IsInstanceValid(card)) card.DepartAndFree(_r.NpcDiscardExit);

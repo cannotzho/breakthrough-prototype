@@ -80,6 +80,9 @@ public partial class CombatBridge : Node
         }
     }
 
+    /// <summary>Read-only card face lookup (see CombatSession.GetCardInfo).</summary>
+    public CombatSession.CardInfo? GetCardInfo(string definitionId) => Session?.GetCardInfo(definitionId);
+
     // ── GDScript escape hatch (C# scenes use View/ViewChanged) ──────────────
 
     public string GetStateJson() => Session?.DebugStateJson() ?? "";

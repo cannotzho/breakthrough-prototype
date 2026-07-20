@@ -85,9 +85,11 @@ public partial class ArenaHud : CanvasLayer
         // MouseFilter Ignore throughout: it is read-only and must never eat
         // clicks meant for the 3D scene beneath it (Ken round 4 — it was
         // blocking the leftmost shield AND pile clicks in top-down view).
+        // Position (Ken round 6): middle of the screen, slightly right — not
+        // bottom-left, where it sat over the shield row and piles.
         _detail = new PanelContainer { Visible = false, MouseFilter = Control.MouseFilterEnum.Ignore };
-        _detail.SetAnchorsPreset(Control.LayoutPreset.BottomLeft);
-        _detail.OffsetLeft = 16; _detail.OffsetTop = -240; _detail.OffsetRight = 396; _detail.OffsetBottom = -70;
+        _detail.SetAnchorsPreset(Control.LayoutPreset.Center);
+        _detail.OffsetLeft = 150; _detail.OffsetTop = -115; _detail.OffsetRight = 530; _detail.OffsetBottom = 115;
         var detailBox = new VBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
         detailBox.AddThemeConstantOverride("separation", 4);
         _detail.AddChild(detailBox);
@@ -158,7 +160,10 @@ public partial class ArenaHud : CanvasLayer
         RebuildPrompt(v);
     }
 
-    public void SetViewLabel(string label) => _inspect.Text = $"View: {label} (Tab)";
+    public void SetViewLabel(string label) => _inspect.Text = $"View: {label} (Tab/scroll)";
+
+    /// <summary>True while a modal engine prompt / result screen is up (used to gate view cycling).</summary>
+    public bool IsModalOpen => _promptLayer.Visible;
 
     public void ShowCardDetail(string title, string meta, string body)
     {
@@ -372,12 +377,17 @@ public partial class ArenaHud : CanvasLayer
         _browser.Visible = false;
     }
 
-    /// <summary>Live contents: re-rendered every view while open (NPC may keep discarding).</summary>
+    /// <summary>
+    /// Live contents: re-rendered every view while open (NPC may keep
+    /// discarding). Rows carry rules text (Ken round 6): hover a row for a
+    /// tooltip, click it to pin the card into the detail panel.
+    /// </summary>
     private void RefreshBrowser(CombatView v)
     {
         if (_openPileId == null) return;
         bool player = _openPileId == "player-discard";
         var names = player ? v.PlayerDiscardNames : v.NpcDiscardNames;
+        var defIds = player ? v.PlayerDiscardDefIds : v.NpcDiscardDefIds;
         _browserTitle.Text = $"{(player ? "Your" : "Their")} discard pile ({names.Count})";
         foreach (var child in _browserList.GetChildren())
         {
@@ -391,8 +401,22 @@ public partial class ArenaHud : CanvasLayer
         }
         for (int i = names.Count - 1; i >= 0; i--) // most recent first
         {
-            var row = new Label { Text = $"{names.Count - i}. {names[i]}" };
+            var info = _bridge.GetCardInfo(defIds[i]);
+            var row = new Button
+            {
+                Text = $"{names.Count - i}. {names[i]}",
+                Flat = true,
+                Alignment = HorizontalAlignment.Left,
+                TooltipText = info == null ? "" : $"[{info.Cost}] {info.EffectText}",
+            };
             if (i == names.Count - 1) row.AddThemeColorOverride("font_color", new Color("ffe08a"));
+            string name = names[i];
+            var captured = info;
+            row.Pressed += () =>
+            {
+                if (captured != null)
+                    ShowCardDetail(name, $"discarded · cost {captured.Cost}", captured.EffectText);
+            };
             _browserList.AddChild(row);
         }
     }

@@ -110,6 +110,10 @@ public sealed record CombatView
     /// </summary>
     public required IReadOnlyList<string> PlayerDiscardNames { get; init; }
     public required IReadOnlyList<string> NpcDiscardNames { get; init; }
+
+    /// <summary>Definition ids parallel to the discard name lists (for rules-text lookup).</summary>
+    public required IReadOnlyList<string> PlayerDiscardDefIds { get; init; }
+    public required IReadOnlyList<string> NpcDiscardDefIds { get; init; }
     /// <summary>Populated only while an effect has revealed the NPC hand.</summary>
     public IReadOnlyList<string>? NpcHandNames { get; init; }
 
@@ -172,6 +176,8 @@ public static class CombatViewBuilder
                 : null,
             PlayerDiscardNames = s.Player.Discard.Select(c => NameOf(s, c.DefinitionId)).ToList(),
             NpcDiscardNames = s.Npc.Discard.Select(c => NameOf(s, c.DefinitionId)).ToList(),
+            PlayerDiscardDefIds = s.Player.Discard.Select(c => c.DefinitionId).ToList(),
+            NpcDiscardDefIds = s.Npc.Discard.Select(c => c.DefinitionId).ToList(),
             Hand = hand,
             BackOfMindNames = s.BackOfMind.Select(c => NameOf(s, c.DefinitionId)).ToList(),
             BotmLimit = Core.EffectiveBotmLimit(s),

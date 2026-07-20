@@ -70,11 +70,14 @@ sequencing should key off.
   click a hand card for Play / Heavy Hand / Place-as-Shield; click two
   shields to swap their break order; prompts (reveal, choose-number,
   Back-of-Mind, deck reveal) appear as overlays; NPC turns advance
-  automatically (toggle Auto NPC for manual stepping). In the arena, click
-  the bell (or the HUD button) to end your turn, press **Tab** (or the HUD
-  button) to cycle board view → hand inspect → top-down, and hover
-  anything — cards, shields, guards, piles, props — to read its full text
-  on the bottom-left detail panel. Patience is the melting candle; each
+  automatically (toggle Auto NPC for manual stepping). In the arena:
+  **drag** a hand card past the shield row to play it (drop it on the
+  shield row to place it as a shield; anywhere else returns it), or
+  **click** it for the full menu incl. Heavy Hand; click the bell (or the
+  HUD button) to end your turn; **Tab / scroll wheel / arrow keys** cycle
+  board view → hand inspect → top-down; hover anything — cards, shields,
+  guards, piles, props — to read its full text on the center-right detail
+  panel, and click rows in a discard browser to pin their rules text. Patience is the melting candle; each
   side's Priority is its token stack; draw and discard piles sit on the
   table (click a discard pile to browse its contents — public info by
   Ken's ruling; decks stay hidden, counts only); big state changes get a

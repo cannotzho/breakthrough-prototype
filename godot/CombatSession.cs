@@ -109,6 +109,18 @@ public sealed class CombatSession
     public bool NpcAdvancePending =>
         _state is { } s && s.Phase == Phases.EnemyPending && s.PendingBlock == null && s.Result == null;
 
+    // ── Content lookup (read-only; presentation may show any card's face) ───
+
+    public sealed record CardInfo(string Name, int Cost, string EffectText);
+
+    /// <summary>Card face data by definition id (cards, then tokens); null if unknown.</summary>
+    public CardInfo? GetCardInfo(string definitionId)
+    {
+        var def = _content.Cards.TryGetValue(definitionId, out var c) ? c
+            : _content.Tokens.TryGetValue(definitionId, out var t) ? t : null;
+        return def == null ? null : new CardInfo(def.Name, def.Cost, def.EffectText);
+    }
+
     // ── Debug escape hatch (dev tooling only — scenes use View) ─────────────
 
     public string DebugStateJson() =>

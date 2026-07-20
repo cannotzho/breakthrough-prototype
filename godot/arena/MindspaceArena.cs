@@ -54,7 +54,9 @@ public partial class MindspaceArena : Node3D
     private static readonly Vector3 TableCenter = new(0, 0.3f, 0.2f);
     private static readonly Vector3 BellPos = new(3.15f, 0, 0.55f);
     private static readonly Vector3 CandlePos = new(-3.0f, 0, -1.4f);
-    private static readonly Vector3 PlayerStackPos = new(-3.0f, 0, 1.35f);
+    // Right side, between bell and hand — visible and clear of HUD overlays
+    // (Ken round 6: the old left spot sat under the detail panel).
+    private static readonly Vector3 PlayerStackPos = new(2.45f, 0, 1.5f);
     private static readonly Vector3 NpcStackPos = new(2.95f, 0, -1.55f);
     private static readonly Vector3 PlayerDeckExit = new(3.3f, 0.6f, 2.3f);
     private static readonly Vector3 PlayerDiscardExit = new(-3.3f, 0.6f, 2.3f);
@@ -184,6 +186,11 @@ public partial class MindspaceArena : Node3D
             CoreAnchor = new Vector3(0, 1.2f, -2.35f),
             TableCenter = TableCenter,
             NpcDiscardExit = NpcDiscardExit,
+            PlayerDeckAnchor = _playerDeckPile.Position + new Vector3(0, 0.5f, 0),
+            NpcDeckAnchor = _npcDeckPile.Position + new Vector3(0, 0.5f, 0),
+            ResolvePermanentPos = permId =>
+                _field.TryGetValue(permId, out var card) ? card.Position : null,
+            ResolveCard = defId => _bridge.GetCardInfo(defId),
         });
     }
 
@@ -220,14 +227,12 @@ public partial class MindspaceArena : Node3D
 
     // ── view cycle: board → hand-inspect → top-down (Tab / HUD button) ──────
 
-    private void ToggleHandInspect()
+    private void ToggleHandInspect() => CycleView(+1);
+
+    private void CycleView(int direction)
     {
-        SetViewMode(_viewMode switch
-        {
-            ViewMode.Board => ViewMode.HandInspect,
-            ViewMode.HandInspect => ViewMode.TopDown,
-            _ => ViewMode.Board,
-        });
+        if (_hud.IsModalOpen) return;
+        SetViewMode((ViewMode)(((int)_viewMode + direction + 3) % 3));
     }
 
     private void SetViewMode(ViewMode mode)
@@ -390,6 +395,9 @@ public partial class MindspaceArena : Node3D
             string sub = p.Kind + (p.TurnsRemaining is int t ? $" · {t}t" : "") +
                 (p.Abilities.Count > 0 ? " · click for abilities" : "");
             card.SetFace(p.Name, counters, sub);
+            // Counter total as a corner badge, readable from table view.
+            int counterTotal = p.Counters.Values.Sum();
+            card.SetCounterBadge(counterTotal > 0 ? counterTotal.ToString() : "");
             float spread = Mathf.Min(0.85f, 6.0f / Mathf.Max(n, 1));
             float x = (i - (n - 1) * 0.5f) * spread;
             card.GlideTo(new Vector3(x, 0.18f, z), new Vector3(-90, 0, 0));
@@ -460,19 +468,105 @@ public partial class MindspaceArena : Node3D
 
     // ── input ───────────────────────────────────────────────────────────────
 
+    // drag-to-play state: press on a hand card arms a candidate; moving past
+    // the threshold turns it into a drag (release = drop), releasing without
+    // movement is a plain click (action menu). Mirrors the React UI's 6 px
+    // activation constraint.
+    private const float DragThresholdPx = 12f;
+    private Card3D? _pressCandidate;
+    private Vector2 _pressScreen;
+    private bool _dragging;
+
     public override void _UnhandledInput(InputEvent ev)
     {
         switch (ev)
         {
-            case InputEventKey { Keycode: Key.Tab, Pressed: true, Echo: false }:
-                ToggleHandInspect();
+            case InputEventKey { Pressed: true, Echo: false } key:
+                switch (key.Keycode)
+                {
+                    case Key.Tab: CycleView(+1); break;
+                    case Key.Right or Key.Down: CycleView(+1); break;
+                    case Key.Left or Key.Up: CycleView(-1); break;
+                }
+                break;
+            case InputEventMouseButton { ButtonIndex: MouseButton.WheelDown, Pressed: true }:
+                CycleView(+1);
+                break;
+            case InputEventMouseButton { ButtonIndex: MouseButton.WheelUp, Pressed: true }:
+                CycleView(-1);
                 break;
             case InputEventMouseMotion motion:
-                UpdateHover(motion.Position);
+                if (_pressCandidate != null) UpdateDrag(motion.Position);
+                else UpdateHover(motion.Position);
                 break;
-            case InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true } click:
-                HandleClick(click.Position);
+            case InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true } press:
+                HandlePress(press.Position);
                 break;
+            case InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: false } release:
+                HandleRelease(release.Position);
+                break;
+        }
+    }
+
+    private void UpdateDrag(Vector2 screenPos)
+    {
+        if (_pressCandidate == null || !IsInstanceValid(_pressCandidate)) { CancelDrag(); return; }
+        if (!_dragging)
+        {
+            if (screenPos.DistanceTo(_pressScreen) < DragThresholdPx) return;
+            _dragging = true;
+            _hud.HideCardDetail();
+            _hovered?.SetHovered(false);
+            _hovered = null;
+        }
+        // Follow the mouse on a lifted table plane.
+        var cam = _rig.Camera;
+        var from = cam.ProjectRayOrigin(screenPos);
+        var dir = cam.ProjectRayNormal(screenPos);
+        if (new Plane(Vector3.Up, 1.05f).IntersectsRay(from, dir) is Vector3 point)
+        {
+            _pressCandidate.Position = point;
+            _pressCandidate.RotationDegrees = new Vector3(-55, 0, 0);
+        }
+    }
+
+    private void CancelDrag()
+    {
+        _pressCandidate = null;
+        _dragging = false;
+    }
+
+    private void HandleRelease(Vector2 screenPos)
+    {
+        var card = _pressCandidate;
+        bool wasDragging = _dragging;
+        CancelDrag();
+        if (card == null || !IsInstanceValid(card)) return;
+
+        if (!wasDragging)
+        {
+            OnHandCardClicked(card); // plain click → action menu
+            return;
+        }
+
+        var v = _bridge.View!;
+        var cardView = v.Hand.FirstOrDefault(h => h.InstanceId == card.Key);
+        if (cardView == null) { ReconcileHand(v); return; }
+
+        // Drop zones by table depth: past the shield row = play; on the
+        // shield row band = place as shield; anywhere else = back to hand.
+        float z = card.Position.Z;
+        if (z < 0.85f)
+        {
+            if (!_bridge.PlayCardAt(cardView.HandIndex)) ReconcileHand(_bridge.View!);
+        }
+        else if (z < 1.55f)
+        {
+            if (!_bridge.PlaceShieldAt(cardView.HandIndex)) ReconcileHand(_bridge.View!);
+        }
+        else
+        {
+            ReconcileHand(v); // glide back to the fan
         }
     }
 
@@ -591,7 +685,7 @@ public partial class MindspaceArena : Node3D
         _hud.HideCardDetail();
     }
 
-    private void HandleClick(Vector2 screenPos)
+    private void HandlePress(Vector2 screenPos)
     {
         var collider = PickAt(screenPos);
         if (collider is Area3D bellArea && bellArea.HasMeta("bell"))
@@ -622,7 +716,18 @@ public partial class MindspaceArena : Node3D
         if (card == null) return;
         switch (card.Zone)
         {
-            case "hand": OnHandCardClicked(card); break;
+            case "hand":
+                // Arm drag-to-play; a motionless release opens the menu instead.
+                if (_bridge.View is { CanPlay: true })
+                {
+                    _pressCandidate = card;
+                    _pressScreen = screenPos;
+                }
+                else
+                {
+                    OnHandCardClicked(card); // surfaces the can't-play toast
+                }
+                break;
             case "shield": OnShieldClicked(card); break;
             case "field": OnFieldClicked(card); break;
         }
