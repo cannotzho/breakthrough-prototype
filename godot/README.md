@@ -85,6 +85,21 @@ sequencing should key off.
   (Ctrl+F6 / Cmd+R). `gateway_demo.gd` drives a full round from GDScript
   through `EngineGateway.cs`.
 
+## Display & scaling
+
+The window opens **maximized** and is freely resizable; **F11** (or
+Alt+Enter) toggles fullscreen. Stretch is `canvas_items` with `expand`
+aspect off a 1280×800 base: the 3D viewport always renders at native window
+resolution (sharp on 4K), the HUD scales by the content factor with fonts
+re-rasterized at the effective size (crisp, unlike `viewport` stretch which
+would upscale a fixed 1280×800 render), and unusual aspect ratios gain
+canvas space instead of black bars.
+
+> Note for editor runs: Godot 4.4+ embeds the running game in the editor's
+> Game tab by default, which caps its size at the panel — use the Game tab's
+> embed toggle ("Make Floating" / disable embedding) or a non-embedded run
+> to test true fullscreen on a large monitor.
+
 ## Compile without Godot
 
 The project compiles with the plain .NET SDK (Godot.NET.Sdk + GodotSharp come
