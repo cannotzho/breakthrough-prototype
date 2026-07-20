@@ -47,17 +47,16 @@ public static class EngineHarness
     public sealed record HarnessResult(string Report, bool Passed);
 
     /// <summary>
-    /// Finds content.json given the Godot project directory: prefers the copy
-    /// the SyncContentBundle build target places next to project.godot, falls
-    /// back to the canonical copy in the engine test project (useful before
-    /// the first build, or when running the harness outside Godot).
+    /// The CANONICAL content store: content/content.json at the repo root,
+    /// checked in and edited by the Card Designer (Option-B pipeline). The
+    /// build-synced copy next to project.godot is only a fallback for
+    /// exported builds where the repo layout is absent.
     /// </summary>
     public static string ResolveContentPath(string projectDir)
     {
-        string local = Path.Combine(projectDir, "content.json");
-        if (File.Exists(local)) return local;
-        return Path.GetFullPath(Path.Combine(
-            projectDir, "..", "csharp-engine", "Breakthrough.Engine.Tests", "content.json"));
+        string canonical = Path.GetFullPath(Path.Combine(projectDir, "..", "content", "content.json"));
+        if (File.Exists(canonical)) return canonical;
+        return Path.Combine(projectDir, "content.json");
     }
 
     public static ContentBundle LoadContent(string projectDir) =>

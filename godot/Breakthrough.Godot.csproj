@@ -11,10 +11,11 @@
     <ProjectReference Include="..\csharp-engine\Breakthrough.Engine\Breakthrough.Engine.csproj" />
   </ItemGroup>
 
-  <!-- content.json is derived data (exported from the TS content layer via
-       csharp-engine/tools/dump-content.test.ts). Sync the canonical copy into
-       the Godot project dir on every build so res://content.json stays fresh. -->
+  <!-- The canonical content store is the checked-in ..\content\content.json
+       (Option-B pipeline; edited in-game by the Card Designer, which writes
+       it directly). This sync only refreshes the local res://content.json
+       convenience copy on build. -->
   <Target Name="SyncContentBundle" BeforeTargets="BeforeBuild">
-    <Copy SourceFiles="..\csharp-engine\Breakthrough.Engine.Tests\content.json" DestinationFolder="$(MSBuildProjectDirectory)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="..\content\content.json" DestinationFolder="$(MSBuildProjectDirectory)" SkipUnchangedFiles="true" />
   </Target>
 </Project>

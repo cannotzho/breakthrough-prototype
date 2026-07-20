@@ -22,8 +22,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- TS content bundle (exported by ../tools/dump-content.test.ts) — data only. -->
-    <None Include="content.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Canonical content bundle (checked in at content/, edited by the Godot Card Designer) — data only. -->
+    <None Include="..\..\content\content.json" Link="content.json" CopyToOutputDirectory="PreserveNewest" />
     <!-- TS engine state trace (exported by ../tools/dump-trace.test.ts) for cross-engine parity. -->
     <None Include="trace.expected.txt" CopyToOutputDirectory="PreserveNewest" />
     <!-- Engine sources, copied for the no-card-ids lint test (v1.4 §15.2). -->
