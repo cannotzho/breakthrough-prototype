@@ -65,9 +65,15 @@ Wide effect rows wrap within the panel (no horizontal scrolling).
 - Compositing: `art/cards/manifest.json` maps id → `{ texture, overlay:
   none|glow|tint, overlayColor, artScale, artOffsetY }` (see `arena/CardArt.cs`).
 - A correctly-named image with no manifest entry renders plain and
-  centered; no image = the text-only face. Textures load without a Godot
-  reimport pass, so drop-ins show up immediately. Commit both the images
-  and the manifest.
+  centered. Textures load without a Godot reimport pass, so drop-ins show
+  up immediately. Commit both the images and the manifest.
+
+All cards use one **full-art** face: the artwork (or the `card_front`
+material when there's no art) fills the card, with a fixed-size title bar
+above a fixed-size effect-text box on a dark band. Those boxes never
+resize — the name (one line) and effect text (wrapped) shrink their font
+to fit, between a max and a min size. Card names are capped at 28
+characters in the designer so a title always fits.
 
 ## Artist slots (how real art gets in)
 

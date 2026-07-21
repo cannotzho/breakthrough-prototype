@@ -6,9 +6,13 @@
 // Parents orient it (upright in hand, flat on table). Picking is an Area3D;
 // MindspaceArena routes clicks/hovers back after ray-casting.
 //
-// Readability (Ken playtest round 1): heavy font sizes with outlines, name
-// wraps to the card width instead of overflowing, effect text enlarged. Full
-// rules text lives on the HUD hover-detail panel, not the card face.
+// ONE full-art layout for every card (Ken designer round 3): the face is the
+// art (or the card_front material when there's no art), with a fixed-size
+// title bar above a fixed-size effect-text box, both on a high-contrast dark
+// band. The boxes NEVER resize — text is fit to them by shrinking the font
+// between a max and a min (name is one line fit to width; effect text wraps
+// and is fit to height). No "…" truncation. A designer-side character cap
+// plus the min font keep the worst case bounded.
 
 using Godot;
 
@@ -20,9 +24,33 @@ public partial class Card3D : Node3D
     public string Zone = "";         // "hand" | "shield" | "field" | "guard" | "core" | "fx"
     public int IndexInZone;
 
+    // ── face layout (world units; card is 0.7 × 1.0 centred at origin) ───────
+    private const float FacePixel = 0.001f;
+
+    private static readonly Vector3 CostPos = new(-0.255f, 0.40f, 0.010f);
+
+    // Title bar: fixed rectangle just above the effect box.
+    private static readonly Vector3 NameBandPos = new(0, -0.085f, 0.005f);
+    private static readonly Vector3 NameTextPos = new(0, -0.085f, 0.009f);
+    private const float NameBandW = 0.66f, NameBandH = 0.12f;
+    private const float NameFitW = 0.60f, NameFitH = 0.10f;
+    private const int NameMaxFont = 92, NameMinFont = 30;
+
+    // Effect-text box: fixed rectangle in the lower part of the face.
+    private static readonly Vector3 EffectBandPos = new(0, -0.315f, 0.005f);
+    private static readonly Vector3 EffectTextPos = new(0, -0.315f, 0.009f);
+    private const float EffectBandW = 0.66f, EffectBandH = 0.30f;
+    private const float EffectFitW = 0.60f, EffectFitH = 0.27f;
+    private const int EffectMaxFont = 44, EffectMinFont = 15;
+
+    private static readonly Color Ink = new("f0e8d8");
+    private static readonly Color InkOutline = new("14100a");
+
     private Label3D _name = null!, _cost = null!, _text = null!;
-    private MeshInstance3D _front = null!, _back = null!;
-    private Label3D? _badge;
+    private MeshInstance3D _front = null!, _back = null!, _nameBand = null!, _effectBand = null!;
+    private Label3D? _badge, _counterBadge;
+    private MeshInstance3D? _art, _artOverlay;
+    private string _artDefId = "";
     private bool _faceDown;
     private bool _hovered;
     private Vector3 _restScale = Vector3.One;
@@ -42,31 +70,48 @@ public partial class Card3D : Node3D
         };
         AddChild(_back);
 
-        _name = MakeLabel(new Vector3(0, 0.455f, 0.01f), 92, new Color("241c12"));
-        _name.VerticalAlignment = VerticalAlignment.Top;
-        _name.Width = 600;
-        _name.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _name.OutlineSize = 16;
-        _name.OutlineModulate = new Color("e8dcc2");
+        _nameBand = MakeBand(NameBandPos, new Vector2(NameBandW, NameBandH), new Color(0.10f, 0.09f, 0.13f, 0.86f));
+        _effectBand = MakeBand(EffectBandPos, new Vector2(EffectBandW, EffectBandH), new Color(0.04f, 0.03f, 0.06f, 0.82f));
 
-        _cost = MakeLabel(new Vector3(-0.26f, 0.40f, 0.012f), 130, new Color("7a1e1e"));
-        _cost.OutlineSize = 22;
-        _cost.OutlineModulate = new Color("f0e4ca");
+        _name = MakeLabel(NameTextPos, NameMaxFont, Ink);
+        _name.VerticalAlignment = VerticalAlignment.Center;
+        _name.AutowrapMode = TextServer.AutowrapMode.Off;
+        _name.OutlineSize = 14;
+        _name.OutlineModulate = InkOutline;
 
-        _text = MakeLabel(new Vector3(0, -0.04f, 0.01f), 44, new Color("32291e"));
-        _text.Width = 580;
+        _cost = MakeLabel(CostPos, 128, new Color("ffe0b0"));
+        _cost.OutlineSize = 24;
+        _cost.OutlineModulate = new Color("14100a");
+
+        _text = MakeLabel(EffectTextPos, EffectMaxFont, Ink);
+        _text.VerticalAlignment = VerticalAlignment.Center;
+        _text.Width = EffectFitW / FacePixel;
         _text.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _text.OutlineSize = 8;
-        _text.OutlineModulate = new Color("e8dcc2");
+        _text.OutlineSize = 6;
+        _text.OutlineModulate = InkOutline;
 
         var area = new Area3D { Monitoring = false };
-        var shape = new CollisionShape3D
-        {
-            Shape = new BoxShape3D { Size = new Vector3(0.7f, 1.0f, 0.05f) },
-        };
+        var shape = new CollisionShape3D { Shape = new BoxShape3D { Size = new Vector3(0.7f, 1.0f, 0.05f) } };
         area.AddChild(shape);
         area.SetMeta("card3d", GetPath());
         AddChild(area);
+    }
+
+    private MeshInstance3D MakeBand(Vector3 pos, Vector2 size, Color color)
+    {
+        var band = new MeshInstance3D
+        {
+            Mesh = new QuadMesh { Size = size },
+            Position = pos,
+            MaterialOverride = new StandardMaterial3D
+            {
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                AlbedoColor = color,
+            },
+        };
+        AddChild(band);
+        return band;
     }
 
     private Label3D MakeLabel(Vector3 pos, int fontSize, Color color)
@@ -76,11 +121,55 @@ public partial class Card3D : Node3D
             Position = pos,
             FontSize = fontSize,
             Modulate = color,
-            PixelSize = 0.001f,
+            PixelSize = FacePixel,
             HorizontalAlignment = HorizontalAlignment.Center,
         };
         AddChild(l);
         return l;
+    }
+
+    // ── font fitting (boxes are fixed; only the font size changes) ───────────
+
+    private static Font? FaceFont => ThemeDB.Singleton?.FallbackFont;
+
+    /// <summary>Largest font (≤ maxF, ≥ minF) that keeps a single line within the box.</summary>
+    private static int FitSingleLine(string text, float worldW, float worldH, int maxF, int minF)
+    {
+        int hCap = Mathf.Clamp((int)(worldH / FacePixel), minF, maxF);
+        var font = FaceFont;
+        if (font == null || text.Length == 0) return hCap;
+        float maxWpx = worldW / FacePixel;
+        for (int fs = hCap; fs > minF; fs--)
+            if (font.GetStringSize(text, HorizontalAlignment.Center, -1, fs).X <= maxWpx) return fs;
+        return minF;
+    }
+
+    /// <summary>Largest font (≤ maxF, ≥ minF) whose wrapped height fits the box.</summary>
+    private static int FitMultiline(string text, float worldW, float worldH, int maxF, int minF)
+    {
+        var font = FaceFont;
+        if (font == null || text.Length == 0) return maxF;
+        float wPx = worldW / FacePixel;
+        float hPx = worldH / FacePixel;
+        for (int fs = maxF; fs > minF; fs--)
+            if (font.GetMultilineStringSize(text, HorizontalAlignment.Center, wPx, fs).Y <= hPx) return fs;
+        return minF;
+    }
+
+    // ── content ──────────────────────────────────────────────────────────────
+
+    public void SetFace(string name, string costText, string effectText, string? artDefId = null)
+    {
+        _name.Text = name;
+        _name.FontSize = FitSingleLine(name, NameFitW, NameFitH, NameMaxFont, NameMinFont);
+        _cost.Text = costText;
+        _text.Text = effectText; // no truncation — the font shrinks to fit
+        _text.FontSize = FitMultiline(effectText, EffectFitW, EffectFitH, EffectMaxFont, EffectMinFont);
+        if (artDefId != null && artDefId != _artDefId)
+        {
+            _artDefId = artDefId;
+            ApplyCardArt(artDefId);
+        }
     }
 
     /// <summary>Swap either face's material (guard backs, core shields, …).</summary>
@@ -90,12 +179,9 @@ public partial class Card3D : Node3D
         if (back != null) _back.MaterialOverride = back;
     }
 
-    private Label3D? _counterBadge;
-
     /// <summary>
-    /// Prominent number badge (top-right corner) for permanents carrying
-    /// counters — readable from table view without hovering (Ken round 6).
-    /// Empty string hides it.
+    /// Counter total badge (top-right) for permanents carrying counters —
+    /// readable from table view without hovering. Empty string hides it.
     /// </summary>
     public void SetCounterBadge(string text)
     {
@@ -123,61 +209,23 @@ public partial class Card3D : Node3D
         _badge.Text = text;
     }
 
-    private MeshInstance3D? _art, _artOverlay, _artBand;
-    private string _artDefId = "";
+    // ── art (unified: the boxes/text are always present; art is a toggle) ────
 
-    // default (text-only) label styling, restored when art is removed
-    private static readonly Color NameInk = new("241c12");
-    private static readonly Color NameInkOutline = new("e8dcc2");
-    private static readonly Color TextInk = new("32291e");
-    private static readonly Color BandInk = new("f0e8d8");
-    private static readonly Color BandInkOutline = new("14100a");
-
-    public void SetFace(string name, string costText, string effectText, string? artDefId = null)
-    {
-        _name.Text = name;
-        _cost.Text = costText;
-        _text.Text = effectText.Length > 80 ? effectText[..79] + "…" : effectText;
-        if (artDefId != null && artDefId != _artDefId)
-        {
-            _artDefId = artDefId;
-            ApplyCardArt(artDefId);
-        }
-    }
-
-    /// <summary>Composite art from the CardArtLibrary contract (normal gameplay path).</summary>
     public void ApplyCardArt(string definitionId) =>
         ApplyCardArt(CardArtLibrary.Texture(definitionId), CardArtLibrary.Entry(definitionId));
 
     /// <summary>
     /// Composite an explicit texture + entry onto the face (the Card Designer
-    /// previews UNSAVED settings through this overload).
-    ///
-    /// FULL-ART layout (Ken designer round 1): the artwork covers the entire
-    /// card face; the title and effect text sit on a high-contrast dark band
-    /// over the bottom half, with the ink flipped light. artScale/artOffsetY
-    /// still frame the artwork within the face. Text-only layout when no art
-    /// exists.
+    /// previews UNSAVED settings through this overload). With no texture the
+    /// card_front material is the background; the title bar, effect box and
+    /// fitted text are permanent either way.
     /// </summary>
     public void ApplyCardArt(Texture2D? tex, CardArtEntry? entry)
     {
         _art?.QueueFree(); _art = null;
         _artOverlay?.QueueFree(); _artOverlay = null;
-        _artBand?.QueueFree(); _artBand = null;
+        if (tex == null || entry == null) return;
 
-        if (tex == null || entry == null)
-        {
-            // restore the text-only face
-            _name.Position = new Vector3(0, 0.455f, 0.01f);
-            _name.Modulate = NameInk;
-            _name.OutlineModulate = NameInkOutline;
-            _text.Position = new Vector3(0, -0.04f, 0.01f);
-            _text.Modulate = TextInk;
-            _text.OutlineModulate = NameInkOutline;
-            return;
-        }
-
-        // full-face artwork
         _art = new MeshInstance3D
         {
             Mesh = new QuadMesh { Size = new Vector2(0.7f, 1.0f) * entry.ArtScale },
@@ -186,30 +234,10 @@ public partial class Card3D : Node3D
                 AlbedoTexture = tex,
                 ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
             },
-            Position = new Vector3(0, entry.ArtOffsetY, 0.004f),
+            Position = new Vector3(0, entry.ArtOffsetY, 0.003f),
+            Visible = !_faceDown,
         };
         AddChild(_art);
-
-        // high-contrast band across the bottom half, title + text over it
-        _artBand = new MeshInstance3D
-        {
-            Mesh = new QuadMesh { Size = new Vector2(0.7f, 0.46f) },
-            MaterialOverride = new StandardMaterial3D
-            {
-                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
-                Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
-                AlbedoColor = new Color(0.04f, 0.03f, 0.06f, 0.78f),
-            },
-            Position = new Vector3(0, -0.27f, 0.006f),
-        };
-        AddChild(_artBand);
-
-        _name.Position = new Vector3(0, -0.075f, 0.01f);
-        _name.Modulate = BandInk;
-        _name.OutlineModulate = BandInkOutline;
-        _text.Position = new Vector3(0, -0.29f, 0.01f);
-        _text.Modulate = BandInk;
-        _text.OutlineModulate = BandInkOutline;
 
         switch (entry.Overlay)
         {
@@ -240,7 +268,7 @@ public partial class Card3D : Node3D
                         Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
                         AlbedoColor = entry.OverlayColor with { A = 0.35f },
                     },
-                    Position = new Vector3(0, entry.ArtOffsetY, 0.005f),
+                    Position = new Vector3(0, entry.ArtOffsetY, 0.004f),
                 };
                 AddChild(_artOverlay);
                 break;
@@ -250,7 +278,12 @@ public partial class Card3D : Node3D
     public void SetFaceDown(bool faceDown)
     {
         _faceDown = faceDown;
-        _name.Visible = _cost.Visible = _text.Visible = !faceDown;
+        bool show = !faceDown;
+        _name.Visible = _cost.Visible = _text.Visible = show;
+        _nameBand.Visible = _effectBand.Visible = show;
+        if (_art != null) _art.Visible = show;
+        if (_artOverlay != null) _artOverlay.Visible = show;
+        if (_counterBadge != null) _counterBadge.Visible = show && _counterBadge.Text.Length > 0;
         if (faceDown) RotationDegrees = new Vector3(RotationDegrees.X, 180, RotationDegrees.Z);
     }
 

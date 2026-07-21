@@ -173,8 +173,8 @@ public partial class CardDesigner : Control
         _idLabel = new Label();
         right.AddChild(_idLabel);
 
-        right.AddChild(new Label { Text = "Name" });
-        _nameEdit = new LineEdit();
+        right.AddChild(new Label { Text = "Name (max 28 chars — the title bar never resizes; the font shrinks to fit)" });
+        _nameEdit = new LineEdit { MaxLength = 28 };
         right.AddChild(_nameEdit);
 
         right.AddChild(new Label { Text = "Cost" });
