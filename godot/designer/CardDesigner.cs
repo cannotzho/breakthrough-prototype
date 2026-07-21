@@ -62,6 +62,7 @@ public partial class CardDesigner : Control
     private SpinBox _costEdit = null!;
     private OptionButton _colorEdit = null!;
     private TextEdit _effectTextEdit = null!;
+    private TextEdit _longDescEdit = null!;
     private EffectBuilderView _builderView = null!;
     private ScrollContainer _builderScroll = null!;
     private CardEffectBuilder _builderModel = null!;
@@ -157,8 +158,13 @@ public partial class CardDesigner : Control
         _issues = new RichTextLabel { BbcodeEnabled = true, FitContent = false, CustomMinimumSize = new Vector2(0, 110) };
         center.AddChild(_issues);
 
-        // right: edit panel
-        var rightScroll = new ScrollContainer { CustomMinimumSize = new Vector2(430, 0) };
+        // right: edit panel. Horizontal scroll disabled everywhere — wide
+        // effect rows wrap instead of scrolling sideways (Ken designer round 2).
+        var rightScroll = new ScrollContainer
+        {
+            CustomMinimumSize = new Vector2(460, 0),
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+        };
         root.AddChild(rightScroll);
         var right = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         right.AddThemeConstantOverride("separation", 8);
@@ -180,9 +186,13 @@ public partial class CardDesigner : Control
         foreach (var c in KnownColors) _colorEdit.AddItem(c);
         right.AddChild(_colorEdit);
 
-        right.AddChild(new Label { Text = "Effect text (what the player reads)" });
-        _effectTextEdit = new TextEdit { CustomMinimumSize = new Vector2(0, 90), WrapMode = TextEdit.LineWrappingMode.Boundary };
+        right.AddChild(new Label { Text = "Effect text (auto-generated from effects; editable only for cards with no mechanical effects)" });
+        _effectTextEdit = new TextEdit { CustomMinimumSize = new Vector2(0, 80), WrapMode = TextEdit.LineWrappingMode.Boundary };
         right.AddChild(_effectTextEdit);
+
+        right.AddChild(new Label { Text = "Long description / flavor (optional — hand-authored)" });
+        _longDescEdit = new TextEdit { CustomMinimumSize = new Vector2(0, 70), WrapMode = TextEdit.LineWrappingMode.Boundary };
+        right.AddChild(_longDescEdit);
 
         var effHeader = new HBoxContainer();
         effHeader.AddChild(new Label { Text = "Effect composition (validated on apply/save)" });
@@ -192,7 +202,11 @@ public partial class CardDesigner : Control
         effHeader.AddChild(_rawToggle);
         right.AddChild(effHeader);
 
-        _builderScroll = new ScrollContainer { CustomMinimumSize = new Vector2(0, 340) };
+        _builderScroll = new ScrollContainer
+        {
+            CustomMinimumSize = new Vector2(0, 340),
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+        };
         _builderView = new EffectBuilderView { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _builderScroll.AddChild(_builderView);
         right.AddChild(_builderScroll);
@@ -289,6 +303,7 @@ public partial class CardDesigner : Control
         if (colorIdx < 0) { _colorEdit.AddItem(color); colorIdx = _colorEdit.ItemCount - 1; }
         _colorEdit.Selected = colorIdx;
         _effectTextEdit.Text = card["effectText"]?.GetValue<string>() ?? "";
+        _longDescEdit.Text = card["longDescription"]?.GetValue<string>() ?? "";
         LoadEffectBuilder(card);
 
         // art fields from the manifest (or convention fallback)
@@ -314,6 +329,23 @@ public partial class CardDesigner : Control
     // ── effect builder / raw hatch ──────────────────────────────────────────
 
     private string[] TokenIds() => _tokens?.Select(kv => kv.Key).OrderBy(k => k, System.StringComparer.Ordinal).ToArray() ?? [];
+
+    /// <summary>Definition id → display name, for the effect-text generator.</summary>
+    private string ResolveName(string defId) =>
+        _cards[defId]?["name"]?.GetValue<string>()
+        ?? _tokens?[defId]?["name"]?.GetValue<string>()
+        ?? defId;
+
+    /// <summary>
+    /// Effect text is auto-generated from the card's effects for consistent
+    /// vocabulary; cards with no mechanical effects (info / vanilla) keep a
+    /// hand-editable field.
+    /// </summary>
+    private (string Text, bool Generated) ComputeEffectText(JsonObject node)
+    {
+        string gen = EffectTextGenerator.Generate(node, ResolveName);
+        return gen.Length > 0 ? (gen, true) : (_effectTextEdit.Text, false);
+    }
 
     private void LoadEffectBuilder(JsonObject card)
     {
@@ -377,7 +409,6 @@ public partial class CardDesigner : Control
         node["name"] = _nameEdit.Text;
         node["cost"] = (int)_costEdit.Value;
         node["color"] = _colorEdit.GetItemText(_colorEdit.Selected);
-        node["effectText"] = _effectTextEdit.Text;
 
         if (_rawMode)
         {
@@ -400,6 +431,12 @@ public partial class CardDesigner : Control
             // Builder: write only touched sections back (minimal diffs).
             _builderModel.WriteBack(node);
         }
+
+        // Effect text is derived from the finished effects (consistent vocab).
+        node["effectText"] = ComputeEffectText(node).Text;
+        // Long description / flavor stays hand-authored.
+        if (_longDescEdit.Text.Trim().Length > 0) node["longDescription"] = _longDescEdit.Text;
+        else node.Remove("longDescription");
         return (node, null);
     }
 
@@ -436,6 +473,11 @@ public partial class CardDesigner : Control
             ? "[color=#8ae08a]valid — no issues[/color]"
             : string.Join("\n", issues.Select(i =>
                 $"[color=#{(i.Severity == Severities.Error ? "ff5a4a" : "ffb04a")}]{i.Severity} · {Escape(i.Where)}: {Escape(i.Message)}[/color]"));
+
+        // Reflect the generated effect text (read-only when derived from effects).
+        var (etext, generated) = ComputeEffectText(node);
+        _effectTextEdit.Editable = !generated;
+        if (generated) _effectTextEdit.Text = etext;
 
         _previewCard.SetFace(def.Name, def.Cost.ToString(), def.EffectText);
         Texture2D? tex = null;

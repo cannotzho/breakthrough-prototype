@@ -47,6 +47,17 @@ rows re-emit their original JSON, so only what you actually change shows
 up in the diff. (98/103 current cards are fully expressible in the
 structured builder; the rest use a raw row for one effect.)
 
+**Auto-generated effect text** — the player-facing `effectText` is
+derived from the composited effects by `EffectTextGenerator` (consistent,
+unambiguous vocabulary across the whole card list), so the field is
+read-only in the designer and rewritten on save. Cards with no mechanical
+effects (Information / vanilla) keep a hand-editable field. Flavour goes
+in the separate **Long description** field, which is always hand-authored.
+Because text is standardized, saving a card restyles its `effectText` to
+the generated phrasing — a deliberate, per-card, human-driven step.
+
+Wide effect rows wrap within the panel (no horizontal scrolling).
+
 **Card art contract** (also usable by artists without the tool):
 
 - Artwork: `art/cards/<definitionId>.png` (also jpg/jpeg/webp) — the

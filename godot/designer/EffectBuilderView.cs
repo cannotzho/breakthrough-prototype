@@ -160,7 +160,7 @@ public partial class EffectBuilderView : VBoxContainer
             }, out var inner);
             inner.AddChild(LabeledLine("id", m.Id, s => { m.Id = s; m.MetaDirty = true; Changed(); }));
             inner.AddChild(LabeledLine("name", m.Name, s => { m.Name = s; m.MetaDirty = true; Changed(); }));
-            var costRow = new HBoxContainer();
+            var costRow = new HFlowContainer();
             costRow.AddChild(Dim("cost:"));
             costRow.AddChild(LabeledInt("priority", m.CostPriority, 0, 20, v => { m.CostPriority = v; m.MetaDirty = true; Changed(); }));
             costRow.AddChild(LabeledInt("patience", m.CostPatience, 0, 20, v => { m.CostPatience = v; m.MetaDirty = true; Changed(); }));
@@ -194,7 +194,7 @@ public partial class EffectBuilderView : VBoxContainer
             {
                 _b.Thresholds.RemoveAt(idx); _b.ThresholdsStructural = true; Changed(); Reload();
             }, out var inner);
-            var metaRow = new HBoxContainer();
+            var metaRow = new HFlowContainer();
             metaRow.AddChild(LabeledLine("counter", m.CounterName, s => { m.CounterName = s; m.MetaDirty = true; Changed(); }));
             metaRow.AddChild(LabeledInt("value", m.Value, 0, 99, v => { m.Value = v; m.MetaDirty = true; Changed(); }));
             var consume = new CheckBox { Text = "consume", ButtonPressed = m.Consume };
@@ -243,8 +243,10 @@ public partial class EffectBuilderView : VBoxContainer
 
     private Control BuildRowControl(EffectRow row, Action onRemove, Action<int> onMove)
     {
-        var wrap = new HBoxContainer();
-        wrap.AddThemeConstantOverride("separation", 5);
+        // HFlow so a wide row wraps to the next line instead of scrolling.
+        var wrap = new HFlowContainer();
+        wrap.AddThemeConstantOverride("h_separation", 5);
+        wrap.AddThemeConstantOverride("v_separation", 3);
 
         if (row.IsRaw)
         {
@@ -445,7 +447,7 @@ public partial class EffectBuilderView : VBoxContainer
             return Framed(box);
         }
 
-        var condLine = new HBoxContainer();
+        var condLine = new HFlowContainer();
         var useCond = new CheckBox { Text = "if", ButtonPressed = t.HasCondition };
         condLine.AddChild(useCond);
         var lhs = new OptionButton { Disabled = !t.HasCondition };
@@ -548,7 +550,7 @@ public partial class EffectBuilderView : VBoxContainer
 
     private static Control Framed(Control c)
     {
-        var p = new PanelContainer();
+        var p = new PanelContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         p.AddChild(c);
         return p;
     }
