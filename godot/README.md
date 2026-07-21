@@ -26,11 +26,26 @@ Launcher → **Card Designer ✎**. Edits the CANONICAL checked-in
 `../content/content.json` (Option-B pipeline, Ken sign-off): card list with
 filter on the left, a WYSIWYG preview through the **real `Card3D` renderer**
 in the middle, and the edit panel on the right — name, cost, color, effect
-text, and the card's **effect structures as canonical JSON** (full power to
-fix any card; the ported C# `Validation.ValidateCard` runs on every
-apply/save and errors block saving). Card IDs are immutable, so encounter
-and deck references can't break. Saves are diff-minimal (verified: a
-no-op save is byte-identical to the TS-era file).
+text, and the card's effects via a **structured effect-composition builder**
+(scope M). Card IDs are immutable, so encounter and deck references can't
+break. The ported C# `Validation.ValidateCard` runs on every apply/save and
+errors block saving; saves are diff-minimal (verified: a no-op save is
+byte-identical, and a single field edit is a one-line diff).
+
+**Effect composition builder** — every card section (main effects, shield
+trigger, heavy hand, leave/turn-start, triggered/activated abilities,
+thresholds, trap trigger) renders as a structured list of effect rows.
+Each row is a `[effect type ▾]` dropdown plus typed param slots
+(spinners, self/opponent, token dropdowns, restriction/boundary widgets)
+driven table-first from the engine vocabulary (`EffectSchema`). Trigger
+sections carry a header — *When [event] by [who], if [quantity] [op] [N]*.
+Anything the builder can't model — nested `SCHEDULE_EFFECTS`, alt-value
+effects, `All/Any/Not` condition trees — drops to a per-row raw-JSON
+escape hatch (or the whole-card **Raw JSON** toggle), preserved verbatim.
+Round-trip fidelity is enforced by row-level dirty tracking: untouched
+rows re-emit their original JSON, so only what you actually change shows
+up in the diff. (98/103 current cards are fully expressible in the
+structured builder; the rest use a raw row for one effect.)
 
 **Card art contract** (also usable by artists without the tool):
 

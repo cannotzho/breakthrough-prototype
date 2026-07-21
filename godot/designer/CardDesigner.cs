@@ -62,7 +62,19 @@ public partial class CardDesigner : Control
     private SpinBox _costEdit = null!;
     private OptionButton _colorEdit = null!;
     private TextEdit _effectTextEdit = null!;
-    private TextEdit _effectsJsonEdit = null!;
+    private EffectBuilderView _builderView = null!;
+    private ScrollContainer _builderScroll = null!;
+    private CardEffectBuilder _builderModel = null!;
+    private TextEdit _rawEdit = null!;
+    private Button _rawToggle = null!;
+    private bool _rawMode;
+
+    /// <summary>All effect-bearing card keys the builder / raw hatch manage.</summary>
+    private static readonly string[] ManagedEffectKeys =
+    [
+        "effects", "shieldTriggerEffects", "heavyHandEffects", "leaveTriggerEffects", "turnStartEffects",
+        "trapTrigger", "triggeredAbilities", "activatedAbilities", "thresholds",
+    ];
     private Label _artPathLabel = null!;
     private OptionButton _overlayEdit = null!;
     private ColorPickerButton _overlayColor = null!;
@@ -172,9 +184,21 @@ public partial class CardDesigner : Control
         _effectTextEdit = new TextEdit { CustomMinimumSize = new Vector2(0, 90), WrapMode = TextEdit.LineWrappingMode.Boundary };
         right.AddChild(_effectTextEdit);
 
-        right.AddChild(new Label { Text = "Effects (canonical JSON — validated on apply/save)" });
-        _effectsJsonEdit = new TextEdit { CustomMinimumSize = new Vector2(0, 260) };
-        right.AddChild(_effectsJsonEdit);
+        var effHeader = new HBoxContainer();
+        effHeader.AddChild(new Label { Text = "Effect composition (validated on apply/save)" });
+        effHeader.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill });
+        _rawToggle = new Button { Text = "Raw JSON", ToggleMode = true };
+        _rawToggle.Toggled += OnRawToggled;
+        effHeader.AddChild(_rawToggle);
+        right.AddChild(effHeader);
+
+        _builderScroll = new ScrollContainer { CustomMinimumSize = new Vector2(0, 340) };
+        _builderView = new EffectBuilderView { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _builderScroll.AddChild(_builderView);
+        right.AddChild(_builderScroll);
+
+        _rawEdit = new TextEdit { CustomMinimumSize = new Vector2(0, 340), Visible = false };
+        right.AddChild(_rawEdit);
 
         right.AddChild(new HSeparator());
         right.AddChild(new Label { Text = "Art & compositing (art/cards/ + manifest.json)" });
@@ -265,7 +289,7 @@ public partial class CardDesigner : Control
         if (colorIdx < 0) { _colorEdit.AddItem(color); colorIdx = _colorEdit.ItemCount - 1; }
         _colorEdit.Selected = colorIdx;
         _effectTextEdit.Text = card["effectText"]?.GetValue<string>() ?? "";
-        _effectsJsonEdit.Text = (card["effects"] ?? new JsonArray()).ToJsonString(WriteOptions);
+        LoadEffectBuilder(card);
 
         // art fields from the manifest (or convention fallback)
         var artEntry = _manifest[id] as JsonObject;
@@ -278,7 +302,68 @@ public partial class CardDesigner : Control
         _artScale.Value = artEntry?["artScale"]?.GetValue<double>() ?? 1.0;
         _artOffset.Value = artEntry?["artOffsetY"]?.GetValue<double>() ?? 0.0;
 
+        _rawToggle.SetPressedNoSignal(false);
+        _rawMode = false;
+        _builderScroll.Visible = true;
+        _rawEdit.Visible = false;
+
         _saveStatus.Text = "";
+        ApplyPreview();
+    }
+
+    // ── effect builder / raw hatch ──────────────────────────────────────────
+
+    private string[] TokenIds() => _tokens?.Select(kv => kv.Key).OrderBy(k => k, System.StringComparer.Ordinal).ToArray() ?? [];
+
+    private void LoadEffectBuilder(JsonObject card)
+    {
+        _builderModel = new CardEffectBuilder((JsonObject)card.DeepClone());
+        _builderView.Load(_builderModel, TokenIds(), () => ApplyPreview());
+    }
+
+    /// <summary>Object of only the effect-bearing keys present on a card.</summary>
+    private static JsonObject ExtractEffectKeys(JsonObject card)
+    {
+        var o = new JsonObject();
+        foreach (var k in ManagedEffectKeys)
+            if (card[k] is { } v) o[k] = v.DeepClone();
+        return o;
+    }
+
+    private void OnRawToggled(bool on)
+    {
+        if (on)
+        {
+            // builder → raw: snapshot the current effect keys into the editor.
+            var (node, err) = BuildEditedNode();
+            if (node == null) { _rawToggle.SetPressedNoSignal(false); _saveStatus.Text = err ?? "cannot switch"; return; }
+            _rawEdit.Text = ExtractEffectKeys(node).ToJsonString(WriteOptions);
+            _rawMode = true;
+            _builderScroll.Visible = false;
+            _rawEdit.Visible = true;
+        }
+        else
+        {
+            // raw → builder: parse and rebuild the model so edits carry over.
+            try
+            {
+                var eff = JsonNode.Parse(_rawEdit.Text) as JsonObject
+                          ?? throw new System.Text.Json.JsonException("expected a JSON object of effect keys");
+                var rebuilt = new JsonObject();
+                foreach (var kv in eff) rebuilt[kv.Key] = kv.Value!.DeepClone();
+                _builderModel = new CardEffectBuilder(rebuilt);
+                _builderView.Load(_builderModel, TokenIds(), () => ApplyPreview());
+                _rawMode = false;
+                _builderScroll.Visible = true;
+                _rawEdit.Visible = false;
+            }
+            catch (System.Exception e)
+            {
+                _rawToggle.SetPressedNoSignal(true);
+                _saveStatus.Text = $"raw JSON does not parse: {e.Message}";
+                return;
+            }
+        }
         ApplyPreview();
     }
 
@@ -293,15 +378,27 @@ public partial class CardDesigner : Control
         node["cost"] = (int)_costEdit.Value;
         node["color"] = _colorEdit.GetItemText(_colorEdit.Selected);
         node["effectText"] = _effectTextEdit.Text;
-        try
+
+        if (_rawMode)
         {
-            var effects = JsonNode.Parse(_effectsJsonEdit.Text);
-            if (effects is not JsonArray) return (null, "effects must be a JSON array");
-            node["effects"] = effects;
+            // Raw hatch: replace ALL managed effect keys with the editor's object.
+            JsonObject eff;
+            try
+            {
+                eff = JsonNode.Parse(_rawEdit.Text) as JsonObject
+                      ?? throw new JsonException("expected a JSON object of effect keys");
+            }
+            catch (JsonException e)
+            {
+                return (null, $"raw effects JSON does not parse: {e.Message}");
+            }
+            foreach (var k in ManagedEffectKeys) node.Remove(k);
+            foreach (var kv in eff) node[kv.Key] = kv.Value!.DeepClone();
         }
-        catch (JsonException e)
+        else
         {
-            return (null, $"effects JSON does not parse: {e.Message}");
+            // Builder: write only touched sections back (minimal diffs).
+            _builderModel.WriteBack(node);
         }
         return (node, null);
     }
@@ -391,6 +488,11 @@ public partial class CardDesigner : Control
         System.IO.Directory.CreateDirectory(CardArtLibrary.CardsDir);
         System.IO.File.WriteAllText(CardArtLibrary.ManifestPath, _manifest.ToJsonString(WriteOptions) + "\n");
         CardArtLibrary.Reload();
+
+        // Re-baseline the builder against the saved node so later edits keep
+        // diffing minimally, and reflect any raw-mode edits back into it.
+        if (_cards[_currentId] is JsonObject saved && !_rawMode)
+            LoadEffectBuilder(saved);
 
         _saveStatus.Text = $"saved ✔  ({System.DateTime.Now:HH:mm:ss})";
         RefreshCardList();
