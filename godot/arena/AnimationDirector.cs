@@ -257,6 +257,7 @@ public partial class AnimationDirector : Node3D
         var info = definitionId.Length > 0 ? _r.ResolveCard(definitionId) : null;
         if (info != null)
         {
+            card.SetColor(info.Color);
             card.SetFace(info.Name, info.Cost.ToString(), info.EffectText, definitionId);
             // Present upright toward the camera, slightly raised and enlarged.
             card.GlideTo(_r.TableCenter + new Vector3(0, 1.05f, 0.4f), new Vector3(-28, 0, 0), 0.7f);

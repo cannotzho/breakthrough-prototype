@@ -15,7 +15,7 @@ public partial class ArenaHud : CanvasLayer
     private CombatBridge _bridge = null!;
 
     private Label _patience = null!, _phase = null!, _priority = null!, _lies = null!, _botm = null!;
-    private Label _toast = null!;
+    private Label _toast = null!, _npcContinue = null!;
     private Button _endTurn = null!, _inspect = null!;
     private CheckBox _autoNpc = null!;
     private Control _promptLayer = null!;
@@ -68,6 +68,20 @@ public partial class ArenaHud : CanvasLayer
         _autoNpc = new CheckBox { Text = "Auto NPC", ButtonPressed = true };
         _autoNpc.Toggled += on => _bridge.AutoAdvanceNpc = on;
         bottom.AddChild(_autoNpc);
+
+        // "Opponent is acting — click to continue" banner (one acknowledgement
+        // per opponent card; hidden while Auto NPC is on).
+        _npcContinue = new Label
+        {
+            Text = "Opponent is acting — click anywhere to continue ▶",
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Visible = false,
+        };
+        _npcContinue.AddThemeFontSizeOverride("font_size", 18);
+        _npcContinue.AddThemeColorOverride("font_color", new Color("ffd98a"));
+        _npcContinue.SetAnchorsPreset(Control.LayoutPreset.CenterBottom);
+        _npcContinue.OffsetTop = -150; _npcContinue.OffsetLeft = -400; _npcContinue.OffsetRight = 400;
+        AddChild(_npcContinue);
 
         _toast = new Label
         {
@@ -154,6 +168,7 @@ public partial class ArenaHud : CanvasLayer
             ? ""
             : $"Back of Mind: {string.Join(", ", v.BackOfMindNames)}";
         _endTurn.Disabled = !v.CanAct;
+        _npcContinue.Visible = v.NpcTurnInProgress && !_bridge.AutoAdvanceNpc && v.Prompt == null && v.Result == null;
 
         if (_bridge.LastError != null) Toast(_bridge.LastError);
         RefreshBrowser(v);
@@ -371,6 +386,53 @@ public partial class ArenaHud : CanvasLayer
         if (_bridge.View is { } v) RefreshBrowser(v);
     }
 
+    /// <summary>
+    /// Deck browser: a static, sorted listing of what remains. Kept separate
+    /// from the live discard browser because it must never imply draw order.
+    /// </summary>
+    public void ShowDeckBrowser(string title, IReadOnlyList<string> names, IReadOnlyList<string> defIds)
+    {
+        if (_openPileId == "player-deck") { CloseBrowser(); return; }
+        _openPileId = "player-deck";
+        _browser.Visible = true;
+        if (_bridge.View is { } v) RefreshBrowser(v);
+    }
+
+    /// <summary>Render rows; index labels are only shown for ordered (discard) piles.</summary>
+    private void RenderBrowserRows(string title, IReadOnlyList<string> names, IReadOnlyList<string> defIds,
+        bool mostRecentFirst, string context)
+    {
+        _browserTitle.Text = title;
+        foreach (var child in _browserList.GetChildren())
+        {
+            _browserList.RemoveChild(child);
+            child.QueueFree();
+        }
+        if (names.Count == 0) { _browserList.AddChild(new Label { Text = "(empty)" }); return; }
+
+        for (int n = 0; n < names.Count; n++)
+        {
+            int i = mostRecentFirst ? names.Count - 1 - n : n;
+            var info = _bridge.GetCardInfo(defIds[i]);
+            var row = new Button
+            {
+                Text = mostRecentFirst ? $"{n + 1}. {names[i]}" : names[i],
+                Flat = true,
+                Alignment = HorizontalAlignment.Left,
+                TooltipText = info == null ? "" : $"[{info.Cost}] {info.EffectText}",
+            };
+            if (mostRecentFirst && n == 0) row.AddThemeColorOverride("font_color", new Color("ffe08a"));
+            string name = names[i];
+            var captured = info;
+            row.Pressed += () =>
+            {
+                if (captured != null)
+                    ShowCardDetail(name, $"{context} · cost {captured.Cost}", captured.EffectText);
+            };
+            _browserList.AddChild(row);
+        }
+    }
+
     private void CloseBrowser()
     {
         _openPileId = null;
@@ -384,40 +446,23 @@ public partial class ArenaHud : CanvasLayer
     /// </summary>
     private void RefreshBrowser(CombatView v)
     {
-        if (_openPileId == null) return;
-        bool player = _openPileId == "player-discard";
-        var names = player ? v.PlayerDiscardNames : v.NpcDiscardNames;
-        var defIds = player ? v.PlayerDiscardDefIds : v.NpcDiscardDefIds;
-        _browserTitle.Text = $"{(player ? "Your" : "Their")} discard pile ({names.Count})";
-        foreach (var child in _browserList.GetChildren())
+        switch (_openPileId)
         {
-            _browserList.RemoveChild(child);
-            child.QueueFree();
-        }
-        if (names.Count == 0)
-        {
-            _browserList.AddChild(new Label { Text = "(empty)" });
-            return;
-        }
-        for (int i = names.Count - 1; i >= 0; i--) // most recent first
-        {
-            var info = _bridge.GetCardInfo(defIds[i]);
-            var row = new Button
-            {
-                Text = $"{names.Count - i}. {names[i]}",
-                Flat = true,
-                Alignment = HorizontalAlignment.Left,
-                TooltipText = info == null ? "" : $"[{info.Cost}] {info.EffectText}",
-            };
-            if (i == names.Count - 1) row.AddThemeColorOverride("font_color", new Color("ffe08a"));
-            string name = names[i];
-            var captured = info;
-            row.Pressed += () =>
-            {
-                if (captured != null)
-                    ShowCardDetail(name, $"discarded · cost {captured.Cost}", captured.EffectText);
-            };
-            _browserList.AddChild(row);
+            case null:
+                return;
+            case "player-deck":
+                RenderBrowserRows(
+                    $"Your deck — {v.PlayerDeckCount} card(s) remaining (order hidden)",
+                    v.PlayerDeckNamesSorted, v.PlayerDeckDefIdsSorted, mostRecentFirst: false, "in deck");
+                return;
+            default:
+                bool player = _openPileId == "player-discard";
+                RenderBrowserRows(
+                    $"{(player ? "Your" : "Their")} discard pile ({(player ? v.PlayerDiscardCount : v.NpcDiscardCount)})",
+                    player ? v.PlayerDiscardNames : v.NpcDiscardNames,
+                    player ? v.PlayerDiscardDefIds : v.NpcDiscardDefIds,
+                    mostRecentFirst: true, "discarded");
+                return;
         }
     }
 

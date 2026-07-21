@@ -64,7 +64,9 @@ public partial class MindspaceArena : Node3D
 
     public override void _Ready()
     {
-        _bridge = new CombatBridge { Name = "CombatBridge", NpcStepDelaySeconds = 2.4 };
+        // Opponent plays are acknowledged one at a time (Ken playtest round 4)
+        // — no auto-advance; the HUD shows a Continue affordance per NPC card.
+        _bridge = new CombatBridge { Name = "CombatBridge", AutoAdvanceNpc = false, NpcStepDelaySeconds = 2.4 };
         AddChild(_bridge);
 
         BuildWorld();
@@ -306,6 +308,7 @@ public partial class MindspaceArena : Node3D
                 _hand[cardView.InstanceId] = card;
             }
             card.IndexInZone = cardView.HandIndex;
+            card.SetColor(cardView.Color);
             card.SetFace(cardView.Name, cardView.EffectiveCost.ToString(), cardView.EffectText, cardView.DefinitionId);
             var (pos, rot) = _viewMode == ViewMode.HandInspect
                 ? InspectSlot(cardView.HandIndex, n)
@@ -394,6 +397,7 @@ public partial class MindspaceArena : Node3D
                 : string.Join(" ", p.Counters.Select(kv => $"{kv.Key}:{kv.Value}"));
             string sub = p.Kind + (p.TurnsRemaining is int t ? $" · {t}t" : "") +
                 (p.Abilities.Count > 0 ? " · click for abilities" : "");
+            card.SetColor(_bridge.GetCardInfo(p.DefinitionId)?.Color ?? "Colorless");
             card.SetFace(p.Name, counters, sub, p.DefinitionId);
             // Counter total as a corner badge, readable from table view.
             int counterTotal = p.Counters.Values.Sum();
@@ -618,7 +622,8 @@ public partial class MindspaceArena : Node3D
         switch (pileId)
         {
             case "player-deck":
-                _hud.ShowCardDetail("Your deck", $"{v.PlayerDeckCount} card(s)", "Contents hidden — you draw from the top.");
+                _hud.ShowCardDetail("Your deck", $"{v.PlayerDeckCount} card(s) remaining",
+                    "Click to see what's left. The draw order stays hidden.");
                 break;
             case "player-discard":
                 _hud.ShowCardDetail("Your discard pile", $"{v.PlayerDiscardCount} card(s)",
@@ -687,6 +692,14 @@ public partial class MindspaceArena : Node3D
 
     private void HandlePress(Vector2 screenPos)
     {
+        // While the opponent is acting, a click anywhere acknowledges the
+        // current play and advances one step (unless a modal prompt is up).
+        if (_bridge.View is { NpcTurnInProgress: true } && !_bridge.AutoAdvanceNpc && !_hud.IsModalOpen)
+        {
+            _bridge.ManualNpcStep();
+            return;
+        }
+
         var collider = PickAt(screenPos);
         if (collider is Area3D bellArea && bellArea.HasMeta("bell"))
         {
@@ -704,7 +717,9 @@ public partial class MindspaceArena : Node3D
                     _hud.TogglePileBrowser(pileId);
                     break;
                 case "player-deck":
-                    _hud.Toast($"Your deck: {v.PlayerDeckCount} card(s) — contents hidden.");
+                    // What's left, sorted — never the draw order.
+                    _hud.ShowDeckBrowser($"Your deck — {v.PlayerDeckCount} card(s) remaining (order hidden)",
+                        v.PlayerDeckNamesSorted, v.PlayerDeckDefIdsSorted);
                     break;
                 case "npc-deck":
                     _hud.Toast($"Their deck: {v.NpcDeckCount} card(s) — contents hidden.");

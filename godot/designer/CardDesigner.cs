@@ -40,6 +40,10 @@ public partial class CardDesigner : Control
     };
 
     private static readonly string[] KnownColors = ["Colorless", "Blue", "Red", "Green", "Orange", "Purple"];
+    private static readonly string[] KnownSupertypes = ["Skill", "Information"];
+
+    /// <summary>Index 0 is "(none)" and maps to a JSON null subtype.</summary>
+    private static readonly string[] KnownSubtypes = ["(none)", "Impression", "Trap", "Token"];
 
     private string _contentPath = "";
     private JsonObject _root = new();
@@ -61,6 +65,8 @@ public partial class CardDesigner : Control
     private LineEdit _nameEdit = null!;
     private SpinBox _costEdit = null!;
     private OptionButton _colorEdit = null!;
+    private OptionButton _supertypeEdit = null!, _subtypeEdit = null!;
+    private LineEdit _keywordsEdit = null!;
     private TextEdit _effectTextEdit = null!;
     private TextEdit _longDescEdit = null!;
     private EffectBuilderView _builderView = null!;
@@ -186,6 +192,20 @@ public partial class CardDesigner : Control
         foreach (var c in KnownColors) _colorEdit.AddItem(c);
         right.AddChild(_colorEdit);
 
+        right.AddChild(new Label { Text = "Supertype" });
+        _supertypeEdit = new OptionButton();
+        foreach (var s in KnownSupertypes) _supertypeEdit.AddItem(s);
+        right.AddChild(_supertypeEdit);
+
+        right.AddChild(new Label { Text = "Subtype (this is what makes a card an Impression / Trap / Token)" });
+        _subtypeEdit = new OptionButton();
+        foreach (var s in KnownSubtypes) _subtypeEdit.AddItem(s);
+        right.AddChild(_subtypeEdit);
+
+        right.AddChild(new Label { Text = "Keywords (comma-separated)" });
+        _keywordsEdit = new LineEdit();
+        right.AddChild(_keywordsEdit);
+
         right.AddChild(new Label { Text = "Effect text (auto-generated from effects; editable only for cards with no mechanical effects)" });
         _effectTextEdit = new TextEdit { CustomMinimumSize = new Vector2(0, 80), WrapMode = TextEdit.LineWrappingMode.Boundary };
         right.AddChild(_effectTextEdit);
@@ -302,6 +322,13 @@ public partial class CardDesigner : Control
         int colorIdx = System.Array.IndexOf(KnownColors, color);
         if (colorIdx < 0) { _colorEdit.AddItem(color); colorIdx = _colorEdit.ItemCount - 1; }
         _colorEdit.Selected = colorIdx;
+        string supertype = card["supertype"]?.GetValue<string>() ?? "Skill";
+        _supertypeEdit.Selected = System.Math.Max(0, System.Array.IndexOf(KnownSupertypes, supertype));
+        string subtype = card["subtype"]?.GetValue<string>() ?? "(none)";
+        _subtypeEdit.Selected = System.Math.Max(0, System.Array.IndexOf(KnownSubtypes, subtype));
+        _keywordsEdit.Text = card["keywords"] is JsonArray kws
+            ? string.Join(", ", kws.Select(k => k!.GetValue<string>()))
+            : "";
         _effectTextEdit.Text = card["effectText"]?.GetValue<string>() ?? "";
         _longDescEdit.Text = card["longDescription"]?.GetValue<string>() ?? "";
         LoadEffectBuilder(card);
@@ -409,6 +436,16 @@ public partial class CardDesigner : Control
         node["name"] = _nameEdit.Text;
         node["cost"] = (int)_costEdit.Value;
         node["color"] = _colorEdit.GetItemText(_colorEdit.Selected);
+        node["supertype"] = _supertypeEdit.GetItemText(_supertypeEdit.Selected);
+        // Subtype is what makes a card an Impression / Trap / Token; "(none)"
+        // is stored as an explicit null, matching the existing content shape.
+        string subtype = _subtypeEdit.GetItemText(_subtypeEdit.Selected);
+        node["subtype"] = subtype == "(none)" ? null : JsonValue.Create(subtype);
+        var keywords = new JsonArray();
+        foreach (var kw in _keywordsEdit.Text.Split(',', System.StringSplitOptions.RemoveEmptyEntries
+                                                        | System.StringSplitOptions.TrimEntries))
+            keywords.Add(kw);
+        node["keywords"] = keywords;
 
         if (_rawMode)
         {

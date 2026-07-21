@@ -46,8 +46,14 @@ public partial class Card3D : Node3D
     private static readonly Color Ink = new("f0e8d8");
     private static readonly Color InkOutline = new("14100a");
 
+    // Colour strip sits directly above the title bar — the card's colour is
+    // readable at a glance from table view (Ken playtest round 4).
+    private static readonly Vector3 ColorStripPos = new(0, -0.0175f, 0.006f);
+    private const float ColorStripW = 0.66f, ColorStripH = 0.025f;
+
     private Label3D _name = null!, _cost = null!, _text = null!;
     private MeshInstance3D _front = null!, _back = null!, _nameBand = null!, _effectBand = null!;
+    private MeshInstance3D _colorStrip = null!;
     private Label3D? _badge, _counterBadge;
     private MeshInstance3D? _art, _artOverlay;
     private string _artDefId = "";
@@ -72,6 +78,7 @@ public partial class Card3D : Node3D
 
         _nameBand = MakeBand(NameBandPos, new Vector2(NameBandW, NameBandH), new Color(0.10f, 0.09f, 0.13f, 0.86f));
         _effectBand = MakeBand(EffectBandPos, new Vector2(EffectBandW, EffectBandH), new Color(0.04f, 0.03f, 0.06f, 0.82f));
+        _colorStrip = MakeBand(ColorStripPos, new Vector2(ColorStripW, ColorStripH), ColorOf("Colorless"));
 
         _name = MakeLabel(NameTextPos, NameMaxFont, Ink);
         _name.VerticalAlignment = VerticalAlignment.Center;
@@ -157,6 +164,22 @@ public partial class Card3D : Node3D
     }
 
     // ── content ──────────────────────────────────────────────────────────────
+
+    /// <summary>Card colour name ("Blue", "Red", …) → the strip colour.</summary>
+    public static Color ColorOf(string color) => color switch
+    {
+        "Blue" => new Color("4a7fd4"),
+        "Red" => new Color("c8443a"),
+        "Green" => new Color("4aa85a"),
+        "Orange" => new Color("d98a34"),
+        "Purple" => new Color("8a5ad4"),
+        _ => new Color("6a6a72"), // Colorless
+    };
+
+    public void SetColor(string color)
+    {
+        if (_colorStrip.MaterialOverride is StandardMaterial3D m) m.AlbedoColor = ColorOf(color);
+    }
 
     public void SetFace(string name, string costText, string effectText, string? artDefId = null)
     {
@@ -280,7 +303,7 @@ public partial class Card3D : Node3D
         _faceDown = faceDown;
         bool show = !faceDown;
         _name.Visible = _cost.Visible = _text.Visible = show;
-        _nameBand.Visible = _effectBand.Visible = show;
+        _nameBand.Visible = _effectBand.Visible = _colorStrip.Visible = show;
         if (_art != null) _art.Visible = show;
         if (_artOverlay != null) _artOverlay.Visible = show;
         if (_counterBadge != null) _counterBadge.Visible = show && _counterBadge.Text.Length > 0;

@@ -114,6 +114,14 @@ public sealed record CombatView
     /// <summary>Definition ids parallel to the discard name lists (for rules-text lookup).</summary>
     public required IReadOnlyList<string> PlayerDiscardDefIds { get; init; }
     public required IReadOnlyList<string> NpcDiscardDefIds { get; init; }
+
+    /// <summary>
+    /// What remains in the player's deck, SORTED so the draw order is not
+    /// leaked (Ken: "see remaining cards but not the order of draw").
+    /// Paired def ids are sorted the same way. The NPC deck stays hidden.
+    /// </summary>
+    public required IReadOnlyList<string> PlayerDeckNamesSorted { get; init; }
+    public required IReadOnlyList<string> PlayerDeckDefIdsSorted { get; init; }
     /// <summary>Populated only while an effect has revealed the NPC hand.</summary>
     public IReadOnlyList<string>? NpcHandNames { get; init; }
 
@@ -153,6 +161,13 @@ public static class CombatViewBuilder
 
         var hand = BuildHand(s);
 
+        // Sort the remaining deck by display name so the player can see WHAT
+        // is left without learning the draw ORDER.
+        var deckSorted = s.Player.Deck
+            .OrderBy(c => NameOf(s, c.DefinitionId), StringComparer.Ordinal)
+            .ThenBy(c => c.DefinitionId, StringComparer.Ordinal)
+            .ToList();
+
         return new CombatView
         {
             Phase = s.Phase,
@@ -178,6 +193,8 @@ public static class CombatViewBuilder
             NpcDiscardNames = s.Npc.Discard.Select(c => NameOf(s, c.DefinitionId)).ToList(),
             PlayerDiscardDefIds = s.Player.Discard.Select(c => c.DefinitionId).ToList(),
             NpcDiscardDefIds = s.Npc.Discard.Select(c => c.DefinitionId).ToList(),
+            PlayerDeckNamesSorted = deckSorted.Select(c => NameOf(s, c.DefinitionId)).ToList(),
+            PlayerDeckDefIdsSorted = deckSorted.Select(c => c.DefinitionId).ToList(),
             Hand = hand,
             BackOfMindNames = s.BackOfMind.Select(c => NameOf(s, c.DefinitionId)).ToList(),
             BotmLimit = Core.EffectiveBotmLimit(s),
