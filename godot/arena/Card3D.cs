@@ -48,12 +48,21 @@ public partial class Card3D : Node3D
 
     // Colour strip sits directly above the title bar — the card's colour is
     // readable at a glance from table view (Ken playtest round 4).
-    private static readonly Vector3 ColorStripPos = new(0, -0.0175f, 0.006f);
-    private const float ColorStripW = 0.66f, ColorStripH = 0.025f;
+    private static readonly Vector3 ColorStripPos = new(0, -0.002f, 0.006f);
+    private const float ColorStripW = 0.66f, ColorStripH = 0.045f;
+    private static readonly Color BandBase = new(0.10f, 0.09f, 0.13f, 0.86f);
 
     private Label3D _name = null!, _cost = null!, _text = null!;
     private MeshInstance3D _front = null!, _back = null!, _nameBand = null!, _effectBand = null!;
     private MeshInstance3D _colorStrip = null!;
+
+    // Hold the band materials directly rather than reading them back off
+    // MaterialOverride — the read-back relies on Godot handing us a
+    // correctly-typed wrapper, which is what made every colour strip stay
+    // grey (Ken playtest round 6).
+    private StandardMaterial3D _colorStripMat = null!, _nameBandMat = null!;
+    private Color _bandTint = BandBase;
+    private bool _highlighted;
     private Label3D? _badge, _counterBadge;
     private MeshInstance3D? _art, _artOverlay;
     private string _artDefId = "";
@@ -76,9 +85,11 @@ public partial class Card3D : Node3D
         };
         AddChild(_back);
 
-        _nameBand = MakeBand(NameBandPos, new Vector2(NameBandW, NameBandH), new Color(0.10f, 0.09f, 0.13f, 0.86f));
-        _effectBand = MakeBand(EffectBandPos, new Vector2(EffectBandW, EffectBandH), new Color(0.04f, 0.03f, 0.06f, 0.82f));
-        _colorStrip = MakeBand(ColorStripPos, new Vector2(ColorStripW, ColorStripH), ColorOf("Colorless"));
+        _nameBand = MakeBand(NameBandPos, new Vector2(NameBandW, NameBandH), BandBase, out _nameBandMat);
+        _effectBand = MakeBand(EffectBandPos, new Vector2(EffectBandW, EffectBandH),
+            new Color(0.04f, 0.03f, 0.06f, 0.82f), out _);
+        _colorStrip = MakeBand(ColorStripPos, new Vector2(ColorStripW, ColorStripH),
+            ColorOf("Colorless"), out _colorStripMat);
 
         _name = MakeLabel(NameTextPos, NameMaxFont, Ink);
         _name.VerticalAlignment = VerticalAlignment.Center;
@@ -104,18 +115,19 @@ public partial class Card3D : Node3D
         AddChild(area);
     }
 
-    private MeshInstance3D MakeBand(Vector3 pos, Vector2 size, Color color)
+    private MeshInstance3D MakeBand(Vector3 pos, Vector2 size, Color color, out StandardMaterial3D mat)
     {
+        mat = new StandardMaterial3D
+        {
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            AlbedoColor = color,
+        };
         var band = new MeshInstance3D
         {
             Mesh = new QuadMesh { Size = size },
             Position = pos,
-            MaterialOverride = new StandardMaterial3D
-            {
-                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
-                Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
-                AlbedoColor = color,
-            },
+            MaterialOverride = mat,
         };
         AddChild(band);
         return band;
@@ -179,13 +191,24 @@ public partial class Card3D : Node3D
     /// <summary>Selection highlight (Back of Mind): lights up the title bar.</summary>
     public void SetHighlight(bool on)
     {
-        if (_nameBand.MaterialOverride is StandardMaterial3D m)
-            m.AlbedoColor = on ? new Color(0.62f, 0.50f, 0.16f, 0.94f) : new Color(0.10f, 0.09f, 0.13f, 0.86f);
+        _highlighted = on;
+        _nameBandMat.AlbedoColor = on ? new Color(0.62f, 0.50f, 0.16f, 0.94f) : _bandTint;
     }
 
+    /// <summary>
+    /// Card colour: a solid strip above the title, plus a dark wash of the
+    /// same hue behind the title so the colour reads even on a small card.
+    /// </summary>
     public void SetColor(string color)
     {
-        if (_colorStrip.MaterialOverride is StandardMaterial3D m) m.AlbedoColor = ColorOf(color);
+        var c = ColorOf(color);
+        _colorStripMat.AlbedoColor = c;
+        _bandTint = new Color(
+            Mathf.Lerp(BandBase.R, c.R, 0.28f),
+            Mathf.Lerp(BandBase.G, c.G, 0.28f),
+            Mathf.Lerp(BandBase.B, c.B, 0.28f),
+            BandBase.A);
+        if (!_highlighted) _nameBandMat.AlbedoColor = _bandTint;
     }
 
     public void SetFace(string name, string costText, string effectText, string? artDefId = null)
