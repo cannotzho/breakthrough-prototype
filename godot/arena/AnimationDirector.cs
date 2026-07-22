@@ -42,6 +42,16 @@ public partial class AnimationDirector : Node3D
     private readonly Queue<(System.Action Start, float Duration)> _cues = new();
     private double _timer;
 
+    /// <summary>True while cues are queued or one is still playing.</summary>
+    public bool IsBusy => _cues.Count > 0 || _timer > 0;
+
+    /// <summary>Starting Patience for the candle ratio (set per view by the arena).</summary>
+    public int StartingPatience = 1;
+
+    /// <summary>Append an arbitrary step to the timeline (the arena uses this
+    /// to apply a view's state only once its cues have played).</summary>
+    public void EnqueueAction(System.Action action, float duration = 0f) => _cues.Enqueue((action, duration));
+
     // TODO(fast-forward, Ken 2026-07-19): future feature — a hold-to-skip that
     // compresses the cue queue (scale durations here + CombatBridge
     // NpcStepDelaySeconds). Hook point: divide `cue.Duration` and tween times
@@ -85,8 +95,12 @@ public partial class AnimationDirector : Node3D
                 int delta = IntOf(e, "delta");
                 if (delta == 0) break;
                 bool bigBeat = npcActing || Mathf.Abs(delta) >= 2;
+                int newPatience = IntOf(e, "newValue");
                 Enqueue(() =>
                 {
+                    // The candle melts WHEN the beat plays, not when the engine
+                    // state arrived — driven by the log's authoritative value.
+                    _r.Candle.SetRatio(StartingPatience <= 0 ? 0f : newPatience / (float)StartingPatience);
                     _r.Candle.Pulse();
                     if (delta < 0) _r.Avatar.Flinch(Mathf.Clamp(-delta * 0.4f, 0.4f, 1.6f));
                     var color = delta < 0 ? new Color("ff9a5a") : new Color("8ae08a");
@@ -113,8 +127,11 @@ public partial class AnimationDirector : Node3D
                 // Spends during your own combos shouldn't drag the camera around;
                 // focus only on the opponent's meter moving, or big swings.
                 bool bigBeat = (npcActing && side == "npc") || Mathf.Abs(delta) >= 3;
+                int newPriority = IntOf(e, "newValue");
                 Enqueue(() =>
                 {
+                    // Coins are spent/gained on the beat, in step with the float.
+                    stack.SetCount(newPriority);
                     stack.Pulse();
                     string text = $"{(delta > 0 ? "+" : "")}{delta} Priority";
                     var at = stack.FocusPoint + new Vector3(0, 0.7f, 0);
@@ -135,7 +152,8 @@ public partial class AnimationDirector : Node3D
             {
                 string side = StrOf(e, "side");
                 var stack = side == "npc" ? _r.NpcStack : _r.PlayerStack;
-                Enqueue(stack.Pulse, 0.4f);
+                int value = IntOf(e, "value");
+                Enqueue(() => { stack.SetCount(value); stack.Pulse(); }, 0.4f);
                 break;
             }
             case "shield-broken":

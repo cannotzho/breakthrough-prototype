@@ -43,6 +43,12 @@ public partial class MindspaceArena : Node3D
     private Card3D? _hovered;
     private string? _selectedShieldSlot;
     private ViewMode _viewMode = ViewMode.Board;
+
+    // Back-of-Mind selection happens on the 3D cards themselves (Ken playtest
+    // round 4) — picked hand cards lift and tint; a HUD bar confirms.
+    private bool _botmMode;
+    private int _botmLimit;
+    private readonly HashSet<string> _botmPicks = [];
     private CardPile _playerDeckPile = null!, _playerDiscardPile = null!;
     private CardPile _npcDeckPile = null!, _npcDiscardPile = null!;
     private int _menuHandIndex = -1;
@@ -265,19 +271,59 @@ public partial class MindspaceArena : Node3D
 
     // ── view reconciliation ─────────────────────────────────────────────────
 
-    private void OnViewChanged(CombatView v)
+    // ── presentation timeline ────────────────────────────────────────────────
+    // Views are QUEUED, not applied on arrival: each view's cues play first
+    // (they drive the candle/coins from the log), and the view's remaining
+    // state — cards, piles, HUD, prompts — is applied as the final step of
+    // that view's timeline. This is what keeps coins from being spent before
+    // the card that spent them has appeared (Ken playtest round 4).
+    private readonly Queue<CombatView> _pendingViews = new();
+
+    /// <summary>True while animation is still catching up with the engine.</summary>
+    private bool Presenting => _director.IsBusy || _pendingViews.Count > 0;
+
+    private void OnViewChanged(CombatView v) => _pendingViews.Enqueue(v);
+
+    public override void _Process(double delta)
+    {
+        if (_director.IsBusy || _pendingViews.Count == 0) return;
+        var next = _pendingViews.Dequeue();
+        _director.StartingPatience = next.StartingPatience;
+        _director.Play(next);                                  // cues (drive props)
+        _director.EnqueueAction(() => ApplyViewState(next));   // then the rest of the state
+    }
+
+    private void ApplyViewState(CombatView v)
     {
         // The opponent acting or the game ending pulls you back to board view.
         if (_viewMode != ViewMode.Board && (v.NpcTurnInProgress || v.Result != null))
             SetViewMode(ViewMode.Board);
 
+        // Back-of-Mind is picked on the 3D cards, so suppress the 2D overlay
+        // and drive a confirm bar instead.
+        bool wantBotm = v.Prompt is BotmPromptView;
+        if (wantBotm && !_botmMode)
+        {
+            _botmMode = true;
+            _botmPicks.Clear();
+            _botmLimit = ((BotmPromptView)v.Prompt!).Limit;
+        }
+        else if (!wantBotm && _botmMode)
+        {
+            _botmMode = false;
+            _botmPicks.Clear();
+        }
+        _hud.SuppressBotmOverlay = _botmMode;
         _hud.Refresh(v);
-        _director.Play(v);
+        if (_botmMode) _hud.ShowBotmBar(_botmLimit, _botmPicks.Count, v.Hand.Count, ConfirmBotmPicks);
+        else _hud.HideBotmBar();
 
         _avatar.SetMood(v.StartingPatience <= 0 ? 0 : 1f - (float)v.Patience / v.StartingPatience);
         _avatar.SetLeaning(v.NpcTurnInProgress);
         ApplyFraming(v);
 
+        // Catch-up: the cues already moved these in step with their beats;
+        // this just guarantees the final values match the engine exactly.
         _candle.SetRatio(v.StartingPatience <= 0 ? 0 : (float)v.Patience / v.StartingPatience);
         _playerStack.SetCount(v.PlayerPriority);
         _npcStack.SetCount(v.NpcPriority);
@@ -313,6 +359,10 @@ public partial class MindspaceArena : Node3D
             var (pos, rot) = _viewMode == ViewMode.HandInspect
                 ? InspectSlot(cardView.HandIndex, n)
                 : HandSlot(cardView.HandIndex, n);
+            // Cards picked for Back of Mind lift out of the fan.
+            bool picked = _botmMode && _botmPicks.Contains(cardView.InstanceId);
+            if (picked) pos += new Vector3(0, 0.28f, -0.12f);
+            card.SetHighlight(picked);
             card.GlideTo(pos, rot);
         }
         DepartStale(_hand, seen, PlayerDiscardExit);
@@ -693,8 +743,10 @@ public partial class MindspaceArena : Node3D
     private void HandlePress(Vector2 screenPos)
     {
         // While the opponent is acting, a click anywhere acknowledges the
-        // current play and advances one step (unless a modal prompt is up).
-        if (_bridge.View is { NpcTurnInProgress: true } && !_bridge.AutoAdvanceNpc && !_hud.IsModalOpen)
+        // current play and advances one step — but only once the previous
+        // step has finished animating, so clicks can't outrun the timeline.
+        if (_bridge.View is { NpcTurnInProgress: true } && !_bridge.AutoAdvanceNpc
+            && !_hud.IsModalOpen && !Presenting)
         {
             _bridge.ManualNpcStep();
             return;
@@ -748,9 +800,35 @@ public partial class MindspaceArena : Node3D
         }
     }
 
+    private void ConfirmBotmPicks()
+    {
+        var v = _bridge.View!;
+        var indices = v.Hand.Where(h => _botmPicks.Contains(h.InstanceId))
+            .Select(h => h.HandIndex).OrderBy(i => i).ToList();
+        _bridge.ConfirmBotm(indices);
+    }
+
+    /// <summary>Toggle a Back-of-Mind pick on the 3D card itself.</summary>
+    private void ToggleBotmPick(Card3D card)
+    {
+        var v = _bridge.View!;
+        if (!_botmPicks.Remove(card.Key))
+        {
+            if (_botmPicks.Count >= _botmLimit)
+            {
+                _hud.Toast($"You can only keep {_botmLimit} card(s).");
+                return;
+            }
+            _botmPicks.Add(card.Key);
+        }
+        _hud.ShowBotmBar(_botmLimit, _botmPicks.Count, v.Hand.Count, ConfirmBotmPicks);
+        ReconcileHand(v);
+    }
+
     private void OnHandCardClicked(Card3D card)
     {
         var v = _bridge.View!;
+        if (_botmMode) { ToggleBotmPick(card); return; }
         if (!v.CanPlay)
         {
             _hud.Toast(v.NpcTurnInProgress ? "It's their turn." : "You can't play right now.");

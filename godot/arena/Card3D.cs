@@ -176,6 +176,13 @@ public partial class Card3D : Node3D
         _ => new Color("6a6a72"), // Colorless
     };
 
+    /// <summary>Selection highlight (Back of Mind): lights up the title bar.</summary>
+    public void SetHighlight(bool on)
+    {
+        if (_nameBand.MaterialOverride is StandardMaterial3D m)
+            m.AlbedoColor = on ? new Color(0.62f, 0.50f, 0.16f, 0.94f) : new Color(0.10f, 0.09f, 0.13f, 0.86f);
+    }
+
     public void SetColor(string color)
     {
         if (_colorStrip.MaterialOverride is StandardMaterial3D m) m.AlbedoColor = ColorOf(color);

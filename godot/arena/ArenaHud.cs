@@ -16,6 +16,13 @@ public partial class ArenaHud : CanvasLayer
 
     private Label _patience = null!, _phase = null!, _priority = null!, _lies = null!, _botm = null!;
     private Label _toast = null!, _npcContinue = null!;
+    private HBoxContainer _botmBar = null!;
+    private Label _botmLabel = null!;
+    private Button _botmConfirm = null!;
+    private System.Action? _botmConfirmAction;
+
+    /// <summary>Set by the arena when it handles Back-of-Mind selection in 3D.</summary>
+    public bool SuppressBotmOverlay { get; set; }
     private Button _endTurn = null!, _inspect = null!;
     private CheckBox _autoNpc = null!;
     private Control _promptLayer = null!;
@@ -82,6 +89,20 @@ public partial class ArenaHud : CanvasLayer
         _npcContinue.SetAnchorsPreset(Control.LayoutPreset.CenterBottom);
         _npcContinue.OffsetTop = -150; _npcContinue.OffsetLeft = -400; _npcContinue.OffsetRight = 400;
         AddChild(_npcContinue);
+
+        // Back-of-Mind confirm bar (selection itself happens on the 3D cards).
+        _botmBar = new HBoxContainer { Visible = false, Alignment = BoxContainer.AlignmentMode.Center };
+        _botmBar.AddThemeConstantOverride("separation", 14);
+        _botmBar.SetAnchorsPreset(Control.LayoutPreset.CenterBottom);
+        _botmBar.OffsetTop = -196; _botmBar.OffsetLeft = -420; _botmBar.OffsetRight = 420;
+        _botmLabel = new Label();
+        _botmLabel.AddThemeFontSizeOverride("font_size", 18);
+        _botmLabel.AddThemeColorOverride("font_color", new Color("ffe08a"));
+        _botmBar.AddChild(_botmLabel);
+        _botmConfirm = new Button { Text = "Confirm" };
+        _botmConfirm.Pressed += () => _botmConfirmAction?.Invoke();
+        _botmBar.AddChild(_botmConfirm);
+        AddChild(_botmBar);
 
         _toast = new Label
         {
@@ -177,6 +198,17 @@ public partial class ArenaHud : CanvasLayer
 
     public void SetViewLabel(string label) => _inspect.Text = $"View: {label} (Tab/scroll)";
 
+    /// <summary>Show the Back-of-Mind bar; selection happens on the 3D cards.</summary>
+    public void ShowBotmBar(int limit, int picked, int handCount, System.Action onConfirm)
+    {
+        _botmLabel.Text = $"Back of Mind — click cards to keep up to {limit}   ·   keeping {picked}, discarding {handCount - picked}";
+        _botmConfirmAction = onConfirm; // connected once in _Ready
+        _botmConfirm.Disabled = picked > limit;
+        _botmBar.Visible = true;
+    }
+
+    public void HideBotmBar() => _botmBar.Visible = false;
+
     /// <summary>True while a modal engine prompt / result screen is up (used to gate view cycling).</summary>
     public bool IsModalOpen => _promptLayer.Visible;
 
@@ -214,6 +246,8 @@ public partial class ArenaHud : CanvasLayer
             case RevealPromptView r: ShowReveal(r); break;
             case ChooseNumberPromptView c: ShowChooseNumber(c); break;
             case DeckRevealPromptView d: ShowDeckReveal(d); break;
+            // Back of Mind is picked on the 3D cards; skip the 2D overlay.
+            case BotmPromptView when SuppressBotmOverlay: HidePrompt(); break;
             case BotmPromptView b: ShowBotm(b); break;
             default: HidePrompt(); break;
         }
