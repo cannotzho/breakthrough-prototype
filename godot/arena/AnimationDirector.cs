@@ -266,34 +266,40 @@ public partial class AnimationDirector : Node3D
     /// </summary>
     private void NpcPlayFlyby(string definitionId, string message)
     {
-        var card = new Card3D { Zone = "fx" };
-        AddChild(card);
-        card.Position = _r.AvatarAnchor + new Vector3(0, -0.3f, 0.3f);
-        card.RotationDegrees = new Vector3(-70, 0, 0);
-        card.Scale = Vector3.One * 0.8f;
-
         var info = definitionId.Length > 0 ? _r.ResolveCard(definitionId) : null;
+        var cam = _r.Rig.Camera;
+        var card = new Card3D { Zone = "fx" };
+
+        // Parent the presented card to the CAMERA (Ken round 5): staging in
+        // world space could be clipped or half-off-screen depending on the
+        // framing/focus beat in play. In camera space it is always fully
+        // visible and keeps following the camera while it moves.
+        cam.AddChild(card);
+        card.Position = new Vector3(0.15f, -0.10f, -3.2f); // far, then approaches
+        card.RotationDegrees = Vector3.Zero;               // face (+Z) points back at the camera
+        card.Scale = Vector3.One * 0.9f;
+
         if (info != null)
         {
             card.SetColor(info.Color);
             card.SetFace(info.Name, info.Cost.ToString(), info.EffectText, definitionId);
-            // Present upright toward the camera, slightly raised and enlarged.
-            card.GlideTo(_r.TableCenter + new Vector3(0, 1.05f, 0.4f), new Vector3(-28, 0, 0), 0.7f);
-            var grow = card.CreateTween();
-            grow.TweenProperty(card, "scale", Vector3.One * 1.15f, 0.7);
         }
         else
         {
             card.SetFaceDown(true);
-            card.GlideTo(_r.TableCenter + new Vector3(0, 0.25f, 0), new Vector3(-90, 0, 0), 0.7f);
             FloatText(Truncate(message, 34), _r.TableCenter + new Vector3(0, 0.9f, 0), new Color("e8c8a8"));
         }
+        card.GlideTo(new Vector3(0, -0.02f, -1.25f), Vector3.Zero, 0.7f);
 
         var exitTween = CreateTween();
         exitTween.TweenInterval(info != null ? 2.6 : 1.5);
         exitTween.TweenCallback(Callable.From(() =>
         {
-            if (IsInstanceValid(card)) card.DepartAndFree(_r.NpcDiscardExit);
+            if (!IsInstanceValid(card)) return;
+            // Hand it back to world space (keeping its on-screen pose) so it
+            // can sweep to the opponent's discard pile.
+            card.Reparent(this);
+            card.DepartAndFree(_r.NpcDiscardExit);
         }));
     }
 

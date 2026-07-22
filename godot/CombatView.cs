@@ -67,6 +67,12 @@ public sealed record PermanentView(
 /// </summary>
 public sealed record LogView(int Seq, string Type, string Message, IReadOnlyDictionary<string, object?>? Data);
 
+/// <summary>
+/// An active restriction, pre-phrased for display (Ken playtest round 5:
+/// persistent effects like "no extra draws" must be visible somewhere).
+/// </summary>
+public sealed record RestrictionView(string Text, bool AffectsPlayer, bool AffectsNpc);
+
 // ── Prompts: exactly one may be non-null per view ───────────────────────────
 
 public abstract record PromptView;
@@ -135,6 +141,9 @@ public sealed record CombatView
     public required IReadOnlyList<CoreShieldView> NpcCoreShields { get; init; }
 
     public required IReadOnlyList<PermanentView> Field { get; init; }
+
+    /// <summary>Currently-active restrictions, phrased for the status strip.</summary>
+    public required IReadOnlyList<RestrictionView> Restrictions { get; init; }
 
     // Interaction gates (same derivation as the React UI)
     public required bool CanAct { get; init; }      // player turn, no pending block
@@ -209,6 +218,7 @@ public static class CombatViewBuilder
                 .Select((cs, i) => new CoreShieldView(i, cs.IsHint, cs.Broken))
                 .ToList(),
             Field = s.Field.Select(p => BuildPermanent(s, p)).ToList(),
+            Restrictions = s.Restrictions.Select(BuildRestriction).ToList(),
             CanAct = canAct,
             CanPlay = canPlay,
             NpcTurnInProgress = s.Phase == Phases.EnemyPending,
@@ -249,6 +259,40 @@ public static class CombatViewBuilder
             new Dictionary<string, int>(p.Counters),
             p.TurnsRemaining,
             abilities);
+    }
+
+    private static RestrictionView BuildRestriction(ActiveRestriction r)
+    {
+        bool player = r.Target is "self" or "both";
+        bool npc = r.Target is "opponent" or "both";
+        string who = r.Target switch { "self" => "You", "opponent" => "Opponent", _ => "Both" };
+        int v = r.Value ?? 0;
+        string what = r.Type switch
+        {
+            RestrictionTypes.PreventShieldBreak => "can't break shields",
+            RestrictionTypes.PreventDraw => "can't draw",
+            RestrictionTypes.PreventExtraDraws => "no extra draws",
+            RestrictionTypes.PreventPatienceGain => "can't gain Patience",
+            RestrictionTypes.MaxCardCost => $"cards cost at most {v}",
+            RestrictionTypes.IncreaseCardCost => $"cards cost {v} more",
+            RestrictionTypes.MaxPlaysPerTurn => $"at most {v} play(s) per turn",
+            RestrictionTypes.MaxTurnStartDraw => $"turn-start draw capped at {v}",
+            RestrictionTypes.PriorityFloor => $"Priority can't fall below {v}",
+            RestrictionTypes.PatienceCostPerCard => $"+{v} Patience per card",
+            RestrictionTypes.BotmLimitBonus => $"+{v} Back-of-Mind slot(s)",
+            _ => r.Type.ToLowerInvariant().Replace('_', ' '),
+        };
+        string until = r.Expiry is { } e
+            ? e.Boundary switch
+            {
+                BoundaryNames.PlayerTurnEnd => e.Occurrences <= 1 ? " (this turn)" : $" ({e.Occurrences} turns)",
+                BoundaryNames.PlayerTurnStart => " (until your next turn)",
+                BoundaryNames.NpcTurnEnd => " (until their turn ends)",
+                BoundaryNames.NpcTurnStart => " (until their next turn)",
+                _ => "",
+            }
+            : "";
+        return new RestrictionView($"{who}: {what}{until}", player, npc);
     }
 
     private static PromptView? BuildPrompt(CombatState s, List<HandCardView> hand)

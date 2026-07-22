@@ -16,6 +16,7 @@ public partial class ArenaHud : CanvasLayer
 
     private Label _patience = null!, _phase = null!, _priority = null!, _lies = null!, _botm = null!;
     private Label _toast = null!, _npcContinue = null!;
+    private VBoxContainer _restrictions = null!;
     private HBoxContainer _botmBar = null!;
     private Label _botmLabel = null!;
     private Button _botmConfirm = null!;
@@ -57,6 +58,14 @@ public partial class ArenaHud : CanvasLayer
         _lies = HudLabel(top, 14);
         top.AddChild(new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
         _botm = HudLabel(top, 12);
+
+        // Persistent-effect strip: active restrictions, so things like
+        // "no extra draws" are visible while they last (Ken round 5).
+        _restrictions = new VBoxContainer();
+        _restrictions.SetAnchorsPreset(Control.LayoutPreset.TopLeft);
+        _restrictions.OffsetLeft = 16; _restrictions.OffsetTop = 44;
+        _restrictions.AddThemeConstantOverride("separation", 2);
+        AddChild(_restrictions);
 
         var bottom = new HBoxContainer();
         bottom.SetAnchorsPreset(Control.LayoutPreset.BottomWide);
@@ -188,12 +197,27 @@ public partial class ArenaHud : CanvasLayer
         _botm.Text = v.BackOfMindNames.Count == 0
             ? ""
             : $"Back of Mind: {string.Join(", ", v.BackOfMindNames)}";
+        RebuildRestrictions(v);
         _endTurn.Disabled = !v.CanAct;
         _npcContinue.Visible = v.NpcTurnInProgress && !_bridge.AutoAdvanceNpc && v.Prompt == null && v.Result == null;
 
         if (_bridge.LastError != null) Toast(_bridge.LastError);
         RefreshBrowser(v);
         RebuildPrompt(v);
+    }
+
+    private void RebuildRestrictions(CombatView v)
+    {
+        foreach (var c in _restrictions.GetChildren()) { _restrictions.RemoveChild(c); c.QueueFree(); }
+        foreach (var r in v.Restrictions)
+        {
+            var l = new Label { Text = "⊘ " + r.Text };
+            l.AddThemeFontSizeOverride("font_size", 12);
+            // Yellow when it constrains you, blue when it constrains them.
+            l.AddThemeColorOverride("font_color",
+                r.AffectsPlayer ? new Color("ffcf8a") : new Color("9ad1ff"));
+            _restrictions.AddChild(l);
+        }
     }
 
     public void SetViewLabel(string label) => _inspect.Text = $"View: {label} (Tab/scroll)";

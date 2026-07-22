@@ -60,9 +60,9 @@ public partial class MindspaceArena : Node3D
     private static readonly Vector3 TableCenter = new(0, 0.3f, 0.2f);
     private static readonly Vector3 BellPos = new(3.15f, 0, 0.55f);
     private static readonly Vector3 CandlePos = new(-3.0f, 0, -1.4f);
-    // Right side, between bell and hand — visible and clear of HUD overlays
-    // (Ken round 6: the old left spot sat under the detail panel).
-    private static readonly Vector3 PlayerStackPos = new(2.45f, 0, 1.5f);
+    // Right of the bell, clear of the shield row (Ken round 5: shields were
+    // clipping into the coins at the old x).
+    private static readonly Vector3 PlayerStackPos = new(4.0f, 0, 1.15f);
     private static readonly Vector3 NpcStackPos = new(2.95f, 0, -1.55f);
     private static readonly Vector3 PlayerDeckExit = new(3.3f, 0.6f, 2.3f);
     private static readonly Vector3 PlayerDiscardExit = new(-3.3f, 0.6f, 2.3f);
@@ -363,20 +363,30 @@ public partial class MindspaceArena : Node3D
             bool picked = _botmMode && _botmPicks.Contains(cardView.InstanceId);
             if (picked) pos += new Vector3(0, 0.28f, -0.12f);
             card.SetHighlight(picked);
+            card.SetRestScale(Vector3.One * HandScale(n));
             card.GlideTo(pos, rot);
         }
         DepartStale(_hand, seen, PlayerDiscardExit);
     }
 
-    /// <summary>Default fan: low and clear of the bell/table props.</summary>
+    /// <summary>
+    /// Default fan: low and clear of the bell/table props. With a big hand the
+    /// cards overlap, so each one is stepped forward in z — the later card
+    /// always draws in front of its neighbour, and hovering lifts it clear
+    /// (Ken round 5: crowded hands were unreadable/unclickable).
+    /// </summary>
     private static (Vector3, Vector3) HandSlot(int i, int n)
     {
         float spread = Mathf.Min(0.72f, 4.6f / Mathf.Max(n, 1));
         float x = (i - (n - 1) * 0.5f) * spread;
+        float depth = i * 0.012f; // consistent overlap order
         return (
-            new Vector3(x, 0.98f + Mathf.Abs(x) * -0.03f, 2.62f + Mathf.Abs(x) * 0.05f),
+            new Vector3(x, 0.98f + Mathf.Abs(x) * -0.03f, 2.62f + Mathf.Abs(x) * 0.05f + depth),
             new Vector3(-42, 0, -x * 3f));
     }
+
+    /// <summary>Shrink cards once the hand gets crowded so more of each shows.</summary>
+    private static float HandScale(int n) => n <= 6 ? 1f : Mathf.Max(0.72f, 6f / n);
 
     /// <summary>Inspect layout: a flat, wide row square to the inspect camera.</summary>
     private static (Vector3, Vector3) InspectSlot(int i, int n)
@@ -428,9 +438,17 @@ public partial class MindspaceArena : Node3D
         DepartStale(_field, seen, PlayerDiscardExit);
     }
 
+    /// <summary>
+    /// Lay a side's permanents out, wrapping onto extra rows once there are
+    /// too many to fit across the table (Ken round 5: a crowded board hid
+    /// cards behind each other).
+    /// </summary>
     private void PlaceFieldRow(List<PermanentView> perms, float z, HashSet<string> seen)
     {
+        const int PerRow = 7;
         int n = perms.Count;
+        int rows = Mathf.Max(1, (n + PerRow - 1) / PerRow);
+        float rowScale = rows > 1 ? 0.58f : 0.7f;
         for (int i = 0; i < n; i++)
         {
             var p = perms[i];
@@ -452,9 +470,16 @@ public partial class MindspaceArena : Node3D
             // Counter total as a corner badge, readable from table view.
             int counterTotal = p.Counters.Values.Sum();
             card.SetCounterBadge(counterTotal > 0 ? counterTotal.ToString() : "");
-            float spread = Mathf.Min(0.85f, 6.0f / Mathf.Max(n, 1));
-            float x = (i - (n - 1) * 0.5f) * spread;
-            card.GlideTo(new Vector3(x, 0.18f, z), new Vector3(-90, 0, 0));
+            card.SetRestScale(Vector3.One * rowScale);
+
+            int row = i / PerRow;
+            int inRow = i % PerRow;
+            int rowCount = Mathf.Min(PerRow, n - row * PerRow);
+            float spread = Mathf.Min(0.85f, 6.0f / Mathf.Max(rowCount, 1));
+            float x = (inRow - (rowCount - 1) * 0.5f) * spread;
+            // Extra rows step back toward that side's edge of the table.
+            float rowZ = z + row * (z < 0 ? -0.5f : 0.5f);
+            card.GlideTo(new Vector3(x, 0.18f, rowZ), new Vector3(-90, 0, 0));
         }
     }
 
