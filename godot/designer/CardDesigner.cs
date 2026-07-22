@@ -516,6 +516,10 @@ public partial class CardDesigner : Control
         _effectTextEdit.Editable = !generated;
         if (generated) _effectTextEdit.Text = etext;
 
+        // Colour first: SetColor drives both the strip and the title wash, and
+        // the preview must track the Color dropdown live (the arena does the
+        // same before SetFace).
+        _previewCard.SetColor(def.Color);
         _previewCard.SetFace(def.Name, def.Cost.ToString(), def.EffectText);
         Texture2D? tex = null;
         if (_pendingArtPath.Length > 0)
