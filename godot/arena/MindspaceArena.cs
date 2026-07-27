@@ -41,7 +41,15 @@ public partial class MindspaceArena : Node3D
     private enum ViewMode { Board, HandInspect, TopDown }
 
     private Card3D? _hovered;
+    private string? _hoverKey;   // identity of whatever is hovered, "" when nothing
+    private Card3D? _staged;     // enlarged copy shown near the camera
+    private string _stagedKey = "";
     private string? _selectedShieldSlot;
+
+    // Token-destruction choice (v1.4.2): picked on the 3D field cards.
+    private bool _tokenChoiceMode;
+    private int _tokenChoiceCount;
+    private readonly HashSet<string> _tokenPicks = [];
     private ViewMode _viewMode = ViewMode.Board;
 
     // Back-of-Mind selection happens on the 3D cards themselves (Ken playtest
@@ -286,6 +294,12 @@ public partial class MindspaceArena : Node3D
 
     public override void _Process(double delta)
     {
+        // Hover is POLLED every frame rather than driven by motion events
+        // (Ken round 7): _UnhandledInput only sees events the HUD hasn't
+        // consumed, which made card-to-card transitions feel spotty and left
+        // pile overlays stuck when the cursor left them over a HUD region.
+        UpdateHover(GetViewport().GetMousePosition());
+
         if (_director.IsBusy || _pendingViews.Count == 0) return;
         var next = _pendingViews.Dequeue();
         _director.StartingPatience = next.StartingPatience;
@@ -313,10 +327,29 @@ public partial class MindspaceArena : Node3D
             _botmMode = false;
             _botmPicks.Clear();
         }
+        // Token destruction is likewise picked on the 3D field cards.
+        bool wantTokens = v.Prompt is ChooseTokensPromptView;
+        if (wantTokens && !_tokenChoiceMode)
+        {
+            _tokenChoiceMode = true;
+            _tokenPicks.Clear();
+            _tokenChoiceCount = ((ChooseTokensPromptView)v.Prompt!).Count;
+        }
+        else if (!wantTokens && _tokenChoiceMode)
+        {
+            _tokenChoiceMode = false;
+            _tokenPicks.Clear();
+        }
+
         _hud.SuppressBotmOverlay = _botmMode;
+        _hud.SuppressTokenOverlay = _tokenChoiceMode;
         _hud.Refresh(v);
         if (_botmMode) _hud.ShowBotmBar(_botmLimit, _botmPicks.Count, v.Hand.Count, ConfirmBotmPicks);
         else _hud.HideBotmBar();
+        if (_tokenChoiceMode)
+            _hud.ShowTokenChoiceBar(_tokenChoiceCount, _tokenPicks.Count,
+                () => _bridge.ChooseTokensToDestroy(_tokenPicks.ToList()));
+        else _hud.HideTokenChoiceBar();
 
         _avatar.SetMood(v.StartingPatience <= 0 ? 0 : 1f - (float)v.Patience / v.StartingPatience);
         _avatar.SetLeaning(v.NpcTurnInProgress);
@@ -362,31 +395,38 @@ public partial class MindspaceArena : Node3D
             // Cards picked for Back of Mind lift out of the fan.
             bool picked = _botmMode && _botmPicks.Contains(cardView.InstanceId);
             if (picked) pos += new Vector3(0, 0.28f, -0.12f);
+            // Hover lifts only — no scale/z change, so picking stays stable.
+            if (_lastHandHoverKey == cardView.InstanceId) pos += new Vector3(0, 0.16f, 0);
             card.SetHighlight(picked);
-            card.SetRestScale(Vector3.One * HandScale(n));
-            card.GlideTo(pos, rot);
+            card.SetRestScale(Vector3.One);
+            card.GlideTo(pos, rot, 0.16f);
         }
         DepartStale(_hand, seen, PlayerDiscardExit);
     }
 
     /// <summary>
-    /// Default fan: low and clear of the bell/table props. With a big hand the
-    /// cards overlap, so each one is stepped forward in z — the later card
-    /// always draws in front of its neighbour, and hovering lifts it clear
-    /// (Ken round 5: crowded hands were unreadable/unclickable).
+    /// Fanned pile (Ken round 7): the hand always fits on screen — cards
+    /// overlap more as the hand grows, each stepped forward in z so the
+    /// later card draws in front. Because every card's left sliver is the
+    /// part its neighbour does NOT cover, and z increases left→right, a ray
+    /// naturally resolves to the visually-topmost card under the cursor.
+    /// Hovering therefore must not change scale or z (that makes hover
+    /// sticky) — it only lifts the card, and the enlarged copy staged near
+    /// the camera is the "read this one" feedback.
     /// </summary>
+    private const float HandFanWidth = 4.6f;
+
+    private static float HandSpread(int n) => Mathf.Min(0.62f, HandFanWidth / Mathf.Max(n, 1));
+
     private static (Vector3, Vector3) HandSlot(int i, int n)
     {
-        float spread = Mathf.Min(0.72f, 4.6f / Mathf.Max(n, 1));
+        float spread = HandSpread(n);
         float x = (i - (n - 1) * 0.5f) * spread;
-        float depth = i * 0.012f; // consistent overlap order
+        float depth = i * 0.012f; // consistent overlap order, front = rightmost
         return (
             new Vector3(x, 0.98f + Mathf.Abs(x) * -0.03f, 2.62f + Mathf.Abs(x) * 0.05f + depth),
             new Vector3(-42, 0, -x * 3f));
     }
-
-    /// <summary>Shrink cards once the hand gets crowded so more of each shows.</summary>
-    private static float HandScale(int n) => n <= 6 ? 1f : Mathf.Max(0.72f, 6f / n);
 
     /// <summary>Inspect layout: a flat, wide row square to the inspect camera.</summary>
     private static (Vector3, Vector3) InspectSlot(int i, int n)
@@ -575,8 +615,8 @@ public partial class MindspaceArena : Node3D
                 CycleView(-1);
                 break;
             case InputEventMouseMotion motion:
+                // Hover itself is polled in _Process; motion only drives drag.
                 if (_pressCandidate != null) UpdateDrag(motion.Position);
-                else UpdateHover(motion.Position);
                 break;
             case InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true } press:
                 HandlePress(press.Position);
@@ -669,26 +709,51 @@ public partial class MindspaceArena : Node3D
     private static string? PileIdFromCollider(GodotObject? collider) =>
         collider is Area3D area && area.HasMeta("pile") ? area.GetMeta("pile").AsString() : null;
 
+    /// <summary>
+    /// Resolve what is under the cursor and update hover state. Keyed on an
+    /// identity string (card key or pile id, "" for nothing) so EVERY change —
+    /// including moving off something onto nothing — is acted on exactly once.
+    /// </summary>
     private void UpdateHover(Vector2 screenPos)
     {
         var collider = PickAt(screenPos);
+        string? pileId = PileIdFromCollider(collider);
+        var card = pileId == null ? CardFromCollider(collider) : null;
+        if (card != null && card.Zone is not ("hand" or "shield" or "field" or "guard" or "core")) card = null;
 
-        if (PileIdFromCollider(collider) is string pileId)
+        string key = pileId ?? (card == null ? "" : $"{card.Zone}:{card.Key}:{card.GetInstanceId()}");
+        if (key == _hoverKey) return;
+        _hoverKey = key;
+
+        if (!ReferenceEquals(card, _hovered))
         {
-            _hovered?.SetHovered(false);
-            _hovered = null;
-            ShowPileDetail(pileId);
-            return;
+            if (_hovered != null && IsInstanceValid(_hovered)) _hovered.SetHovered(false);
+            _hovered = card;
+            // Hand cards express hover by lifting in the fan (see HandSlot);
+            // scaling them would enlarge their pick box and make hover sticky.
+            if (card != null && card.Zone is "shield" or "field") card.SetHovered(true);
         }
 
-        var card = CardFromCollider(collider);
-        if (card != null && card.Zone is not ("hand" or "shield" or "field" or "guard" or "core")) card = null;
-        if (ReferenceEquals(card, _hovered)) return;
-        _hovered?.SetHovered(false);
-        _hovered = card;
-        if (card != null && card.Zone is "hand" or "shield" or "field") card.SetHovered(true);
-        RefreshDetailPanel(card);
+        if (pileId != null)
+        {
+            ClearStagedCard();
+            ShowPileDetail(pileId);
+        }
+        else
+        {
+            RefreshDetailPanel(card);
+        }
+
+        // Re-fan the hand so the hovered card lifts. Skipped while the
+        // presentation timeline is still catching up, or we would apply a
+        // not-yet-presented view's hand state early.
+        string? nextHandHover = card?.Zone == "hand" ? card.Key : null;
+        bool handChanged = nextHandHover != _lastHandHoverKey;
+        _lastHandHoverKey = nextHandHover;
+        if (handChanged && !Presenting && _bridge.View is { } v) ReconcileHand(v);
     }
+
+    private string? _lastHandHoverKey;
 
     private void ShowPileDetail(string pileId)
     {
@@ -714,12 +779,18 @@ public partial class MindspaceArena : Node3D
         }
     }
 
-    /// <summary>Full rules text for whatever the cursor is over (no 3D tooltips).</summary>
+    /// <summary>
+    /// Show what the cursor is over. Real cards materialise as an ENLARGED
+    /// COPY near the camera (Ken round 7) at the spot the old text overlay
+    /// occupied; face-down/synthetic things (guards, cores, placeholders)
+    /// still use the text panel since they have no card face to show.
+    /// </summary>
     private void RefreshDetailPanel(Card3D? card)
     {
         var v = _bridge.View;
         if (card == null || v == null)
         {
+            ClearStagedCard();
             _hud.HideCardDetail();
             return;
         }
@@ -728,41 +799,84 @@ public partial class MindspaceArena : Node3D
             case "hand":
                 var h = v.Hand.FirstOrDefault(c => c.InstanceId == card.Key);
                 if (h == null) break;
-                _hud.ShowCardDetail(h.Name,
-                    $"Cost {h.EffectiveCost} · {h.Color} {h.Supertype}" +
-                    (h.HasHeavyHand ? " · Heavy Hand available" : "") +
-                    (h.IsAssembled ? " · assembled" : ""),
-                    h.EffectText);
+                StageCard($"hand:{h.InstanceId}", h.Name, h.EffectiveCost.ToString(),
+                    h.EffectText, h.Color, h.DefinitionId);
+                _hud.HideCardDetail();
                 return;
             case "field":
                 var p = v.Field.FirstOrDefault(f => f.PermanentId == card.Key);
                 if (p == null) break;
                 string counters = p.Counters.Count == 0
                     ? ""
-                    : "\nCounters: " + string.Join(", ", p.Counters.Select(kv => $"{kv.Key} {kv.Value}"));
+                    : " · " + string.Join(", ", p.Counters.Select(kv => $"{kv.Key} {kv.Value}"));
+                StageCard($"field:{p.PermanentId}", p.Name, p.Counters.Values.Sum() is var tot && tot > 0 ? tot.ToString() : "",
+                    p.EffectText, _bridge.GetCardInfo(p.DefinitionId)?.Color ?? "Colorless", p.DefinitionId);
+                // Abilities/duration still need words — keep a compact line.
                 string abilities = p.Abilities.Count == 0
                     ? ""
-                    : "\n" + string.Join("\n", p.Abilities.Select(a => $"Ability: {a.Name} ({a.CostText})"));
+                    : " · " + string.Join(", ", p.Abilities.Select(a => $"{a.Name} ({a.CostText})"));
                 _hud.ShowCardDetail(p.Name,
-                    $"{p.Kind} · {p.OwnerKey}" + (p.TurnsRemaining is int t ? $" · {t} turn(s) left" : ""),
-                    p.EffectText + counters + abilities);
+                    $"{p.Kind} · {p.OwnerKey}" + (p.TurnsRemaining is int t ? $" · {t} turn(s) left" : "") + counters,
+                    abilities.Length > 0 ? "Abilities:" + abilities : "");
                 return;
             case "shield":
                 var s = v.PlayerShields.FirstOrDefault(x => x.SlotId == card.Key);
                 if (s == null) break;
+                if (s.CardDefinitionId is { } defId)
+                {
+                    var info = _bridge.GetCardInfo(defId);
+                    StageCard($"shield:{s.SlotId}", s.CardName ?? "Shield", info?.Cost.ToString() ?? "",
+                        info?.EffectText ?? "", info?.Color ?? "Colorless", defId);
+                }
+                else ClearStagedCard();
                 _hud.ShowCardDetail(s.CardName ?? "Placeholder Shield", $"{s.ShieldType} shield",
-                    $"Breaks for {s.PatienceCostOnBreak} patience. Leftmost shield breaks first — click two shields to swap order.");
+                    $"Breaks for {s.PatienceCostOnBreak} patience. Leftmost breaks first — click two shields to swap order.");
                 return;
             case "guard":
+                ClearStagedCard();
                 _hud.ShowCardDetail("Guard Shield", "face-down",
                     "Generic break effects hit Guard Shields first; leftmost breaks first. Some guards carry a card with a Shield Trigger.");
                 return;
             case "core":
+                ClearStagedCard();
                 _hud.ShowCardDetail("Core Shield", "the real defenses",
                     "Breaks only when its key Info Nuggets are played while no Guards stand. Broken cores reveal lore — '?' marks a hint.");
                 return;
         }
+        ClearStagedCard();
         _hud.HideCardDetail();
+    }
+
+    // ── staged card near the camera ──────────────────────────────────────────
+
+    /// <summary>Where the enlarged copy sits in camera space (the old overlay's spot).</summary>
+    private static readonly Vector3 StagePos = new(0.62f, 0.02f, -1.55f);
+
+    private void StageCard(string key, string name, string cost, string text, string color, string defId)
+    {
+        if (_stagedKey == key && _staged != null && IsInstanceValid(_staged)) return;
+        ClearStagedCard();
+        _stagedKey = key;
+
+        var card = new Card3D { Zone = "fx" };
+        _rig.Camera.AddChild(card);
+        card.SetPickable(false);
+        card.SetColor(color);
+        card.SetFace(name, cost, text, defId);
+        card.Position = StagePos + new Vector3(0.12f, -0.05f, -0.25f);
+        card.Scale = Vector3.One * 0.7f;
+        var tween = card.CreateTween().SetParallel().SetTrans(Tween.TransitionType.Cubic).SetEase(Tween.EaseType.Out);
+        tween.TweenProperty(card, "position", StagePos, 0.16);
+        tween.TweenProperty(card, "scale", Vector3.One, 0.16);
+        _staged = card;
+    }
+
+    private void ClearStagedCard()
+    {
+        _stagedKey = "";
+        if (_staged == null) return;
+        if (IsInstanceValid(_staged)) _staged.QueueFree();
+        _staged = null;
     }
 
     private void HandlePress(Vector2 screenPos)
@@ -914,9 +1028,34 @@ public partial class MindspaceArena : Node3D
         ReconcileShields(v); // re-apply lift highlight
     }
 
+    /// <summary>Toggle a token pick for a pending destroy-token choice.</summary>
+    private void ToggleTokenPick(Card3D card)
+    {
+        var v = _bridge.View!;
+        if (v.Prompt is not ChooseTokensPromptView prompt) return;
+        if (!prompt.PermanentIds.Contains(card.Key))
+        {
+            _hud.Toast("That token isn't one of the choices.");
+            return;
+        }
+        if (!_tokenPicks.Remove(card.Key))
+        {
+            if (_tokenPicks.Count >= _tokenChoiceCount)
+            {
+                _hud.Toast($"Choose exactly {_tokenChoiceCount} token(s).");
+                return;
+            }
+            _tokenPicks.Add(card.Key);
+        }
+        foreach (var (id, c) in _field) c.SetHighlight(_tokenPicks.Contains(id));
+        _hud.ShowTokenChoiceBar(_tokenChoiceCount, _tokenPicks.Count,
+            () => _bridge.ChooseTokensToDestroy(_tokenPicks.ToList()));
+    }
+
     private void OnFieldClicked(Card3D card)
     {
         var v = _bridge.View!;
+        if (_tokenChoiceMode) { ToggleTokenPick(card); return; }
         var perm = v.Field.FirstOrDefault(p => p.PermanentId == card.Key);
         if (perm == null || perm.Abilities.Count == 0) return;
         if (!v.CanAct)

@@ -889,6 +889,7 @@ public sealed class PendingPlay
 [System.Text.Json.Serialization.JsonDerivedType(typeof(RevealBlock), "reveal")]
 [System.Text.Json.Serialization.JsonDerivedType(typeof(ChooseNumberBlock), "chooseNumber")]
 [System.Text.Json.Serialization.JsonDerivedType(typeof(DeckRevealBlock), "deckReveal")]
+[System.Text.Json.Serialization.JsonDerivedType(typeof(ChooseTokensBlock), "chooseTokens")]
 public abstract record PendingBlock;
 
 public sealed record RevealBlock(string Lore, bool IsHint, string ShieldCardId) : PendingBlock
@@ -900,6 +901,14 @@ public sealed record RevealBlock(string Lore, bool IsHint, string ShieldCardId) 
 public sealed record ChooseNumberBlock(int Min, int Max, string FrameId) : PendingBlock;
 
 public sealed record DeckRevealBlock(IReadOnlyList<string> CardDefIds) : PendingBlock;
+
+/// <summary>
+/// The player must pick exactly Count of the candidate tokens to destroy
+/// (v1.4.2 — DESTROY_TOKENS is player-chosen rather than earliest-first).
+/// Only raised when there is a real choice to make; NPC-controlled
+/// destruction always auto-resolves so its turn stays automatic (§4.4).
+/// </summary>
+public sealed record ChooseTokensBlock(IReadOnlyList<string> PermanentIds, int Count, string FrameId) : PendingBlock;
 
 public sealed class LogEntry
 {
@@ -1079,6 +1088,8 @@ public sealed record EndTurn : CombatAction;
 public sealed record BotmSelect(IReadOnlyList<int> KeepHandIndices) : CombatAction;
 public sealed record Acknowledge : CombatAction; // reveal / deck-reveal acknowledgement
 public sealed record ChooseNumber(int Value) : CombatAction;
+/// <summary>Resolve a ChooseTokensBlock: exactly Count permanent ids from its candidates.</summary>
+public sealed record ChooseTokens(IReadOnlyList<string> PermanentIds) : CombatAction;
 public sealed record Advance : CombatAction; // drive the NPC turn one step (auto policy: leftmost)
 public sealed record NpcPlayCard(int HandIndex) : CombatAction; // manual enemy / dual playtest
 public sealed record NpcEndTurn : CombatAction; // manual enemy: explicit pass (only when no legal play)

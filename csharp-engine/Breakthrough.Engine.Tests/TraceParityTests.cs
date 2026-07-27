@@ -66,9 +66,14 @@ public class TraceParityTests
                 s = Reducer.Reduce(s, new PlayCard(0));
                 while (s.PendingBlock != null)
                 {
-                    s = s.PendingBlock is ChooseNumberBlock block
-                        ? Reducer.Reduce(s, new ChooseNumber(block.Min))
-                        : Reducer.Reduce(s, new Acknowledge());
+                    s = s.PendingBlock switch
+                    {
+                        ChooseNumberBlock block => Reducer.Reduce(s, new ChooseNumber(block.Min)),
+                        // Earliest-first keeps this trace matching the TS engine,
+                        // which has no token choice (v1.4.2 is C#-only for now).
+                        ChooseTokensBlock ct => Reducer.Reduce(s, new ChooseTokens(ct.PermanentIds.Take(ct.Count).ToList())),
+                        _ => Reducer.Reduce(s, new Acknowledge()),
+                    };
                 }
                 trace.Add(Snap(s));
             }

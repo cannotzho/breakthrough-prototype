@@ -68,7 +68,8 @@ public static class Reducer
     {
         // Blocking sub-states freeze all combat state (v1.4 §6.4/§6.7.1): only
         // the matching resume action is accepted while a block is pending.
-        if (state.PendingBlock != null && action is not Acknowledge && action is not ChooseNumber)
+        if (state.PendingBlock != null
+            && action is not Acknowledge && action is not ChooseNumber && action is not ChooseTokens)
         {
             throw new IllegalActionException($"Combat is suspended on {PendingBlockName(state.PendingBlock)} — acknowledge it first");
         }
@@ -298,6 +299,33 @@ public static class Reducer
                 if (state.PendingPlay != null) state.PendingPlay.ChosenNumber = a.Value;
                 Core.Log(state, "choose-number", $"Number chosen: {a.Value}");
                 state.PendingBlock = null;
+                ResumeAfterUnblock(state);
+                return;
+            }
+
+            case ChooseTokens a:
+            {
+                if (state.PendingBlock is not ChooseTokensBlock block)
+                {
+                    throw new IllegalActionException("No token choice pending");
+                }
+                var picks = a.PermanentIds.ToList();
+                if (picks.Distinct().Count() != picks.Count)
+                    throw new IllegalActionException("The same token was chosen twice");
+                if (picks.Count != block.Count)
+                    throw new IllegalActionException($"Choose exactly {block.Count} token(s)");
+                if (picks.Any(id => !block.PermanentIds.Contains(id)))
+                    throw new IllegalActionException("Token is not among the choices");
+
+                state.PendingBlock = null;
+                Core.Log(state, "destroy-chosen", $"Chose {picks.Count} token(s) to destroy");
+                foreach (var id in picks)
+                {
+                    // A leave-trigger from an earlier pick may already have
+                    // destroyed a later one — only destroy what still stands.
+                    if (state.Field.Any(p => p.PermanentId == id))
+                        Core.DestroyPermanent(state, id, 0);
+                }
                 ResumeAfterUnblock(state);
                 return;
             }

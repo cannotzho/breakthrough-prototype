@@ -24,6 +24,14 @@ public partial class ArenaHud : CanvasLayer
 
     /// <summary>Set by the arena when it handles Back-of-Mind selection in 3D.</summary>
     public bool SuppressBotmOverlay { get; set; }
+
+    /// <summary>Set by the arena when it handles token picking on the 3D field.</summary>
+    public bool SuppressTokenOverlay { get; set; }
+
+    private HBoxContainer _tokenBar = null!;
+    private Label _tokenLabel = null!;
+    private Button _tokenConfirm = null!;
+    private System.Action? _tokenConfirmAction;
     private Button _endTurn = null!, _inspect = null!;
     private CheckBox _autoNpc = null!;
     private Control _promptLayer = null!;
@@ -67,23 +75,36 @@ public partial class ArenaHud : CanvasLayer
         _restrictions.AddThemeConstantOverride("separation", 2);
         AddChild(_restrictions);
 
-        var bottom = new HBoxContainer();
-        bottom.SetAnchorsPreset(Control.LayoutPreset.BottomWide);
-        bottom.OffsetLeft = 16; bottom.OffsetTop = -52; bottom.OffsetRight = -16; bottom.OffsetBottom = -12;
-        bottom.AddThemeConstantOverride("separation", 18);
-        AddChild(bottom);
-        _priority = HudLabel(bottom, 20);
+        // Priority readout stays bottom-left but must NEVER eat input — the
+        // old full-width bottom bar was blocking the bell and the table props
+        // (Ken round 7). Controls now live top-right, away from the 3D scene.
+        _priority = new Label { MouseFilter = Control.MouseFilterEnum.Ignore };
+        _priority.AddThemeFontSizeOverride("font_size", 20);
         _priority.AddThemeColorOverride("font_color", new Color("6ad46a"));
-        bottom.AddChild(new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
-        _inspect = new Button { Text = "View: Board (Tab)" };
-        _inspect.Pressed += () => _toggleInspect?.Invoke();
-        bottom.AddChild(_inspect);
+        _priority.SetAnchorsPreset(Control.LayoutPreset.BottomLeft);
+        _priority.OffsetLeft = 16; _priority.OffsetTop = -44; _priority.OffsetBottom = -12;
+        AddChild(_priority);
+
+        var controls = new VBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
+        controls.SetAnchorsPreset(Control.LayoutPreset.TopRight);
+        controls.OffsetLeft = -230; controls.OffsetTop = 40; controls.OffsetRight = -16;
+        controls.AddThemeConstantOverride("separation", 4);
+        AddChild(controls);
+
         _endTurn = new Button { Text = "End Turn (or ring the bell)" };
         _endTurn.Pressed += () => _bridge.EndPlayerTurn();
-        bottom.AddChild(_endTurn);
-        _autoNpc = new CheckBox { Text = "Auto NPC", ButtonPressed = true };
+        controls.AddChild(_endTurn);
+        _inspect = new Button { Text = "View: Board (Tab)" };
+        _inspect.Pressed += () => _toggleInspect?.Invoke();
+        controls.AddChild(_inspect);
+        _autoNpc = new CheckBox { Text = "Auto NPC", ButtonPressed = _bridge.AutoAdvanceNpc };
         _autoNpc.Toggled += on => _bridge.AutoAdvanceNpc = on;
-        bottom.AddChild(_autoNpc);
+        controls.AddChild(_autoNpc);
+        var quit = new Button { Text = "Quit to Main Menu" };
+        quit.Pressed += () => GetTree().ChangeSceneToFile("res://Main.tscn");
+        controls.AddChild(quit);
+
+        BuildCombatLog();
 
         // "Opponent is acting — click to continue" banner (one acknowledgement
         // per opponent card; hidden while Auto NPC is on).
@@ -112,6 +133,20 @@ public partial class ArenaHud : CanvasLayer
         _botmConfirm.Pressed += () => _botmConfirmAction?.Invoke();
         _botmBar.AddChild(_botmConfirm);
         AddChild(_botmBar);
+
+        // Token-destruction choice bar (picking happens on the 3D tokens).
+        _tokenBar = new HBoxContainer { Visible = false, Alignment = BoxContainer.AlignmentMode.Center };
+        _tokenBar.AddThemeConstantOverride("separation", 14);
+        _tokenBar.SetAnchorsPreset(Control.LayoutPreset.CenterBottom);
+        _tokenBar.OffsetTop = -240; _tokenBar.OffsetLeft = -420; _tokenBar.OffsetRight = 420;
+        _tokenLabel = new Label();
+        _tokenLabel.AddThemeFontSizeOverride("font_size", 18);
+        _tokenLabel.AddThemeColorOverride("font_color", new Color("ff9a7a"));
+        _tokenBar.AddChild(_tokenLabel);
+        _tokenConfirm = new Button { Text = "Destroy" };
+        _tokenConfirm.Pressed += () => _tokenConfirmAction?.Invoke();
+        _tokenBar.AddChild(_tokenConfirm);
+        AddChild(_tokenBar);
 
         _toast = new Label
         {
@@ -198,6 +233,8 @@ public partial class ArenaHud : CanvasLayer
             ? ""
             : $"Back of Mind: {string.Join(", ", v.BackOfMindNames)}";
         RebuildRestrictions(v);
+        AppendLog(v.NewLog);
+        _autoNpc.SetPressedNoSignal(_bridge.AutoAdvanceNpc);
         _endTurn.Disabled = !v.CanAct;
         _npcContinue.Visible = v.NpcTurnInProgress && !_bridge.AutoAdvanceNpc && v.Prompt == null && v.Result == null;
 
@@ -205,6 +242,73 @@ public partial class ArenaHud : CanvasLayer
         RefreshBrowser(v);
         RebuildPrompt(v);
     }
+
+    // ── collapsible combat log (left banner) ─────────────────────────────────
+
+    private VBoxContainer _logPanel = null!;
+    private ScrollContainer _logScroll = null!;
+    private RichTextLabel _logText = null!;
+    private Button _logToggle = null!;
+    private bool _logOpen;
+
+    private void BuildCombatLog()
+    {
+        _logPanel = new VBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
+        _logPanel.SetAnchorsPreset(Control.LayoutPreset.LeftWide);
+        _logPanel.OffsetLeft = 16; _logPanel.OffsetTop = 150; _logPanel.OffsetRight = 336; _logPanel.OffsetBottom = -60;
+        AddChild(_logPanel);
+
+        _logToggle = new Button { Text = "▸ Combat log", ToggleMode = true };
+        _logToggle.Toggled += on =>
+        {
+            _logOpen = on;
+            _logToggle.Text = (on ? "▾" : "▸") + " Combat log";
+            _logScroll.Visible = on;
+        };
+        var toggleRow = new HBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
+        toggleRow.AddChild(_logToggle);
+        toggleRow.AddChild(new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MouseFilter = Control.MouseFilterEnum.Ignore });
+        _logPanel.AddChild(toggleRow);
+
+        _logScroll = new ScrollContainer
+        {
+            Visible = false,
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill,
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+        };
+        _logText = new RichTextLabel
+        {
+            BbcodeEnabled = true,
+            FitContent = true,
+            ScrollActive = false,
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            CustomMinimumSize = new Vector2(300, 0),
+        };
+        _logText.AddThemeFontSizeOverride("normal_font_size", 11);
+        _logScroll.AddChild(_logText);
+        _logPanel.AddChild(_logScroll);
+    }
+
+    private void AppendLog(IReadOnlyList<LogView> entries)
+    {
+        foreach (var e in entries)
+        {
+            if (e.Type is "event") continue; // raw event spam — the messages carry the story
+            string color = e.Type switch
+            {
+                "error" => "ff5a4a",
+                "illegal-action" => "ffb04a",
+                "boundary" => "8ab4ff",
+                "play" => "ffe08a",
+                _ => "b0b0bc",
+            };
+            _logText.AppendText($"[color=#{color}]{Escape(e.Message)}[/color]\n");
+        }
+        if (entries.Count > 0 && _logOpen)
+            Callable.From(() => _logScroll.ScrollVertical = (int)_logScroll.GetVScrollBar().MaxValue).CallDeferred();
+    }
+
+    private static string Escape(string s) => s.Replace("[", "[lb]");
 
     private void RebuildRestrictions(CombatView v)
     {
@@ -232,6 +336,17 @@ public partial class ArenaHud : CanvasLayer
     }
 
     public void HideBotmBar() => _botmBar.Visible = false;
+
+    /// <summary>Token-destruction choice bar; picking happens on the 3D tokens.</summary>
+    public void ShowTokenChoiceBar(int count, int picked, System.Action onConfirm)
+    {
+        _tokenLabel.Text = $"Choose {count} token(s) to destroy — click them on the Field   ·   picked {picked}";
+        _tokenConfirmAction = onConfirm;
+        _tokenConfirm.Disabled = picked != count;
+        _tokenBar.Visible = true;
+    }
+
+    public void HideTokenChoiceBar() => _tokenBar.Visible = false;
 
     /// <summary>True while a modal engine prompt / result screen is up (used to gate view cycling).</summary>
     public bool IsModalOpen => _promptLayer.Visible;
@@ -270,9 +385,12 @@ public partial class ArenaHud : CanvasLayer
             case RevealPromptView r: ShowReveal(r); break;
             case ChooseNumberPromptView c: ShowChooseNumber(c); break;
             case DeckRevealPromptView d: ShowDeckReveal(d); break;
-            // Back of Mind is picked on the 3D cards; skip the 2D overlay.
+            // Back of Mind and token choices are picked on the 3D cards;
+            // skip the 2D overlay for those.
             case BotmPromptView when SuppressBotmOverlay: HidePrompt(); break;
             case BotmPromptView b: ShowBotm(b); break;
+            case ChooseTokensPromptView when SuppressTokenOverlay: HidePrompt(); break;
+            case ChooseTokensPromptView ct: ShowChooseTokens(ct); break;
             default: HidePrompt(); break;
         }
     }
@@ -522,6 +640,42 @@ public partial class ArenaHud : CanvasLayer
                     mostRecentFirst: true, "discarded");
                 return;
         }
+    }
+
+    /// <summary>Fallback 2D token picker (used when the 3D flow is suppressed off).</summary>
+    private void ShowChooseTokens(ChooseTokensPromptView ct)
+    {
+        var box = OpenPromptBox($"Choose {ct.Count} token(s) to destroy");
+        _transientOpen = false;
+        var picks = new List<int>();
+        var confirm = new Button();
+        var toggles = new List<Button>();
+        void Update()
+        {
+            confirm.Text = $"Destroy ({picks.Count}/{ct.Count})";
+            confirm.Disabled = picks.Count != ct.Count;
+            for (int i = 0; i < toggles.Count; i++)
+                toggles[i].Modulate = picks.Contains(i) ? new Color("ffe08a") : Colors.White;
+        }
+        var row = new HFlowContainer();
+        row.AddThemeConstantOverride("h_separation", 6);
+        box.AddChild(row);
+        for (int i = 0; i < ct.Names.Count; i++)
+        {
+            int idx = i;
+            var b = new Button { Text = ct.Names[i], CustomMinimumSize = new Vector2(110, 44) };
+            b.Pressed += () =>
+            {
+                if (!picks.Remove(idx)) { if (picks.Count >= ct.Count) return; picks.Add(idx); }
+                Update();
+            };
+            toggles.Add(b);
+            row.AddChild(b);
+        }
+        confirm.Pressed += () =>
+            _bridge.ChooseTokensToDestroy(picks.Select(i => ct.PermanentIds[i]).ToList());
+        box.AddChild(confirm);
+        Update();
     }
 
     private void ShowResult(ResultView r)

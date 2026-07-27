@@ -64,6 +64,8 @@ public partial class Card3D : Node3D
     private Color _bandTint = BandBase;
     private bool _highlighted;
     private Label3D? _badge, _counterBadge;
+    private Area3D _pickArea = null!;
+    private CollisionShape3D _pickShape = null!;
     private MeshInstance3D? _art, _artOverlay;
     private string _artDefId = "";
     private bool _faceDown;
@@ -108,11 +110,11 @@ public partial class Card3D : Node3D
         _text.OutlineSize = 6;
         _text.OutlineModulate = InkOutline;
 
-        var area = new Area3D { Monitoring = false };
-        var shape = new CollisionShape3D { Shape = new BoxShape3D { Size = new Vector3(0.7f, 1.0f, 0.05f) } };
-        area.AddChild(shape);
-        area.SetMeta("card3d", GetPath());
-        AddChild(area);
+        _pickArea = new Area3D { Monitoring = false };
+        _pickShape = new CollisionShape3D { Shape = new BoxShape3D { Size = new Vector3(0.7f, 1.0f, 0.05f) } };
+        _pickArea.AddChild(_pickShape);
+        _pickArea.SetMeta("card3d", GetPath());
+        AddChild(_pickArea);
     }
 
     private MeshInstance3D MakeBand(Vector3 pos, Vector2 size, Color color, out StandardMaterial3D mat)
@@ -187,6 +189,22 @@ public partial class Card3D : Node3D
         "Purple" => new Color("8a5ad4"),
         _ => new Color("6a6a72"), // Colorless
     };
+
+    /// <summary>
+    /// Narrow the clickable area to the card's VISIBLE sliver when cards
+    /// overlap in a tight fan, so hovering a card's exposed edge selects that
+    /// card rather than whichever one happens to be in front (Ken round 7).
+    /// Anchored to the card's left edge, which is the part that stays visible.
+    /// </summary>
+    public void SetPickWidth(float width)
+    {
+        width = Mathf.Clamp(width, 0.06f, 0.7f);
+        if (_pickShape.Shape is BoxShape3D box) box.Size = new Vector3(width, 1.0f, 0.05f);
+        _pickShape.Position = new Vector3(-(0.7f - width) * 0.5f, 0, 0);
+    }
+
+    /// <summary>Staged/preview copies must never take part in picking.</summary>
+    public void SetPickable(bool on) => _pickShape.Disabled = !on;
 
     /// <summary>Selection highlight (Back of Mind): lights up the title bar.</summary>
     public void SetHighlight(bool on)

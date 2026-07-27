@@ -43,7 +43,11 @@ public sealed record ShieldSlotView(
     string SlotId,
     string ShieldType,          // ShieldTypes.Placeholder | Real | Core
     string? CardName,           // null for placeholders
-    int PatienceCostOnBreak);
+    int PatienceCostOnBreak)
+{
+    /// <summary>Backing card definition id (null for synthetic placeholders).</summary>
+    public string? CardDefinitionId { get; init; }
+}
 
 public sealed record CoreShieldView(int Index, bool IsHint, bool Broken);
 
@@ -85,6 +89,10 @@ public sealed record DeckRevealPromptView(IReadOnlyList<string> CardNames) : Pro
 
 /// <summary>Back-of-Mind select (fires only from Player Turn End, §6.5).</summary>
 public sealed record BotmPromptView(int Limit, IReadOnlyList<HandCardView> Hand) : PromptView;
+
+/// <summary>Pick exactly Count of your tokens to destroy (v1.4.2).</summary>
+public sealed record ChooseTokensPromptView(
+    int Count, IReadOnlyList<string> PermanentIds, IReadOnlyList<string> Names) : PromptView;
 
 public sealed record ResultView(string Result, string? LoseReason);
 
@@ -211,7 +219,7 @@ public static class CombatViewBuilder
                 .Select((slot, i) => new ShieldSlotView(
                     i, slot.SlotId, slot.ShieldType,
                     slot.CardDefinitionId == null ? null : NameOf(s, slot.CardDefinitionId),
-                    slot.PatienceCostOnBreak))
+                    slot.PatienceCostOnBreak) { CardDefinitionId = slot.CardDefinitionId })
                 .ToList(),
             NpcGuardsStanding = s.NpcGuardsStanding,
             NpcCoreShields = s.NpcCoreShields
@@ -307,6 +315,14 @@ public static class CombatViewBuilder
                 return new ChooseNumberPromptView(c.Min, c.Max);
             case DeckRevealBlock d:
                 return new DeckRevealPromptView(d.CardDefIds.Select(id => NameOf(s, id)).ToList());
+            case ChooseTokensBlock ct:
+                return new ChooseTokensPromptView(
+                    ct.Count,
+                    ct.PermanentIds,
+                    ct.PermanentIds
+                        .Select(id => s.Field.FirstOrDefault(p => p.PermanentId == id) is { } p
+                            ? NameOf(s, p.DefinitionId) : id)
+                        .ToList());
         }
         if (s.Phase == Phases.BotMSelect)
             return new BotmPromptView(Core.EffectiveBotmLimit(s), hand);

@@ -828,6 +828,17 @@ public static class Core
                                 (e.TokenDefinitionId == null || p.DefinitionId == e.TokenDefinitionId))
                     .OrderBy(p => p.ArrivalOrder)
                     .ToList();
+                // The player picks WHICH of their tokens die (v1.4.2). Only ask
+                // when there is a real choice — if the count covers every
+                // candidate there is nothing to decide. The NPC always
+                // auto-resolves (earliest first) so its turn stays automatic
+                // (§4.4) and the dual-playtest/determinism model is unaffected.
+                if (controller == Side.Player && count > 0 && own.Count > count)
+                {
+                    state.PendingBlock = new ChooseTokensBlock(
+                        own.Select(p => p.PermanentId).ToList(), count, frame.FrameId);
+                    break;
+                }
                 foreach (var perm in own.Take(count)) DestroyPermanent(state, perm.PermanentId, depth);
                 break;
             }

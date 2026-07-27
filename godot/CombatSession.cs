@@ -102,6 +102,10 @@ public sealed class CombatSession
 
     public bool ChooseNumberValue(int value) => Dispatch(new ChooseNumber(value));
 
+    /// <summary>Resolve a token-destruction choice with the picked permanent ids.</summary>
+    public bool ChooseTokensToDestroy(IReadOnlyList<string> permanentIds) =>
+        Dispatch(new ChooseTokens(permanentIds));
+
     /// <summary>One step of the automatic NPC policy (leftmost play, §10).</summary>
     public bool AdvanceNpc() => Dispatch(new Advance());
 

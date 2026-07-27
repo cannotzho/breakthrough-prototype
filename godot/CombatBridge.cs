@@ -59,6 +59,8 @@ public partial class CombatBridge : Node
     public bool ConfirmBotm(IReadOnlyList<int> keepHandIndices) => Session?.ConfirmBotm(keepHandIndices) ?? false;
     public bool AcknowledgePrompt() => Session?.AcknowledgePrompt() ?? false;
     public bool ChooseNumberValue(int value) => Session?.ChooseNumberValue(value) ?? false;
+    public bool ChooseTokensToDestroy(IReadOnlyList<string> permanentIds) =>
+        Session?.ChooseTokensToDestroy(permanentIds) ?? false;
 
     /// <summary>Manual NPC step (used when AutoAdvanceNpc is off).</summary>
     public bool ManualNpcStep() => Session?.AdvanceNpc() ?? false;

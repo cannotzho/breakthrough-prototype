@@ -74,9 +74,14 @@ public class ContentTests
                 s = next;
                 while (s.PendingBlock != null)
                 {
-                    s = s.PendingBlock is ChooseNumberBlock block
-                        ? Reducer.Reduce(s, new ChooseNumber(block.Min))
-                        : Reducer.Reduce(s, new Acknowledge());
+                    s = s.PendingBlock switch
+                    {
+                        ChooseNumberBlock block => Reducer.Reduce(s, new ChooseNumber(block.Min)),
+                        // Blind policy: take the earliest tokens, i.e. what the
+                        // engine did before the choice existed (v1.4.2).
+                        ChooseTokensBlock ct => Reducer.Reduce(s, new ChooseTokens(ct.PermanentIds.Take(ct.Count).ToList())),
+                        _ => Reducer.Reduce(s, new Acknowledge()),
+                    };
                 }
             }
             if (s.Result != null) break;
