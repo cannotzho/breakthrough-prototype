@@ -386,6 +386,12 @@ public sealed record CopyFromNpcDeckEffect(int Count) : Effect // v1.4 §8.5 —
     public Quantity? CostEquals { get; init; }
     public bool WithShieldBreak { get; init; }
     public Quantity? PatienceCostOverride { get; init; }
+
+    /// <summary>
+    /// Only consider the top N cards of the opponent's deck (null = the whole
+    /// deck). Deck[0] is the top, matching Draw and DECK_REVEAL.
+    /// </summary>
+    public int? SearchTopN { get; init; }
 }
 
 public sealed record RevealNpcHandEffect : Effect;

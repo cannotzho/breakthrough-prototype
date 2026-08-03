@@ -927,7 +927,12 @@ public static class Core
             case CopyFromNpcDeckEffect e:
             {
                 int? wantCost = e.CostEquals != null ? Quantities.EvalQuantity(e.CostEquals, state, ctx) : null;
-                var candidates = state.Npc.Deck.Where(c =>
+                // Optionally only read the TOP of their deck (Deck[0] is the
+                // top, as for Draw / DECK_REVEAL) rather than the whole thing.
+                var searchPool = e.SearchTopN is int topN
+                    ? state.Npc.Deck.Take(Math.Max(0, topN))
+                    : state.Npc.Deck;
+                var candidates = searchPool.Where(c =>
                 {
                     var def = GetDef(state, c.DefinitionId);
                     if (wantCost != null && def.Cost != wantCost) return false;

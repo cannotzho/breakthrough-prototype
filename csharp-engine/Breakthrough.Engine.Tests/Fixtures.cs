@@ -153,6 +153,15 @@ public static class Fixtures
             [
                 new CopyFromNpcDeckEffect(1) { PatienceCostOverride = new ConstQ(2) },
             ]),
+            // Cost-0 search over the whole deck vs only its top 2 (SearchTopN).
+            Card("p_copy_cost0", 1, effects:
+            [
+                new CopyFromNpcDeckEffect(1) { CostEquals = new ConstQ(0) },
+            ]),
+            Card("p_copy_cost0_top2", 1, effects:
+            [
+                new CopyFromNpcDeckEffect(1) { CostEquals = new ConstQ(0), SearchTopN = 2 },
+            ]),
             Card("p_counter_feeder", 0, effects:
             [
                 new IncrementCountersEffect("devotion", "n_counter_impression", 2),

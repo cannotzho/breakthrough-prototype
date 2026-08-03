@@ -151,6 +151,42 @@ public class NpcTests
         Assert.Equal(patience - 2, s.Patience); // rider paid on play
     }
 
+    /// <summary>
+    /// SearchTopN scopes COPY_FROM_NPC_DECK to the top of their deck (Deck[0]
+    /// is the top). ScriptedOpponentPlays fixes the deck order so the only
+    /// cost-0 card sits at index 2, outside a top-2 window.
+    /// </summary>
+    private static CombatState CopyScenario(string copyCard) => Start(new StartOptions
+    {
+        Config = c =>
+        {
+            c.ScriptedDrawOrder = [copyCard, .. Enumerable.Repeat("p_noop", 11)];
+            c.EnemyDeckCardIds = ["n_noop", "n_noop", "n_free"];
+            c.ScriptedOpponentPlays = ["n_noop", "n_noop", "n_free"];
+        },
+    });
+
+    [Fact]
+    public void CopyFromNpcDeck_WithoutSearchTopN_ReadsTheWholeDeck()
+    {
+        var s = CopyScenario("p_copy_cost0");
+        Assert.Equal("n_free", s.Npc.Deck[2].DefinitionId); // the only cost-0 card, at the bottom
+        s = PlayCardByDef(s, "p_copy_cost0");
+        Assert.Contains(s.Player.Hand, c => c.DefinitionId == "n_free");
+    }
+
+    [Fact]
+    public void CopyFromNpcDeck_WithSearchTopN_OnlyReadsThatManyFromTheTop()
+    {
+        var s = CopyScenario("p_copy_cost0_top2");
+        Assert.Equal("n_free", s.Npc.Deck[2].DefinitionId); // outside the top 2
+        int handBefore = s.Player.Hand.Count;
+        s = PlayCardByDef(s, "p_copy_cost0_top2");
+        Assert.DoesNotContain(s.Player.Hand, c => c.DefinitionId == "n_free");
+        Assert.Equal(handBefore - 1, s.Player.Hand.Count); // only the played card left the hand
+        Assert.Equal(3, s.Npc.Deck.Count);                 // still copying, never stealing
+    }
+
     [Fact]
     public void LieKeyword_ExceedingTheThreshold_LosesTheEncounter()
     {

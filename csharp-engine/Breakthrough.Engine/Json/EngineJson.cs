@@ -341,6 +341,7 @@ public sealed class EffectJsonConverter : JsonConverter<Effect>
                 CostEquals = ReadQty("costEquals"),
                 WithShieldBreak = el.GetBoolPropOrFalse("withShieldBreak"),
                 PatienceCostOverride = ReadQty("patienceCostOverride"),
+                SearchTopN = el.GetIntPropOrNull("searchTopN"),
             },
             "REVEAL_NPC_HAND" => new RevealNpcHandEffect(),
             "HIDE_NPC_HAND" => new HideNpcHandEffect(),
@@ -479,6 +480,7 @@ public sealed class EffectJsonConverter : JsonConverter<Effect>
                 if (e.CostEquals != null) Qty("costEquals", e.CostEquals);
                 if (e.WithShieldBreak) writer.WriteBoolean("withShieldBreak", e.WithShieldBreak);
                 if (e.PatienceCostOverride != null) Qty("patienceCostOverride", e.PatienceCostOverride);
+                if (e.SearchTopN != null) writer.WriteNumber("searchTopN", e.SearchTopN.Value);
                 break;
             case RevealNpcHandEffect:
                 Type("REVEAL_NPC_HAND");

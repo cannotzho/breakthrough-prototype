@@ -114,6 +114,9 @@ public sealed class EffectRow
                 case SlotKind.Text:
                     if (val is string s && s.Length > 0) o[p.Key] = s;
                     break;
+                case SlotKind.Quantity:
+                    if (val is JsonNode q) o[p.Key] = q.DeepClone(); // omitted when unset
+                    break;
                 default:
                     if (val is JsonNode n) o[p.Key] = n.DeepClone();
                     break;

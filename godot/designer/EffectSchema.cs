@@ -19,7 +19,8 @@ public enum SlotKind
     TokenId,    // dropdown over the bundle's token definition ids
     Text,       // free string (counter names, target def ids)
     Boundary,   // { boundary: <name>, occurrences: n }
-    Restriction // composite APPLY_RESTRICTION payload (dedicated widget)
+    Restriction,// composite APPLY_RESTRICTION payload (dedicated widget)
+    Quantity    // a nested quantity (QuantitySpec widget)
 }
 
 public sealed record ParamSpec(string Key, string Label, SlotKind Kind,
@@ -123,7 +124,12 @@ public static class EffectSchema
         new("CHOOSE_NUMBER", true,
             new ParamSpec("min", "min", SlotKind.Int, Min: 0),
             new ParamSpec("max", "max", SlotKind.Int, Min: 0, Default: 3)),
-        new("COPY_FROM_NPC_DECK", false), // optional quantity params — raw JSON only
+        new("COPY_FROM_NPC_DECK", true,
+            new ParamSpec("count", "copies", SlotKind.Int, Min: 1),
+            new ParamSpec("costEquals", "of cost", SlotKind.Quantity, Required: false),
+            new ParamSpec("searchTopN", "from top N of deck", SlotKind.Int, Required: false, Min: 1, Max: 40, Default: 5),
+            new ParamSpec("withShieldBreak", "only shield-breakers", SlotKind.Bool),
+            new ParamSpec("patienceCostOverride", "costs Patience", SlotKind.Quantity, Required: false)),
         new("REVEAL_NPC_HAND", true),
         new("HIDE_NPC_HAND", true),
         new("REVEAL_NPC_DECK_TOP", true),

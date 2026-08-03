@@ -121,7 +121,7 @@ public static class EffectTextGenerator
             "RESHUFFLE_DECK" => "shuffle your deck",
             "CHOOSE_NUMBER" => $"choose a number {I("min")}–{I("max")}",
             "INCREMENT_COUNTERS" => $"add {I("amount")} {S("counterName")}{scale}",
-            "COPY_FROM_NPC_DECK" => "copy an opponent-deck card into your hand",
+            "COPY_FROM_NPC_DECK" => CopyText(e, nameOf),
             "SCHEDULE_EFFECTS" => $"later, {Lower(Sentence(EffectList(e["effects"], nameOf)))}",
             _ => "",
         };
@@ -225,6 +225,23 @@ public static class EffectTextGenerator
         if (target == "opponent")
             return v >= 0 ? $"give the opponent +{v} Priority{scale}" : $"the opponent loses {-v} Priority{scale}";
         return v >= 0 ? $"+{v} Priority{scale}" : $"−{-v} Priority{scale}";
+    }
+
+    private static string CopyText(JsonObject e, Func<string, string> nameOf)
+    {
+        int count = e["count"]?.GetValue<int>() ?? 1;
+        string where = e["searchTopN"]?.GetValue<int>() is int top
+            ? $"the top {top} {Plural("card", top)} of the opponent's deck"
+            : "the opponent's deck";
+        string cost = e["costEquals"] is JsonObject c
+            ? $" costing {QuantityText(c, nameOf)}"
+            : "";
+        string only = (e["withShieldBreak"]?.GetValue<bool>() ?? false) ? " that breaks shields" : "";
+        string rider = e["patienceCostOverride"] is JsonObject p
+            ? $"; it costs {QuantityText(p, nameOf)} Patience to play"
+            : "";
+        string what = count == 1 ? "a card" : $"{count} cards";
+        return $"copy {what}{cost}{only} from {where} into your hand{rider}";
     }
 
     private static string TransformText(JsonObject e, Func<string, string> nameOf)

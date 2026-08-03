@@ -39,6 +39,12 @@ Each row is a `[effect type ▾]` dropdown plus typed param slots
 (spinners, self/opponent, token dropdowns, restriction/boundary widgets)
 driven table-first from the engine vocabulary (`EffectSchema`). Trigger
 sections carry a header — *When [event] by [who], if [quantity] [op] [N]*.
+Every effect row also has an **`if/×` expander** for the condition/scale
+pattern: *only if [quantity] [op] [quantity]* and *scale × [quantity]*,
+with a quantity picker that covers constants, sided quantities, counters
+and nested `DECK_CARDS_MATCHING_COST` — no raw JSON needed for the shapes
+content actually uses.
+
 Anything the builder can't model — nested `SCHEDULE_EFFECTS`, alt-value
 effects, `All/Any/Not` condition trees — drops to a per-row raw-JSON
 escape hatch (or the whole-card **Raw JSON** toggle), preserved verbatim.

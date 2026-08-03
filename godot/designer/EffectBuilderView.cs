@@ -282,14 +282,175 @@ public partial class EffectBuilderView : VBoxContainer
             wrap.AddChild(new Label { Text = p.Label });
             wrap.AddChild(BuildParamWidget(row, p));
         }
-        if (row.Condition != null || row.Scale != null)
-            wrap.AddChild(new Label { Text = "＋cond/scale", TooltipText = "This effect carries a condition/scale, preserved on save." });
+        // Condition / scale editor (Ken: this pattern recurs constantly, so it
+        // should not require raw JSON). Auto-expanded when the row already
+        // carries one so it is never hidden.
+        bool hasCondScale = row.Condition != null || row.Scale != null;
+        if (hasCondScale) _expanded.Add(row);
+        var expand = new Button
+        {
+            Text = hasCondScale ? "if/×" : "+ if/×",
+            ToggleMode = true,
+            ButtonPressed = _expanded.Contains(row),
+            TooltipText = "Condition and scale for this effect",
+        };
+        expand.Toggled += on =>
+        {
+            if (on) _expanded.Add(row); else _expanded.Remove(row);
+            Reload();
+        };
+        wrap.AddChild(expand);
 
         wrap.AddChild(RawToggle(row));
         wrap.AddChild(MoveBtn("▲", () => onMove(-1)));
         wrap.AddChild(MoveBtn("▼", () => onMove(1)));
         wrap.AddChild(RemoveBtn(onRemove));
-        return Framed(wrap);
+
+        if (!_expanded.Contains(row)) return Framed(wrap);
+
+        var outer = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        outer.AddChild(wrap);
+        outer.AddChild(BuildCondScaleEditor(row));
+        return Framed(outer);
+    }
+
+    private readonly HashSet<EffectRow> _expanded = [];
+
+    // ── condition / scale ────────────────────────────────────────────────────
+
+    private Control BuildCondScaleEditor(EffectRow row)
+    {
+        var box = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        box.AddThemeConstantOverride("separation", 2);
+
+        // ── condition: "only if <quantity> <op> <quantity>"
+        var cond = ConditionSpec.From(row.Condition);
+        void ApplyCond()
+        {
+            row.Condition = cond.ToNode();
+            row.MarkDirty();
+            Changed();
+        }
+
+        var condLine = new HFlowContainer();
+        var condOn = new CheckBox { Text = "only if", ButtonPressed = cond.Enabled };
+        condOn.Toggled += on =>
+        {
+            cond.Enabled = on;
+            ApplyCond();
+            Reload();
+        };
+        condLine.AddChild(condOn);
+
+        if (cond.Enabled && cond.IsComplex)
+        {
+            condLine.AddChild(Dim("(and/or/not — kept as-is)"));
+            var clear = new Button { Text = "Replace", TooltipText = "Discard and build a simple comparison" };
+            clear.Pressed += () =>
+            {
+                cond.Verbatim = null;
+                ApplyCond();
+                Reload();
+            };
+            condLine.AddChild(clear);
+        }
+        else if (cond.Enabled)
+        {
+            condLine.AddChild(BuildQuantityWidget(cond.Lhs, ApplyCond));
+            var op = new OptionButton();
+            for (int i = 0; i < EffectSchema.Comparators.Length; i++) op.AddItem(EffectSchema.ComparatorGlyphs[i]);
+            op.Selected = Math.Max(0, Array.IndexOf(EffectSchema.Comparators, cond.Op));
+            op.ItemSelected += sel => { cond.Op = EffectSchema.Comparators[(int)sel]; ApplyCond(); };
+            condLine.AddChild(op);
+            condLine.AddChild(BuildQuantityWidget(cond.Rhs, ApplyCond));
+        }
+        box.AddChild(condLine);
+
+        // ── scale: "× <quantity>" (repeat the effect per unit)
+        var scaleLine = new HFlowContainer();
+        bool scaleOn = row.Scale != null;
+        var scale = QuantitySpec.From(row.Scale);
+        var scaleChk = new CheckBox { Text = "scale ×", ButtonPressed = scaleOn };
+        scaleChk.Toggled += on =>
+        {
+            row.Scale = on ? new QuantitySpec { Kind = "CHOSEN_NUMBER" }.ToNode() : null;
+            row.MarkDirty();
+            Changed();
+            Reload();
+        };
+        scaleLine.AddChild(scaleChk);
+        if (scaleOn)
+        {
+            scaleLine.AddChild(BuildQuantityWidget(scale, () =>
+            {
+                row.Scale = scale.ToNode();
+                row.MarkDirty();
+                Changed();
+            }));
+        }
+        box.AddChild(scaleLine);
+        return box;
+    }
+
+    /// <summary>
+    /// A quantity picker: kind dropdown plus whatever that kind carries
+    /// (constant value, side, counter name, or a nested cost quantity).
+    /// Rebuilds itself in place when the kind changes.
+    /// </summary>
+    private Control BuildQuantityWidget(QuantitySpec spec, Action onChanged)
+    {
+        var box = new HFlowContainer();
+
+        void Rebuild()
+        {
+            foreach (var c in box.GetChildren()) { box.RemoveChild(c); c.QueueFree(); }
+            if (spec.IsComplex)
+            {
+                box.AddChild(Dim("(complex — raw JSON)"));
+                return;
+            }
+
+            var kindPick = new OptionButton();
+            foreach (var k in EffectSchema.QuantityKinds) kindPick.AddItem(k);
+            kindPick.Selected = Math.Max(0, Array.IndexOf(EffectSchema.QuantityKinds, spec.Kind));
+            kindPick.ItemSelected += sel =>
+            {
+                spec.Kind = EffectSchema.QuantityKinds[(int)sel];
+                if (spec.Kind == "DECK_CARDS_MATCHING_COST")
+                    spec.Cost ??= new QuantitySpec { Kind = "CHOSEN_NUMBER" };
+                onChanged();
+                Rebuild();
+            };
+            box.AddChild(kindPick);
+
+            if (spec.Kind == "CONST")
+            {
+                var sb = new SpinBox { MinValue = -30, MaxValue = 30, Value = spec.Value };
+                sb.ValueChanged += v => { spec.Value = (int)v; onChanged(); };
+                box.AddChild(sb);
+            }
+            if (EffectSchema.SidedQuantityKinds.Contains(spec.Kind) || spec.Kind == "DECK_CARDS_MATCHING_COST")
+            {
+                var side = new OptionButton();
+                foreach (var r in RelItems) side.AddItem(r);
+                side.Selected = spec.Side == "opponent" ? 1 : 0;
+                side.ItemSelected += sel => { spec.Side = RelItems[(int)sel]; onChanged(); };
+                box.AddChild(side);
+            }
+            if (spec.Kind == "COUNTER")
+            {
+                box.AddChild(LabeledLine("counter", spec.CounterName, s => { spec.CounterName = s; onChanged(); }));
+                box.AddChild(LabeledLine("on", spec.PermanentDefId, s => { spec.PermanentDefId = s; onChanged(); }));
+            }
+            if (spec.Kind == "DECK_CARDS_MATCHING_COST")
+            {
+                box.AddChild(Dim("of cost"));
+                box.AddChild(BuildQuantityWidget(spec.Cost ??= new QuantitySpec { Kind = "CHOSEN_NUMBER" }, onChanged));
+            }
+        }
+
+        Rebuild();
+        return box;
     }
 
     private Control BuildParamWidget(EffectRow row, ParamSpec p)
@@ -348,6 +509,31 @@ public partial class EffectBuilderView : VBoxContainer
                 var le = new LineEdit { Text = (row.Params.TryGetValue(p.Key, out var v) ? v as string : "") ?? "", CustomMinimumSize = new Vector2(120, 0) };
                 le.TextChanged += s => { row.Params[p.Key] = s; row.MarkDirty(); Changed(); };
                 return le;
+            }
+            case SlotKind.Quantity:
+            {
+                // Optional nested quantity: a checkbox plus the picker.
+                var h = new HFlowContainer();
+                bool on = row.Params.TryGetValue(p.Key, out var cur) && cur is JsonNode;
+                var spec = QuantitySpec.From(on ? cur as JsonNode : null);
+                var chk = new CheckBox { ButtonPressed = on };
+                chk.Toggled += isOn =>
+                {
+                    row.Params[p.Key] = isOn
+                        ? new QuantitySpec { Kind = "CHOSEN_NUMBER" }.ToNode()
+                        : null;
+                    row.MarkDirty(); Changed(); Reload();
+                };
+                h.AddChild(chk);
+                if (on)
+                {
+                    h.AddChild(BuildQuantityWidget(spec, () =>
+                    {
+                        row.Params[p.Key] = spec.ToNode();
+                        row.MarkDirty(); Changed();
+                    }));
+                }
+                return h;
             }
             case SlotKind.Restriction:
                 return BuildRestrictionWidget(row, p);
