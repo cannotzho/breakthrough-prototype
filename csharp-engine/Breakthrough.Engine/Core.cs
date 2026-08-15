@@ -315,6 +315,10 @@ public static class Core
     {
         Log(state, "event", $"event {evt.Type}", EventData(evt));
 
+        // Count occurrences BEFORE subscribers run, so a condition evaluated
+        // during this dispatch sees "1" the first time this turn (v1.4.2).
+        state.EventCountsThisTurn[evt.Type] = state.EventCountsThisTurn.GetValueOrDefault(evt.Type) + 1;
+
         var traps = new List<(Permanent Perm, IReadOnlyList<Effect> Effects)>();
         var abilities = new List<(Permanent Perm, string AbilityKey, IReadOnlyList<Effect> Effects, int? Chosen)>();
 

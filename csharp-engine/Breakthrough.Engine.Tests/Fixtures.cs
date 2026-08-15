@@ -157,6 +157,19 @@ public static class Fixtures
                     [new ModifyPriorityEffect(4)],
                     new BoundaryRef { Boundary = BoundaryNames.PlayerTurnStart, Occurrences = 1 }),
             ]),
+            // "First time this turn" watcher (v1.4.2): pays once per turn.
+            Card("p_first_break", 1,
+                subtype: Subtypes.Impression,
+                triggeredAbilities:
+                [
+                    new TriggeredAbility("first_break_gw",
+                        new TriggerCondition(EventTypes.ShieldBroken)
+                        {
+                            Condition = new CompareCondition(
+                                new EventOccurrenceThisTurnQ(), Comparators.Eq, new ConstQ(1)),
+                        },
+                        [new ModifyGoodwillEffect(1)]),
+                ]),
             // Rapport (v1.4.2): predict the opponent's next-turn play cost.
             Card("p_rapport", 1,
                 keywords: [Keywords.Rapport],

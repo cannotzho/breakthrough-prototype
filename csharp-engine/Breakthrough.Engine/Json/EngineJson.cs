@@ -151,6 +151,7 @@ public sealed class QuantityJsonConverter : JsonConverter<Quantity>
             "EVENT_CARD_COST" => new EventCardCostQ(),
             "EVENT_IS_OWN_SHIELD" => new EventIsOwnShieldQ(),
             "EVENT_IS_EXTRA_DRAW" => new EventIsExtraDrawQ(),
+            "EVENT_OCCURRENCE_THIS_TURN" => new EventOccurrenceThisTurnQ(),
             _ => throw new JsonException($"Unknown quantity kind \"{kind}\""),
         };
     }
@@ -201,6 +202,7 @@ public sealed class QuantityJsonConverter : JsonConverter<Quantity>
             case EventCardCostQ: Kind("EVENT_CARD_COST"); break;
             case EventIsOwnShieldQ: Kind("EVENT_IS_OWN_SHIELD"); break;
             case EventIsExtraDrawQ: Kind("EVENT_IS_EXTRA_DRAW"); break;
+            case EventOccurrenceThisTurnQ: Kind("EVENT_OCCURRENCE_THIS_TURN"); break;
             default: throw new JsonException($"Unknown quantity {value.GetType().Name}");
         }
         writer.WriteEndObject();

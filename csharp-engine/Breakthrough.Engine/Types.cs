@@ -197,6 +197,12 @@ public sealed record EventCardCostQ : Quantity;
 public sealed record EventIsOwnShieldQ : Quantity; // 1 if the event's shieldSide is the subscriber's side
 public sealed record EventIsExtraDrawQ : Quantity; // 1 if a CARD_DRAWN event was an extra draw
 
+/// <summary>
+/// How many times the CURRENT event's type has fired this turn, including
+/// this one — so "first time this turn" is a comparison against 1 (v1.4.2).
+/// </summary>
+public sealed record EventOccurrenceThisTurnQ : Quantity;
+
 public static class Comparators
 {
     public const string Lt = "lt";
@@ -1015,6 +1021,14 @@ public sealed class CombatState
     /// <summary>Live Rapport predictions (v1.4.2); cleared at NPC Turn End.</summary>
     public List<RapportPrediction> RapportPredictions { get; set; } = [];
 
+    /// <summary>
+    /// How many times each event type has fired during the current turn,
+    /// counting the one being dispatched (v1.4.2). Lets cards say "the first
+    /// time a shield is broken this turn" as
+    /// EVENT_OCCURRENCE_THIS_TURN eq 1. Reset at every turn start.
+    /// </summary>
+    public Dictionary<string, int> EventCountsThisTurn { get; set; } = new();
+
     public SideState Player { get; set; } = new();
     public SideState Npc { get; set; } = new();
 
@@ -1108,6 +1122,7 @@ public sealed class CombatState
         LieCounter = LieCounter,
         Goodwill = Goodwill,
         RapportPredictions = RapportPredictions.Select(p => p.Clone()).ToList(),
+        EventCountsThisTurn = new Dictionary<string, int>(EventCountsThisTurn),
         Player = Player.Clone(),
         Npc = Npc.Clone(),
         BackOfMind = [.. BackOfMind],

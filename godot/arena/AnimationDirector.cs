@@ -36,6 +36,7 @@ public partial class AnimationDirector : Node3D
         public required System.Func<string, Vector3?> ResolvePermanentPos;
         /// <summary>definitionId → card face data (for the NPC play flyby).</summary>
         public required System.Func<string, CombatSession.CardInfo?> ResolveCard;
+        public required ArenaAudio Audio;
     }
 
     private ArenaRefs _r = null!;
@@ -88,6 +89,16 @@ public partial class AnimationDirector : Node3D
 
     private void MapCue(LogView e, bool npcActing)
     {
+        // Sound is driven off the same log deltas as the visuals, so it lands
+        // on the beat rather than when the engine state arrived.
+        switch (e.Type)
+        {
+            case "play": Enqueue(() => _r.Audio.Play("card_play"), 0f); break;
+            case "shields-placed": Enqueue(() => _r.Audio.Play("card_shield"), 0f); break;
+            case "draw": Enqueue(() => _r.Audio.Play("draw"), 0f); break;
+            case "goodwill": Enqueue(() => _r.Audio.Play("goodwill"), 0f); break;
+        }
+
         switch (e.Type)
         {
             case "patience":
@@ -163,6 +174,7 @@ public partial class AnimationDirector : Node3D
                 {
                     Enqueue(() =>
                     {
+                        _r.Audio.Play("shield_break");
                         FloatText("Guard broken", _r.GuardAnchor, new Color("ffcf8a"));
                         _r.Rig.Shake(0.5f);
                         _r.Rig.FocusOn(_r.GuardAnchor, 0.55f);
@@ -172,6 +184,7 @@ public partial class AnimationDirector : Node3D
                 {
                     Enqueue(() =>
                     {
+                        _r.Audio.Play("core_break");
                         FloatText("CORE SHIELD BROKEN", _r.CoreAnchor + new Vector3(0, 0.5f, 0), new Color("d8a8ff"), big: true);
                         _r.Rig.Shake(1.6f);
                         _r.Rig.FocusOn(_r.CoreAnchor, 1.0f);
@@ -181,6 +194,7 @@ public partial class AnimationDirector : Node3D
                 {
                     Enqueue(() =>
                     {
+                        _r.Audio.Play("shield_break", 0.8f);
                         FloatText("Shield broken!", _r.PlayerShieldAnchor, new Color("ff7a6a"));
                         _r.Rig.Shake(1.0f);
                         _r.Rig.FocusOn(_r.PlayerShieldAnchor, 0.7f);
@@ -240,6 +254,7 @@ public partial class AnimationDirector : Node3D
                         : e.Message;
                 Enqueue(() =>
                 {
+                    _r.Audio.Play("trap");
                     FloatText(ours ? $"Your trap — {name}!" : $"Their trap — {name}!",
                         _r.TableCenter, ours ? new Color("8ab4ff") : new Color("ff5a4a"), big: true);
                     if (!ours) _r.Rig.Shake(0.8f);

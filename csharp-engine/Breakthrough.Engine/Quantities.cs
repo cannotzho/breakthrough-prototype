@@ -42,6 +42,8 @@ public static class Quantities
                 return Math.Max(0, state.StartingPatience - state.Patience);
             case GoodwillQ:
                 return state.Goodwill;
+            case EventOccurrenceThisTurnQ:
+                return ctx.Event == null ? 0 : state.EventCountsThisTurn.GetValueOrDefault(ctx.Event.Type);
             case PriorityQ p:
                 return state.SideOf(ResolveSide(p.Side, ctx)).Priority;
             case RoundQ:

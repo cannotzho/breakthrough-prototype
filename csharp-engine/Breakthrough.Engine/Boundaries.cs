@@ -76,6 +76,8 @@ public static class Boundaries
         s.ExtraDrawsThisTurn = 0;
         s.PriorityGainedThisTurn = 0;
         state.AbilityFiresThisTurn = new Dictionary<string, int>();
+        // "First time this turn" counters (v1.4.2) reset with everything else.
+        state.EventCountsThisTurn = new Dictionary<string, int>();
         if (side == Side.Player)
         {
             // Roll the player's opp-shield counter into its previous-turn mirror (§4.1.5).

@@ -31,6 +31,7 @@ public partial class MindspaceArena : Node3D
     private PatienceCandle _candle = null!;
     private PriorityStack _playerStack = null!, _npcStack = null!;
     private GoodwillCairn _goodwill = null!;
+    private ArenaAudio _audio = null!;
     private PopupMenu _cardMenu = null!, _abilityMenu = null!;
 
     private readonly Dictionary<string, Card3D> _hand = new();
@@ -193,6 +194,9 @@ public partial class MindspaceArena : Node3D
         foreach (var pile in new[] { _playerDeckPile, _playerDiscardPile, _npcDeckPile, _npcDiscardPile })
             AddChild(pile);
 
+        _audio = new ArenaAudio { Name = "ArenaAudio" };
+        AddChild(_audio);
+
         _director = new AnimationDirector();
         AddChild(_director);
         _director.Init(new AnimationDirector.ArenaRefs
@@ -208,6 +212,7 @@ public partial class MindspaceArena : Node3D
             CoreAnchor = new Vector3(0, 1.2f, -2.35f),
             TableCenter = TableCenter,
             NpcDiscardExit = NpcDiscardExit,
+            Audio = _audio,
             PlayerDeckAnchor = _playerDeckPile.Position + new Vector3(0, 0.5f, 0),
             NpcDeckAnchor = _npcDeckPile.Position + new Vector3(0, 0.5f, 0),
             ResolvePermanentPos = permId =>
@@ -902,7 +907,11 @@ public partial class MindspaceArena : Node3D
         var collider = PickAt(screenPos);
         if (collider is Area3D bellArea && bellArea.HasMeta("bell"))
         {
-            if (_bridge.View is { CanAct: true }) _bridge.EndPlayerTurn();
+            if (_bridge.View is { CanAct: true })
+            {
+                _audio.Play("bell");
+                _bridge.EndPlayerTurn();
+            }
             else _hud.Toast("You can't end the turn right now.");
             return;
         }
