@@ -270,6 +270,13 @@ public static class Boundaries
             Core.Log(state, "npc-discard-hand", $"NPC discards {state.Npc.Hand.Count} remaining hand card(s)");
             state.Npc.Hand = [];
         }
+        // Unresolved Rapport predictions cover exactly this turn (v1.4.2).
+        if (state.RapportPredictions.Count > 0)
+        {
+            Core.Log(state, "rapport-missed",
+                $"{state.RapportPredictions.Count} Rapport prediction(s) expired unmatched");
+            state.RapportPredictions.Clear();
+        }
         SettlePriority(state, Side.Npc); // 3
         // 4 → Player Turn Start (via handoff caller).
     }

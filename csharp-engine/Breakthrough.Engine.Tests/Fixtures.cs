@@ -103,7 +103,9 @@ public static class Fixtures
             Card("p_trap_rapport", 2,
                 keywords: [Keywords.Trap, Keywords.Rapport],
                 subtype: Subtypes.Trap,
-                rapport: new RapportConfig(1, 10, new StagedCardCostQ()),
+                // v1.4.2: the guess is a prediction about the opponent's next
+                // turn; this card also keeps its own trap condition.
+                rapport: new RapportConfig(1, 10) { Reward = new ConstQ(2) },
                 trapTrigger: new TriggerCondition(EventTypes.CardStaged)
                 {
                     ControllerFilter = "opponent",
@@ -155,6 +157,13 @@ public static class Fixtures
                     [new ModifyPriorityEffect(4)],
                     new BoundaryRef { Boundary = BoundaryNames.PlayerTurnStart, Occurrences = 1 }),
             ]),
+            // Rapport (v1.4.2): predict the opponent's next-turn play cost.
+            Card("p_rapport", 1,
+                keywords: [Keywords.Rapport],
+                rapport: new RapportConfig(0, 10) { Reward = new ConstQ(2) }),
+            Card("p_rapport_scaled", 1,
+                keywords: [Keywords.Rapport],
+                rapport: new RapportConfig(0, 10) { Reward = new ChosenNumberQ() }),
             // Goodwill costs (v1.4.2): a hard cost, and an optional upgrade.
             Card("p_goodwill_cost", 1, effects: [new ModifyPatienceEffect(-1)],
                 goodwillCost: 2),
@@ -205,6 +214,7 @@ public static class Fixtures
             // NPC cards
             Card("n_noop", 1),
             Card("n_free", 0),
+            Card("n_cost3", 3), // for Rapport prediction tests
             Card("n_break", 1, effects: [new BreakShieldsEffect(RelSide.Opponent, 1)]),
             Card("n_break2", 1, effects: [new BreakShieldsEffect(RelSide.Opponent, 2)]),
             Card("n_break5", 1, effects: [new BreakShieldsEffect(RelSide.Opponent, 5)]),

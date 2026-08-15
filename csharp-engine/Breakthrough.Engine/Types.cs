@@ -479,7 +479,37 @@ public sealed record CounterAmplifier(string CounterName, int Extra)
     public string? TargetDefinitionId { get; init; }
 }
 
-public sealed record RapportConfig(int Min, int Max, Quantity Checked);
+/// <summary>
+/// Rapport (v1.4.2 redesign): on play the player predicts a Priority cost in
+/// [Min, Max]. If the opponent plays a card of that cost during their NEXT
+/// turn, the prediction pays out <see cref="Reward"/> Goodwill — once, on the
+/// first match, and it expires when that turn ends. `Reward` is a quantity so
+/// it can scale (e.g. by the chosen number).
+///
+/// The old behaviour (comparing the guess against a `checked` quantity such as
+/// deck contents) is gone; `checked` is still read from content for backward
+/// compatibility but is ignored.
+/// </summary>
+public sealed record RapportConfig(int Min, int Max)
+{
+    /// <summary>Goodwill awarded on a correct prediction; null/absent = none yet.</summary>
+    public Quantity? Reward { get; init; }
+}
+
+/// <summary>A live Rapport prediction waiting on the opponent's turn.</summary>
+public sealed class RapportPrediction
+{
+    public required int Number { get; set; }
+    public required Quantity Reward { get; set; }
+    public required string SourceDefinitionId { get; set; }
+
+    public RapportPrediction Clone() => new()
+    {
+        Number = Number,
+        Reward = Reward,             // quantities are immutable records
+        SourceDefinitionId = SourceDefinitionId,
+    };
+}
 
 public sealed record ImpressionDuration(int Turns)
 {
@@ -982,6 +1012,9 @@ public sealed class CombatState
     /// </summary>
     public int Goodwill { get; set; }
 
+    /// <summary>Live Rapport predictions (v1.4.2); cleared at NPC Turn End.</summary>
+    public List<RapportPrediction> RapportPredictions { get; set; } = [];
+
     public SideState Player { get; set; } = new();
     public SideState Npc { get; set; } = new();
 
@@ -1074,6 +1107,7 @@ public sealed class CombatState
         StartingPatience = StartingPatience,
         LieCounter = LieCounter,
         Goodwill = Goodwill,
+        RapportPredictions = RapportPredictions.Select(p => p.Clone()).ToList(),
         Player = Player.Clone(),
         Npc = Npc.Clone(),
         BackOfMind = [.. BackOfMind],

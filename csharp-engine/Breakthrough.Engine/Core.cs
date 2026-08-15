@@ -1325,6 +1325,24 @@ public static class Core
                 new Dictionary<string, object?> { ["nuggetId"] = eff.DiscoveredNuggetId });
         }
 
+        // Rapport payout (v1.4.2): the opponent playing a card of a predicted
+        // cost pays out Goodwill. First match only — the prediction is spent.
+        if (controller == Side.Npc && state.RapportPredictions.Count > 0)
+        {
+            var hit = state.RapportPredictions.FirstOrDefault(p => p.Number == eff.Cost);
+            if (hit != null)
+            {
+                state.RapportPredictions.Remove(hit);
+                // Evaluated from the PLAYER's perspective — it is their payout.
+                int reward = Quantities.EvalQuantity(hit.Reward, state,
+                    new EvalContext { Controller = Side.Player, ChosenNumber = hit.Number });
+                Log(state, "rapport-hit",
+                    $"Rapport: they played a {eff.Cost}-cost card as predicted (+{reward} Goodwill)",
+                    new Dictionary<string, object?> { ["number"] = hit.Number, ["reward"] = reward });
+                ModifyGoodwill(state, reward, $"Rapport ({hit.SourceDefinitionId})");
+            }
+        }
+
         // Step 2: dispatch CARD_PLAYED; apply Lie keyword (v1.4 §6.3.2).
         if (eff.Def.Keywords.Contains(Engine.Keywords.Lie) && !eff.ConvertedToPonder)
         {

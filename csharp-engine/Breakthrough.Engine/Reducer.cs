@@ -316,6 +316,22 @@ public static class Reducer
                 if (frame != null) frame.ChosenNumber = a.Value;
                 if (state.PendingPlay != null) state.PendingPlay.ChosenNumber = a.Value;
                 Core.Log(state, "choose-number", $"Number chosen: {a.Value}");
+
+                // A Rapport card's number is a PREDICTION about the opponent's
+                // next turn (v1.4.2), registered here rather than resolved now.
+                if (state.PendingPlay != null
+                    && Core.GetDef(state, state.PendingPlay.DefinitionId).Rapport is { } rc)
+                {
+                    state.RapportPredictions.Add(new RapportPrediction
+                    {
+                        Number = a.Value,
+                        Reward = rc.Reward ?? new ConstQ(0),
+                        SourceDefinitionId = state.PendingPlay.DefinitionId,
+                    });
+                    Core.Log(state, "rapport-predicted",
+                        $"Rapport: predicting the opponent plays a {a.Value}-cost card next turn",
+                        new Dictionary<string, object?> { ["number"] = a.Value });
+                }
                 state.PendingBlock = null;
                 ResumeAfterUnblock(state);
                 return;

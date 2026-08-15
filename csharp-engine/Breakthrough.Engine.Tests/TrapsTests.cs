@@ -65,10 +65,17 @@ public class TrapsTests
         var hit = Mk(1); // n_patience_drain costs 1
         Assert.True(HasLog(hit, "cancel"));
         Assert.Equal(10, hit.Patience);   // drain cancelled, so still at the cap
-        Assert.Equal(1, hit.Goodwill);    // +1×chosen(1) overflowed to Goodwill
+        // Goodwill = 1 (the trap's +1×chosen(1) overflowing) + 2 (the v1.4.2
+        // Rapport payout: the prediction of "1" matched the 1-cost n_noop the
+        // NPC played after the drain was cancelled).
+        Assert.Equal(3, hit.Goodwill);
+        Assert.True(HasLog(hit, "rapport-hit"));
         var miss = Mk(7);
         Assert.False(HasLog(miss, "cancel"));
         Assert.Equal(10 - 2, miss.Patience); // drain resolved
+        // Nothing the NPC played cost 7, so the prediction expired unpaid.
+        Assert.Equal(0, miss.Goodwill);
+        Assert.True(HasLog(miss, "rapport-missed"));
     }
 
     [Fact]
