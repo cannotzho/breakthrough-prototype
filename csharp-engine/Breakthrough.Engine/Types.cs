@@ -172,6 +172,7 @@ public abstract record Quantity;
 public sealed record ConstQ(int Value) : Quantity;
 public sealed record PatienceQ : Quantity;
 public sealed record MissingPatienceQ : Quantity; // starting patience − current (min 0)
+public sealed record GoodwillQ : Quantity;        // v1.4.2
 public sealed record PriorityQ(RelSide Side) : Quantity;
 public sealed record RoundQ : Quantity;
 public sealed record LieCounterQ : Quantity;
@@ -334,6 +335,7 @@ public sealed record ModifyPriorityEffect(int Value) : Effect
 }
 
 public sealed record DrawCardsEffect(int Value) : Effect;
+public sealed record ModifyGoodwillEffect(int Value) : Effect; // v1.4.2
 
 /// <summary>
 /// Break shields owned by Target. Player→opponent hits Guard Shields only
@@ -520,6 +522,22 @@ public sealed class CardDefinition
 
     public RapportConfig? Rapport { get; init; }
 
+    /// <summary>
+    /// Goodwill required to play this card at all (v1.4.2). The card cannot be
+    /// played without it — unlike Priority, Goodwill is never overspent.
+    /// </summary>
+    public int? GoodwillCost { get; init; }
+
+    /// <summary>
+    /// An OPTIONAL extra Goodwill payment (v1.4.2). Never blocks the card:
+    /// the player is offered the upgrade only when they can afford it, and
+    /// paying it runs AdditionalEffects on top of the normal effects.
+    /// </summary>
+    public int? AdditionalGoodwillCost { get; init; }
+
+    /// <summary>Extra effects unlocked by paying AdditionalGoodwillCost.</summary>
+    public IReadOnlyList<Effect>? AdditionalEffects { get; init; }
+
     /// <summary>Information Cards only (v1.4 §3.9).</summary>
     public string? NuggetId { get; init; }
 
@@ -604,6 +622,17 @@ public sealed class EncounterConfig
     public IReadOnlyList<ScheduledPlayDef>? ScheduledPlays { get; set; }
     public IReadOnlyList<string>? StartingImpressions { get; set; }
     public int? LieThreshold { get; set; } // 0/null disables
+
+    /// <summary>
+    /// v1.4.2 feature toggle: Patience is always capped at StartingPatience;
+    /// when this is true the overflow becomes Goodwill instead of being
+    /// discarded. Off by default so existing encounters are unchanged apart
+    /// from the cap itself.
+    /// </summary>
+    public bool PatienceOverflowToGoodwill { get; set; }
+
+    /// <summary>Goodwill the player starts the encounter with.</summary>
+    public int StartingGoodwill { get; set; }
     public bool Retryable { get; set; }
     public bool TutorialMode { get; set; }
     public IReadOnlyList<string>? ScriptedDrawOrder { get; set; }
@@ -635,6 +664,8 @@ public sealed class EncounterConfig
             ScheduledPlays = ScheduledPlays,
             StartingImpressions = StartingImpressions,
             LieThreshold = LieThreshold,
+            PatienceOverflowToGoodwill = PatienceOverflowToGoodwill,
+            StartingGoodwill = StartingGoodwill,
             Retryable = Retryable,
             TutorialMode = TutorialMode,
             ScriptedDrawOrder = ScriptedDrawOrder,
@@ -944,6 +975,13 @@ public sealed class CombatState
     public int StartingPatience { get; set; }
     public int LieCounter { get; set; }
 
+    /// <summary>
+    /// Goodwill (v1.4.2): a third shared counter alongside Patience and Lies.
+    /// Earned from Patience that would overflow the starting value (when the
+    /// encounter enables it) and from Rapport; spent as a card cost.
+    /// </summary>
+    public int Goodwill { get; set; }
+
     public SideState Player { get; set; } = new();
     public SideState Npc { get; set; } = new();
 
@@ -1035,6 +1073,7 @@ public sealed class CombatState
         Patience = Patience,
         StartingPatience = StartingPatience,
         LieCounter = LieCounter,
+        Goodwill = Goodwill,
         Player = Player.Clone(),
         Npc = Npc.Clone(),
         BackOfMind = [.. BackOfMind],
@@ -1085,7 +1124,11 @@ public sealed class CombatState
 /// <summary>The CombatAction discriminated union — one sealed record per action.</summary>
 public abstract record CombatAction;
 
-public sealed record PlayCard(int HandIndex, bool HeavyHand = false) : CombatAction;
+/// <summary>
+/// PayAdditionalGoodwill opts into the card's optional extra Goodwill cost
+/// (v1.4.2); it is never required to play the card.
+/// </summary>
+public sealed record PlayCard(int HandIndex, bool HeavyHand = false, bool PayAdditionalGoodwill = false) : CombatAction;
 public sealed record PlaceShield(int HandIndex) : CombatAction;
 public sealed record ActivateAbility(string PermanentId, string AbilityId, IReadOnlyList<int>? DiscardIndices = null) : CombatAction;
 public sealed record Combine(int HandIndexA, int HandIndexB) : CombatAction;

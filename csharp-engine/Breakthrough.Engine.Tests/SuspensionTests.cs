@@ -17,7 +17,13 @@ public class SuspensionTests
     {
         var s = Start(new StartOptions
         {
-            Config = c => c.ScriptedDrawOrder = ["p_choose", .. Enumerable.Repeat("p_noop", 11)],
+            // Patience starts at its cap (v1.4.2), so the scaled gain is
+            // observed as Goodwill overflow instead.
+            Config = c =>
+            {
+                c.ScriptedDrawOrder = ["p_choose", .. Enumerable.Repeat("p_noop", 11)];
+                c.PatienceOverflowToGoodwill = true;
+            },
         });
         s = PlayCardByDef(s, "p_choose");
         Assert.IsType<ChooseNumberBlock>(s.PendingBlock);
@@ -26,7 +32,8 @@ public class SuspensionTests
         var rejected = PlayCardByDef(s, "p_noop");
         Assert.Equal("illegal-action", LastLog(rejected)?.Type);
         s = Act(s, new ChooseNumber(7));
-        Assert.Equal(10 + 7, s.Patience); // scaled effect ran exactly once
+        Assert.Equal(10, s.Patience);  // already at the cap
+        Assert.Equal(7, s.Goodwill);   // scaled effect ran exactly once (7, not 14)
         Assert.Equal(1, s.Player.Discard.Count(c => c.DefinitionId == "p_choose")); // completion ran once
         Assert.Null(s.PendingBlock);
     }

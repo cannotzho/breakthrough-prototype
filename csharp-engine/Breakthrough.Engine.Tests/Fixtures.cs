@@ -36,11 +36,17 @@ public static class Fixtures
         IReadOnlyList<ActivatedAbility>? activatedAbilities = null,
         IReadOnlyList<Effect>? turnStartEffects = null,
         IReadOnlyList<ThresholdDef>? thresholds = null,
-        IReadOnlyList<Effect>? leaveTriggerEffects = null) => new()
+        IReadOnlyList<Effect>? leaveTriggerEffects = null,
+        int? goodwillCost = null,
+        int? additionalGoodwillCost = null,
+        IReadOnlyList<Effect>? additionalEffects = null) => new()
     {
         Id = id,
         Name = id,
         Cost = cost,
+        GoodwillCost = goodwillCost,
+        AdditionalGoodwillCost = additionalGoodwillCost,
+        AdditionalEffects = additionalEffects,
         Color = "Colorless",
         Supertype = supertype,
         Subtype = subtype,
@@ -149,6 +155,12 @@ public static class Fixtures
                     [new ModifyPriorityEffect(4)],
                     new BoundaryRef { Boundary = BoundaryNames.PlayerTurnStart, Occurrences = 1 }),
             ]),
+            // Goodwill costs (v1.4.2): a hard cost, and an optional upgrade.
+            Card("p_goodwill_cost", 1, effects: [new ModifyPatienceEffect(-1)],
+                goodwillCost: 2),
+            Card("p_goodwill_bonus", 1, effects: [new ModifyPatienceEffect(-1)],
+                additionalGoodwillCost: 2,
+                additionalEffects: [new ModifyPatienceEffect(-1)]),
             Card("p_copy", 1, effects:
             [
                 new CopyFromNpcDeckEffect(1) { PatienceCostOverride = new ConstQ(2) },

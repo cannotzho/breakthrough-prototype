@@ -52,6 +52,9 @@ public class TrapsTests
                     c.ScriptedDrawOrder = ["p_trap_rapport", .. Enumerable.Repeat("p_noop", 11)];
                     c.EnemyDeckCardIds = ["n_patience_drain", .. Enumerable.Repeat("n_noop", 5)];
                     c.ScriptedOpponentPlays = ["n_patience_drain"];
+                    // Patience starts at its cap (v1.4.2) — observe the gain
+                    // as Goodwill overflow instead.
+                    c.PatienceOverflowToGoodwill = true;
                 },
             });
             s = PlayCardByDef(s, "p_trap_rapport");
@@ -61,7 +64,8 @@ public class TrapsTests
         }
         var hit = Mk(1); // n_patience_drain costs 1
         Assert.True(HasLog(hit, "cancel"));
-        Assert.Equal(10 + 1, hit.Patience); // +1×chosen(1), drain cancelled
+        Assert.Equal(10, hit.Patience);   // drain cancelled, so still at the cap
+        Assert.Equal(1, hit.Goodwill);    // +1×chosen(1) overflowed to Goodwill
         var miss = Mk(7);
         Assert.False(HasLog(miss, "cancel"));
         Assert.Equal(10 - 2, miss.Patience); // drain resolved

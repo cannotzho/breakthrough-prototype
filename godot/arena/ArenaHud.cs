@@ -14,7 +14,7 @@ public partial class ArenaHud : CanvasLayer
 {
     private CombatBridge _bridge = null!;
 
-    private Label _patience = null!, _phase = null!, _priority = null!, _lies = null!, _botm = null!;
+    private Label _patience = null!, _phase = null!, _priority = null!, _lies = null!, _botm = null!, _goodwill = null!;
     private Label _toast = null!, _npcContinue = null!;
     private VBoxContainer _restrictions = null!;
     private HBoxContainer _botmBar = null!;
@@ -61,8 +61,12 @@ public partial class ArenaHud : CanvasLayer
         top.AddThemeConstantOverride("separation", 24);
         AddChild(top);
         _phase = HudLabel(top, 14);
+        _priority = HudLabel(top, 20);
+        _priority.AddThemeColorOverride("font_color", new Color("6ad46a"));
         _patience = HudLabel(top, 18);
         _patience.AddThemeColorOverride("font_color", new Color("e0b04a"));
+        _goodwill = HudLabel(top, 18);
+        _goodwill.AddThemeColorOverride("font_color", new Color("7ad4c8"));
         _lies = HudLabel(top, 14);
         top.AddChild(new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
         _botm = HudLabel(top, 12);
@@ -78,12 +82,8 @@ public partial class ArenaHud : CanvasLayer
         // Priority readout stays bottom-left but must NEVER eat input — the
         // old full-width bottom bar was blocking the bell and the table props
         // (Ken round 7). Controls now live top-right, away from the 3D scene.
-        _priority = new Label { MouseFilter = Control.MouseFilterEnum.Ignore };
-        _priority.AddThemeFontSizeOverride("font_size", 20);
-        _priority.AddThemeColorOverride("font_color", new Color("6ad46a"));
-        _priority.SetAnchorsPreset(Control.LayoutPreset.BottomLeft);
-        _priority.OffsetLeft = 16; _priority.OffsetTop = -44; _priority.OffsetBottom = -12;
-        AddChild(_priority);
+        // Priority lives in the TOP bar next to the other meters — it was easy
+        // to miss down in the corner (Ken round 8). Built above, see `top`.
 
         var controls = new VBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
         controls.SetAnchorsPreset(Control.LayoutPreset.TopRight);
@@ -227,6 +227,7 @@ public partial class ArenaHud : CanvasLayer
         _phase.Text = $"{v.EncounterName} · round {v.Round} · {v.Phase}";
         _patience.Text = $"Patience {v.Patience}/{v.StartingPatience}";
         _lies.Text = v.LieThreshold is int lt ? $"Lies {v.LieCounter}/{lt}" : $"Lies {v.LieCounter}";
+        _goodwill.Text = $"Goodwill {v.Goodwill}";
         _priority.Text = $"Priority {v.PlayerPriority}/{v.MaxPriority}" +
             (v.PlayerIncomingDebt > 0 ? $"  (+{v.PlayerIncomingDebt} debt owed to you)" : "");
         _botm.Text = v.BackOfMindNames.Count == 0
@@ -236,7 +237,11 @@ public partial class ArenaHud : CanvasLayer
         AppendLog(v.NewLog);
         _autoNpc.SetPressedNoSignal(_bridge.AutoAdvanceNpc);
         _endTurn.Disabled = !v.CanAct;
-        _npcContinue.Visible = v.NpcTurnInProgress && !_bridge.AutoAdvanceNpc && v.Prompt == null && v.Result == null;
+        // Visibility is driven by SetAwaitingContinue (below), not by the view
+        // alone — the banner must stay hidden until the opponent's animation
+        // has actually finished (Ken round 8).
+        _continueEligible = v.NpcTurnInProgress && !_bridge.AutoAdvanceNpc && v.Prompt == null && v.Result == null;
+        _npcContinue.Visible = _continueEligible && _presentationIdle;
 
         if (_bridge.LastError != null) Toast(_bridge.LastError);
         RefreshBrowser(v);
@@ -322,6 +327,20 @@ public partial class ArenaHud : CanvasLayer
                 r.AffectsPlayer ? new Color("ffcf8a") : new Color("9ad1ff"));
             _restrictions.AddChild(l);
         }
+    }
+
+    private bool _continueEligible, _presentationIdle = true;
+
+    /// <summary>
+    /// Called every frame by the arena: the "click to continue" banner only
+    /// shows once the presentation timeline has drained, so it does not sit
+    /// on screen through the opponent's whole animated turn.
+    /// </summary>
+    public void SetPresentationIdle(bool idle)
+    {
+        if (_presentationIdle == idle) return;
+        _presentationIdle = idle;
+        _npcContinue.Visible = _continueEligible && idle;
     }
 
     public void SetViewLabel(string label) => _inspect.Text = $"View: {label} (Tab/scroll)";

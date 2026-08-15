@@ -30,6 +30,7 @@ public partial class MindspaceArena : Node3D
     private Label3D _bellLabel = null!;
     private PatienceCandle _candle = null!;
     private PriorityStack _playerStack = null!, _npcStack = null!;
+    private GoodwillCairn _goodwill = null!;
     private PopupMenu _cardMenu = null!, _abilityMenu = null!;
 
     private readonly Dictionary<string, Card3D> _hand = new();
@@ -68,6 +69,7 @@ public partial class MindspaceArena : Node3D
     private static readonly Vector3 TableCenter = new(0, 0.3f, 0.2f);
     private static readonly Vector3 BellPos = new(3.15f, 0, 0.55f);
     private static readonly Vector3 CandlePos = new(-3.0f, 0, -1.4f);
+    private static readonly Vector3 GoodwillPos = new(-3.0f, 0, 0.35f);
     // Right of the bell, clear of the shield row (Ken round 5: shields were
     // clipping into the coins at the old x).
     private static readonly Vector3 PlayerStackPos = new(4.0f, 0, 1.15f);
@@ -178,6 +180,10 @@ public partial class MindspaceArena : Node3D
         _npcStack = (ArtLibrary.SceneOverride("priority_prop") as PriorityStack) ?? new PriorityStack();
         _npcStack.Position = NpcStackPos;
         AddChild(_npcStack);
+
+        _goodwill = (ArtLibrary.SceneOverride("goodwill_prop") as GoodwillCairn) ?? new GoodwillCairn();
+        _goodwill.Position = GoodwillPos;
+        AddChild(_goodwill);
 
         // draw & discard piles on the table, aligned with the card exit anchors
         _playerDeckPile = new CardPile { PileId = "player-deck", Position = new Vector3(PlayerDeckExit.X, 0, PlayerDeckExit.Z) };
@@ -299,6 +305,7 @@ public partial class MindspaceArena : Node3D
         // consumed, which made card-to-card transitions feel spotty and left
         // pile overlays stuck when the cursor left them over a HUD region.
         UpdateHover(GetViewport().GetMousePosition());
+        _hud.SetPresentationIdle(!Presenting);
 
         if (_director.IsBusy || _pendingViews.Count == 0) return;
         var next = _pendingViews.Dequeue();
@@ -360,6 +367,7 @@ public partial class MindspaceArena : Node3D
         _candle.SetRatio(v.StartingPatience <= 0 ? 0 : (float)v.Patience / v.StartingPatience);
         _playerStack.SetCount(v.PlayerPriority);
         _npcStack.SetCount(v.NpcPriority);
+        _goodwill.SetValue(v.Goodwill);
         _playerDeckPile.SetState(v.PlayerDeckCount, null);
         _playerDiscardPile.SetState(v.PlayerDiscardCount, v.PlayerDiscardNames.Count > 0 ? v.PlayerDiscardNames[^1] : null);
         _npcDeckPile.SetState(v.NpcDeckCount, null);
@@ -977,9 +985,23 @@ public partial class MindspaceArena : Node3D
         if (cardView == null) return;
         _menuHandIndex = cardView.HandIndex;
         _cardMenu.Clear();
-        _cardMenu.AddItem($"Play — {cardView.EffectiveCost} Priority", 0);
+        string gw = cardView.GoodwillCost > 0 ? $" + {cardView.GoodwillCost} Goodwill" : "";
+        _cardMenu.AddItem($"Play — {cardView.EffectiveCost} Priority{gw}", 0);
+        // A card whose Goodwill cost can't be met simply isn't playable.
+        _cardMenu.SetItemDisabled(0, !cardView.GoodwillAffordable);
         if (cardView.HasHeavyHand)
-            _cardMenu.AddItem($"Play with Heavy Hand — {cardView.EffectiveCost * 2} Priority", 1);
+        {
+            _cardMenu.AddItem($"Play with Heavy Hand — {cardView.EffectiveCost * 2} Priority{gw}", 1);
+            _cardMenu.SetItemDisabled(_cardMenu.ItemCount - 1, !cardView.GoodwillAffordable);
+        }
+        // The optional upgrade is offered only when affordable; it never
+        // blocks the plain play above.
+        if (cardView.AdditionalGoodwillCost > 0)
+        {
+            _cardMenu.AddItem(
+                $"Play + pay {cardView.AdditionalGoodwillCost} Goodwill (upgrade)", 3);
+            _cardMenu.SetItemDisabled(_cardMenu.ItemCount - 1, !cardView.UpgradeAffordable);
+        }
         _cardMenu.AddItem($"Place as Shield — {v.RealShieldPlacementCost} Priority", 2);
         _cardMenu.Position = (Vector2I)GetViewport().GetMousePosition();
         _cardMenu.Popup();
@@ -994,6 +1016,7 @@ public partial class MindspaceArena : Node3D
             case 0: _bridge.PlayCardAt(idx); break;
             case 1: _bridge.PlayCardAt(idx, heavyHand: true); break;
             case 2: _bridge.PlaceShieldAt(idx); break;
+            case 3: _bridge.PlayCardAt(idx, heavyHand: false, payAdditionalGoodwill: true); break;
         }
     }
 

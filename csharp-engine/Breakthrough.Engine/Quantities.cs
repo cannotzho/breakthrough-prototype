@@ -40,6 +40,8 @@ public static class Quantities
                 return state.Patience;
             case MissingPatienceQ:
                 return Math.Max(0, state.StartingPatience - state.Patience);
+            case GoodwillQ:
+                return state.Goodwill;
             case PriorityQ p:
                 return state.SideOf(ResolveSide(p.Side, ctx)).Priority;
             case RoundQ:

@@ -127,6 +127,7 @@ public sealed class QuantityJsonConverter : JsonConverter<Quantity>
             "CONST" => new ConstQ(el.GetIntProp("value")),
             "PATIENCE" => new PatienceQ(),
             "MISSING_PATIENCE" => new MissingPatienceQ(),
+            "GOODWILL" => new GoodwillQ(),
             "PRIORITY" => new PriorityQ(Rel()),
             "ROUND" => new RoundQ(),
             "LIE_COUNTER" => new LieCounterQ(),
@@ -167,6 +168,7 @@ public sealed class QuantityJsonConverter : JsonConverter<Quantity>
                 break;
             case PatienceQ: Kind("PATIENCE"); break;
             case MissingPatienceQ: Kind("MISSING_PATIENCE"); break;
+            case GoodwillQ: Kind("GOODWILL"); break;
             case PriorityQ q: Kind("PRIORITY"); Rel(q.Side); break;
             case RoundQ: Kind("ROUND"); break;
             case LieCounterQ: Kind("LIE_COUNTER"); break;
@@ -310,6 +312,7 @@ public sealed class EffectJsonConverter : JsonConverter<Effect>
                 Target = el.GetStringPropOrNull("target") == "opponent" ? RelSide.Opponent : RelSide.Self,
             },
             "DRAW_CARDS" => new DrawCardsEffect(el.GetIntProp("value")),
+            "MODIFY_GOODWILL" => new ModifyGoodwillEffect(el.GetIntProp("value")),
             "BREAK_SHIELDS" => new BreakShieldsEffect(RelOf("target"), el.GetIntProp("count")),
             "PLACE_SHIELDS" => new PlaceShieldsEffect(el.GetIntProp("count")),
             "CREATE_TOKEN" => new CreateTokenEffect(el.GetStringProp("tokenDefinitionId"), el.GetIntProp("count")),
@@ -406,6 +409,10 @@ public sealed class EffectJsonConverter : JsonConverter<Effect>
                 break;
             case DrawCardsEffect e:
                 Type("DRAW_CARDS");
+                writer.WriteNumber("value", e.Value);
+                break;
+            case ModifyGoodwillEffect e:
+                Type("MODIFY_GOODWILL");
                 writer.WriteNumber("value", e.Value);
                 break;
             case BreakShieldsEffect e:

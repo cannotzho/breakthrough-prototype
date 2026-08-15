@@ -80,14 +80,19 @@ public class ShieldsTests
             {
                 c.PlayerDummyShieldSlots = 0;
                 c.ScriptedDrawOrder = ["p_shield_trigger", .. Enumerable.Repeat("p_noop", 11)];
+                // Patience starts at its cap (v1.4.2): routing the overflow to
+                // Goodwill keeps the ORDER observable — trigger-then-outcome
+                // gives (9 patience, 2 goodwill), the reverse would give (10, 1).
+                c.PatienceOverflowToGoodwill = true;
             }),
         });
         int idx = s.Player.Hand.FindIndex(c => c.DefinitionId == "p_shield_trigger");
         s = Act(s, new PlaceShield(idx));
         s = EndPlayerTurn(s);
         s = RunNpcTurn(s);
-        // +2 (trigger) then −1 (break outcome) = net +1
-        Assert.Equal(11, s.Patience);
+        // +2 (trigger, overflows to Goodwill) then −1 (break outcome)
+        Assert.Equal(9, s.Patience);
+        Assert.Equal(2, s.Goodwill);
         Assert.Contains(s.Player.Discard, c => c.DefinitionId == "p_shield_trigger");
     }
 

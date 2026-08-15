@@ -55,6 +55,7 @@ public partial class CardDesigner : Control
 
     // left
     private LineEdit _filter = null!;
+    private LineEdit _newIdEdit = null!;
     private ItemList _cardList = null!;
     // center
     private Card3D _previewCard = null!;
@@ -135,6 +136,14 @@ public partial class CardDesigner : Control
         _filter = new LineEdit { PlaceholderText = "filter…" };
         _filter.TextChanged += _ => RefreshCardList();
         left.AddChild(_filter);
+
+        var newRow = new HBoxContainer();
+        _newIdEdit = new LineEdit { PlaceholderText = "new card id…", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        newRow.AddChild(_newIdEdit);
+        var newBtn = new Button { Text = "New Card" };
+        newBtn.Pressed += CreateNewCard;
+        newRow.AddChild(newBtn);
+        left.AddChild(newRow);
         _cardList = new ItemList { SizeFlagsVertical = SizeFlags.ExpandFill };
         _cardList.ItemSelected += i => SelectCard(_listedIds[(int)i]);
         left.AddChild(_cardList);
@@ -238,9 +247,14 @@ public partial class CardDesigner : Control
         right.AddChild(new Label { Text = "Art & compositing (art/cards/ + manifest.json)" });
         _artPathLabel = new Label { Text = "art: (none)", AutowrapMode = TextServer.AutowrapMode.Arbitrary };
         right.AddChild(_artPathLabel);
+        var artButtons = new HBoxContainer();
         var importBtn = new Button { Text = "Import Art…" };
         importBtn.Pressed += () => _fileDialog.PopupCentered(new Vector2I(800, 500));
-        right.AddChild(importBtn);
+        artButtons.AddChild(importBtn);
+        var removeArtBtn = new Button { Text = "Remove Art" };
+        removeArtBtn.Pressed += RemoveArt;
+        artButtons.AddChild(removeArtBtn);
+        right.AddChild(artButtons);
 
         right.AddChild(new Label { Text = "Overlay" });
         _overlayEdit = new OptionButton();
@@ -579,6 +593,75 @@ public partial class CardDesigner : Control
 
         _saveStatus.Text = $"saved ✔  ({System.DateTime.Now:HH:mm:ss})";
         RefreshCardList();
+    }
+
+    /// <summary>
+    /// Create a new card with sensible defaults and select it. The id must be
+    /// unique and is immutable afterwards (encounter/deck references key off
+    /// it). Written straight to the canonical store so it survives a restart.
+    /// </summary>
+    private void CreateNewCard()
+    {
+        string id = _newIdEdit.Text.Trim().ToLowerInvariant().Replace(' ', '_');
+        if (id.Length == 0)
+        {
+            _saveStatus.Text = "type an id for the new card first";
+            return;
+        }
+        if (!id.All(ch => char.IsLetterOrDigit(ch) || ch == '_'))
+        {
+            _saveStatus.Text = "id: letters, digits and underscores only";
+            return;
+        }
+        if (_cards.ContainsKey(id))
+        {
+            _saveStatus.Text = $"'{id}' already exists";
+            return;
+        }
+
+        _cards[id] = new JsonObject
+        {
+            ["id"] = id,
+            ["name"] = _newIdEdit.Text.Trim(),
+            ["cost"] = 1,
+            ["keywords"] = new JsonArray(),
+            ["effects"] = new JsonArray(),
+            ["color"] = "Colorless",
+            ["supertype"] = "Skill",
+            ["subtype"] = null,
+            ["effectText"] = "",
+        };
+        System.IO.File.WriteAllText(_contentPath, _root.ToJsonString(WriteOptions) + "\n");
+
+        _newIdEdit.Text = "";
+        _filter.Text = "";
+        RefreshCardList();
+        SelectCard(id);
+        int at = _listedIds.IndexOf(id);
+        if (at >= 0) _cardList.Select(at);
+        _saveStatus.Text = $"created '{id}'";
+    }
+
+    /// <summary>
+    /// Drop this card's art: clears the pending path so the preview falls back
+    /// to the plain card face. Saving then removes the manifest entry; the
+    /// image file itself is left on disk (deleting art is the artist's call).
+    /// </summary>
+    private void RemoveArt()
+    {
+        if (_pendingArtPath.Length == 0)
+        {
+            _saveStatus.Text = "no art on this card";
+            return;
+        }
+        _pendingArtPath = "";
+        _artPathLabel.Text = "art: (none)";
+        _overlayEdit.Selected = 0;
+        _artScale.Value = 1.0;
+        _artOffset.Value = 0.0;
+        CardArtLibrary.Reload();
+        ApplyPreview();
+        _saveStatus.Text = "art removed — Save Card to apply";
     }
 
     private void OnArtFileSelected(string path)

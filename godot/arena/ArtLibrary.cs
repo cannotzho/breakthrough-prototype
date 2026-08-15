@@ -80,6 +80,7 @@ public static class ArtLibrary
             "candle_wax" => (new Color("e0d4b8"), new Color("8a7a5e")),
             "candle_flame" => (new Color("ffcf8a"), new Color("b8702a")),
             "priority_token" => (new Color("d4b44a"), new Color("6e5a1e")),
+            "goodwill_stone" => (new Color("7ad4c8"), new Color("1e5a54")),
             _ => (new Color("999999"), new Color("444444")),
         };
         m.SetShaderParameter("base_tint", baseTint);

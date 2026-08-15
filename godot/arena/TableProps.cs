@@ -141,6 +141,78 @@ public partial class PriorityStack : Node3D
 }
 
 /// <summary>
+/// Goodwill (v1.4.2) as a small cairn of glowing stones — a third table prop
+/// beside the patience candle and the priority stacks.
+/// ARTIST SLOTS: material "goodwill_stone", scene "goodwill_prop".
+/// </summary>
+public partial class GoodwillCairn : Node3D
+{
+    private readonly System.Collections.Generic.List<MeshInstance3D> _stones = [];
+    private Label3D _count = null!;
+    private int _value = -1;
+
+    public override void _Ready()
+    {
+        _count = new Label3D
+        {
+            Text = "0",
+            Position = new Vector3(0, 0.8f, 0),
+            FontSize = 110,
+            PixelSize = 0.002f,
+            Modulate = new Color("7ad4c8"),
+            OutlineSize = 18,
+            OutlineModulate = new Color("10201e"),
+            Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+        };
+        AddChild(_count);
+    }
+
+    public void SetValue(int value)
+    {
+        value = Mathf.Max(0, value);
+        if (value == _value) return;
+        bool grew = value > _value && _value >= 0;
+        _value = value;
+        _count.Text = value.ToString();
+
+        int visual = Mathf.Min(value, 12);
+        while (_stones.Count > visual)
+        {
+            var s = _stones[^1];
+            _stones.RemoveAt(_stones.Count - 1);
+            var t = s.CreateTween().SetParallel();
+            t.TweenProperty(s, "scale", Vector3.One * 0.02f, 0.25);
+            t.Chain().TweenCallback(Callable.From(s.QueueFree));
+        }
+        while (_stones.Count < visual)
+        {
+            int i = _stones.Count;
+            var stone = new MeshInstance3D
+            {
+                Mesh = new SphereMesh { Radius = 0.085f, Height = 0.14f },
+                MaterialOverride = ArtLibrary.Mat("goodwill_stone"),
+                Position = new Vector3(
+                    Mathf.Cos(i * 2.4f) * 0.11f,
+                    i * 0.055f + 0.05f,
+                    Mathf.Sin(i * 2.4f) * 0.11f),
+            };
+            AddChild(stone);
+            _stones.Add(stone);
+        }
+        if (grew) Pulse();
+    }
+
+    public void Pulse()
+    {
+        var tween = CreateTween().SetTrans(Tween.TransitionType.Elastic).SetEase(Tween.EaseType.Out);
+        Scale = Vector3.One * 1.2f;
+        tween.TweenProperty(this, "scale", Vector3.One, 0.5);
+    }
+
+    public Vector3 FocusPoint => GlobalPosition + new Vector3(0, 0.35f, 0);
+}
+
+/// <summary>
 /// A draw or discard pile on the table: stacked card backs whose height
 /// tracks the count, a floating count label, and — for face-up piles — the
 /// most recent card shown on top. Clickable (Area3D meta "pile" = PileId);

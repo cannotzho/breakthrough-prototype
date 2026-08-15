@@ -96,8 +96,26 @@ public static class Reducer
                 int cost = Core.EffectiveCardCost(state, Side.Player, eff.Cost, heavyHand);
                 if (Core.CostCapViolated(state, Side.Player, cost)) throw new IllegalActionException("Cost exceeds MAX_CARD_COST restriction");
 
+                // Goodwill costs (v1.4.2). The base cost blocks the play;
+                // the additional cost is optional and only offered when
+                // affordable, so it can never block the card itself.
+                int goodwillCost = def.GoodwillCost ?? 0;
+                if (goodwillCost > state.Goodwill)
+                    throw new IllegalActionException($"Needs {goodwillCost} Goodwill (you have {state.Goodwill})");
+                bool payExtra = a.PayAdditionalGoodwill;
+                int extraCost = def.AdditionalGoodwillCost ?? 0;
+                if (payExtra)
+                {
+                    if (extraCost <= 0) throw new IllegalActionException("Card has no additional Goodwill cost");
+                    if (goodwillCost + extraCost > state.Goodwill)
+                        throw new IllegalActionException(
+                            $"Needs {goodwillCost + extraCost} Goodwill for the upgrade (you have {state.Goodwill})");
+                }
+
                 state.Player.Hand.RemoveAt(a.HandIndex);
-                Core.BeginPlay(state, Side.Player, card, heavyHand);
+                if (goodwillCost > 0) Core.ModifyGoodwill(state, -goodwillCost, $"played {def.Name}");
+                if (payExtra) Core.ModifyGoodwill(state, -extraCost, $"{def.Name} upgrade");
+                Core.BeginPlay(state, Side.Player, card, heavyHand, payExtra);
                 Core.RunStack(state);
                 Core.FinishPlayIfDone(state);
                 Boundaries.Check(state);

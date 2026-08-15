@@ -49,7 +49,8 @@ public partial class CombatBridge : Node
 
     // ── forwarded intents ───────────────────────────────────────────────────
 
-    public bool PlayCardAt(int handIndex, bool heavyHand = false) => Session?.PlayCardAt(handIndex, heavyHand) ?? false;
+    public bool PlayCardAt(int handIndex, bool heavyHand = false, bool payAdditionalGoodwill = false) =>
+        Session?.PlayCardAt(handIndex, heavyHand, payAdditionalGoodwill) ?? false;
     public bool PlaceShieldAt(int handIndex) => Session?.PlaceShieldAt(handIndex) ?? false;
     public bool ActivateAbilityOn(string permanentId, string abilityId, IReadOnlyList<int>? discardIndices = null) =>
         Session?.ActivateAbilityOn(permanentId, abilityId, discardIndices) ?? false;

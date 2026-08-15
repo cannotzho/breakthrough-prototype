@@ -79,8 +79,8 @@ public sealed class CombatSession
 
     // ── Player intents (one reducer action each) ────────────────────────────
 
-    public bool PlayCardAt(int handIndex, bool heavyHand = false) =>
-        Dispatch(new PlayCard(handIndex, heavyHand));
+    public bool PlayCardAt(int handIndex, bool heavyHand = false, bool payAdditionalGoodwill = false) =>
+        Dispatch(new PlayCard(handIndex, heavyHand, payAdditionalGoodwill));
 
     public bool PlaceShieldAt(int handIndex) => Dispatch(new PlaceShield(handIndex));
 

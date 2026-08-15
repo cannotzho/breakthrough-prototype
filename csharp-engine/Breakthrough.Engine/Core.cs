@@ -149,8 +149,22 @@ public static class Core
     }
 
     /// <summary>
-    /// Change shared Patience (no cap — v1.4 §3.2). Source is the controller
-    /// of the causing effect: PREVENT_PATIENCE_GAIN nullifies gains by that side.
+    /// Change Goodwill (v1.4.2). Never negative; spending is validated by the
+    /// caller before it gets here.
+    /// </summary>
+    public static void ModifyGoodwill(CombatState state, int delta, string reason)
+    {
+        if (delta == 0) return;
+        state.Goodwill = Math.Max(0, state.Goodwill + delta);
+        Log(state, "goodwill", $"Goodwill {(delta > 0 ? "+" : "")}{delta} → {state.Goodwill} ({reason})",
+            new Dictionary<string, object?> { ["delta"] = delta, ["newValue"] = state.Goodwill, ["reason"] = reason });
+    }
+
+    /// <summary>
+    /// Change shared Patience. Capped at StartingPatience (v1.4.2); overflow
+    /// converts to Goodwill when the encounter enables it. Source is the
+    /// controller of the causing effect: PREVENT_PATIENCE_GAIN nullifies gains
+    /// by that side.
     /// </summary>
     public static void ModifyPatience(CombatState state, int delta, Side source, int depth = 0)
     {
@@ -161,9 +175,37 @@ public static class Core
                 new Dictionary<string, object?> { ["delta"] = delta });
             return;
         }
-        state.Patience += delta;
-        Log(state, "patience", $"Patience {(delta > 0 ? "+" : "")}{delta} → {state.Patience}",
-            new Dictionary<string, object?> { ["delta"] = delta, ["newValue"] = state.Patience, ["source"] = source.ToKey() });
+        // v1.4.2: Patience never rises above its starting value. The overflow
+        // becomes Goodwill when the encounter enables that, otherwise it is
+        // simply discarded.
+        int overflow = 0;
+        if (delta > 0)
+        {
+            int room = Math.Max(0, state.StartingPatience - state.Patience);
+            overflow = Math.Max(0, delta - room);
+            delta -= overflow;
+        }
+
+        if (delta != 0)
+        {
+            state.Patience += delta;
+            Log(state, "patience", $"Patience {(delta > 0 ? "+" : "")}{delta} → {state.Patience}",
+                new Dictionary<string, object?> { ["delta"] = delta, ["newValue"] = state.Patience, ["source"] = source.ToKey() });
+        }
+
+        if (overflow > 0)
+        {
+            if (state.Config.PatienceOverflowToGoodwill)
+            {
+                ModifyGoodwill(state, overflow, "patience overflow");
+            }
+            else
+            {
+                Log(state, "patience-capped", $"Patience already at {state.StartingPatience}: {overflow} discarded",
+                    new Dictionary<string, object?> { ["overflow"] = overflow });
+            }
+        }
+        if (delta == 0) return;
         DispatchEvent(state,
             new EngineEvent { Type = EventTypes.PatienceChanged, Delta = delta, NewValue = state.Patience, Controller = source }, depth);
         // Impressions with destroy-below-Patience thresholds (v1.4 §3.8).
@@ -820,6 +862,9 @@ public static class Core
                 for (int i = 0; i < count; i++) CreateToken(state, e.TokenDefinitionId, controller, depth);
                 break;
             }
+            case ModifyGoodwillEffect e:
+                ModifyGoodwill(state, Scaled(state, e.Value, effect, ctx), "effect");
+                break;
             case DestroyTokensEffect e:
             {
                 int count = Scaled(state, e.Count, effect, ctx);
@@ -1217,7 +1262,8 @@ public static class Core
     /// Costs are step 0 and never repeat (§6.7 inv. 6). Caller validates
     /// playability.
     /// </summary>
-    public static void BeginPlay(CombatState state, Side controller, CardInstance card, bool heavyHand)
+    public static void BeginPlay(CombatState state, Side controller, CardInstance card, bool heavyHand,
+        bool paidAdditionalGoodwill = false)
     {
         var eff = ResolveEffectivePlay(state, card, heavyHand);
         int cost = EffectiveCardCost(state, controller, eff.Cost, heavyHand);
@@ -1296,6 +1342,12 @@ public static class Core
 
         // Step 3: the play's effect list. Traps defer their printed effects (§3.6).
         var playEffects = destination == PlayDestinations.FieldTrap ? (IReadOnlyList<Effect>)[] : eff.Effects;
+        // Paying the optional Goodwill cost appends its extra effects (v1.4.2).
+        if (paidAdditionalGoodwill && eff.Def.AdditionalEffects is { Count: > 0 } extra
+            && destination != PlayDestinations.FieldTrap)
+        {
+            playEffects = [.. playEffects, .. extra];
+        }
         var frame = PushFrame(state, new EffectFrame
         {
             FrameId = "",

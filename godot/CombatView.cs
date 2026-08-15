@@ -36,7 +36,20 @@ public sealed record HandCardView(
     string EffectText,
     bool HasHeavyHand,          // def has HeavyHandEffects → offer the doubled-cost play
     bool ConvertsToPonder,      // Information Card with no nugget override here
-    bool IsAssembled);          // virtual combined card (v1.4 §11)
+    bool IsAssembled)           // virtual combined card (v1.4 §11)
+{
+    /// <summary>Goodwill required to play at all (v1.4.2); 0 when none.</summary>
+    public int GoodwillCost { get; init; }
+
+    /// <summary>Optional extra Goodwill for the upgrade; 0 when the card has none.</summary>
+    public int AdditionalGoodwillCost { get; init; }
+
+    /// <summary>False when the base Goodwill cost cannot be met — the play is blocked.</summary>
+    public bool GoodwillAffordable { get; init; } = true;
+
+    /// <summary>True when the optional upgrade is also affordable right now.</summary>
+    public bool UpgradeAffordable { get; init; }
+}
 
 public sealed record ShieldSlotView(
     int Index,
@@ -104,6 +117,7 @@ public sealed record CombatView
     public required int Patience { get; init; }
     public required int StartingPatience { get; init; }
     public required int LieCounter { get; init; }
+    public required int Goodwill { get; init; }
     public int? LieThreshold { get; init; }
 
     public required int PlayerPriority { get; init; }
@@ -193,6 +207,7 @@ public static class CombatViewBuilder
             Patience = s.Patience,
             StartingPatience = s.StartingPatience,
             LieCounter = s.LieCounter,
+            Goodwill = s.Goodwill,
             LieThreshold = s.Config.LieThreshold,
             PlayerPriority = s.Player.Priority,
             NpcPriority = s.Npc.Priority,
@@ -245,13 +260,21 @@ public static class CombatViewBuilder
         s.Player.Hand.Select((card, i) =>
         {
             var eff = Core.ResolveEffectivePlay(s, card, heavyHand: false);
+            int gwCost = eff.Def.GoodwillCost ?? 0;
+            int gwExtra = eff.Def.AdditionalGoodwillCost ?? 0;
             return new HandCardView(
                 i, card.InstanceId, card.DefinitionId,
                 eff.Def.Name, eff.Cost, eff.Def.Color, eff.Def.Supertype,
                 eff.ConvertedToPonder ? "(no matching nugget here — plays as Ponder)" : eff.Def.EffectText,
                 eff.Def.HeavyHandEffects != null,
                 eff.ConvertedToPonder,
-                card.Components != null);
+                card.Components != null)
+            {
+                GoodwillCost = gwCost,
+                AdditionalGoodwillCost = gwExtra,
+                GoodwillAffordable = gwCost <= s.Goodwill,
+                UpgradeAffordable = gwExtra > 0 && gwCost + gwExtra <= s.Goodwill,
+            };
         }).ToList();
 
     private static PermanentView BuildPermanent(CombatState s, Permanent p)

@@ -66,6 +66,7 @@ public static class Setup
             Patience = config.OpponentPatience,
             StartingPatience = config.OpponentPatience,
             LieCounter = 0,
+            Goodwill = config.StartingGoodwill,
             Player = new SideState(),
             Npc = new SideState(),
             BackOfMind = [],
