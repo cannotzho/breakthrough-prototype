@@ -18,6 +18,7 @@ public partial class PatienceCandle : Node3D
     private const float FullHeight = 1.5f;
     private MeshInstance3D _wax = null!;
     private MeshInstance3D _flame = null!;
+    private Label3D _value = null!;
     private CylinderMesh _waxMesh = null!;
     private float _time;
     private float _ratio = 1f;
@@ -55,10 +56,32 @@ public partial class PatienceCandle : Node3D
             Position = new Vector3(0, FullHeight + 0.2f, 0),
         };
         _flame.AddChild(glow);
+
+        // The melt reads as a trend, not a number: a red count beside the
+        // candle gives the exact patience at a glance.
+        _value = new Label3D
+        {
+            Text = "0",
+            Position = new Vector3(0.42f, 0.62f, 0),
+            FontSize = 110,
+            PixelSize = 0.002f,
+            Modulate = new Color("e0503c"),
+            OutlineSize = 18,
+            OutlineModulate = new Color("2a1008"),
+            Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+        };
+        AddChild(_value);
     }
 
-    /// <summary>1 = full patience → 0 = exhausted. Tweens the melt.</summary>
-    public void SetRatio(float ratio)
+    /// <summary>Patience as the engine reports it: melts the wax, shows the count.</summary>
+    public void SetPatience(int value, int starting)
+    {
+        _value.Text = Mathf.Max(0, value).ToString();
+        SetRatio(starting <= 0 ? 0f : value / (float)starting);
+    }
+
+    /// <summary>1 = full patience, 0 = exhausted. Tweens the melt.</summary>
+    private void SetRatio(float ratio)
     {
         ratio = Mathf.Clamp(ratio, 0f, 1f);
         if (Mathf.IsEqualApprox(ratio, _ratio)) return;
@@ -93,7 +116,29 @@ public partial class PriorityStack : Node3D
 {
     private const float TokenHeight = 0.075f;
     private readonly System.Collections.Generic.List<MeshInstance3D> _tokens = [];
+    private Label3D _label = null!;
     private int _count = -1;
+
+    public override void _Ready()
+    {
+        // Past three or four the coin stack only reads as "some": the gold
+        // count above it is the exact meter.
+        _label = new Label3D
+        {
+            Text = "0",
+            Position = new Vector3(0, LabelHeight(0), 0),
+            FontSize = 110,
+            PixelSize = 0.002f,
+            Modulate = new Color("f0cc62"),
+            OutlineSize = 18,
+            OutlineModulate = new Color("2a2008"),
+            Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+        };
+        AddChild(_label);
+    }
+
+    /// <summary>Clear of the top coin, so the number never sinks into the stack.</summary>
+    private static float LabelHeight(int count) => count * TokenHeight + 0.3f;
 
     public void SetCount(int count)
     {
@@ -101,6 +146,8 @@ public partial class PriorityStack : Node3D
         if (count == _count) return;
         bool grew = count > _count && _count >= 0;
         _count = count;
+        _label.Text = count.ToString();
+        _label.Position = new Vector3(0, LabelHeight(count), 0);
 
         while (_tokens.Count > count)
         {

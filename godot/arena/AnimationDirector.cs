@@ -112,7 +112,7 @@ public partial class AnimationDirector : Node3D
                 {
                     // The candle melts WHEN the beat plays, not when the engine
                     // state arrived — driven by the log's authoritative value.
-                    _r.Candle.SetRatio(StartingPatience <= 0 ? 0f : newPatience / (float)StartingPatience);
+                    _r.Candle.SetPatience(newPatience, StartingPatience);
                     _r.Candle.Pulse();
                     if (delta < 0) _r.Avatar.Flinch(Mathf.Clamp(-delta * 0.4f, 0.4f, 1.6f));
                     var color = delta < 0 ? new Color("ff9a5a") : new Color("8ae08a");

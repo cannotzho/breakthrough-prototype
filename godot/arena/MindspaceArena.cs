@@ -379,7 +379,7 @@ public partial class MindspaceArena : Node3D
 
         // Catch-up: the cues already moved these in step with their beats;
         // this just guarantees the final values match the engine exactly.
-        _candle.SetRatio(v.StartingPatience <= 0 ? 0 : (float)v.Patience / v.StartingPatience);
+        _candle.SetPatience(v.Patience, v.StartingPatience);
         _playerStack.SetCount(v.PlayerPriority);
         _npcStack.SetCount(v.NpcPriority);
         _goodwill.SetValue(v.Goodwill);
