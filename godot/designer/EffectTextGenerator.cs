@@ -20,6 +20,21 @@ public static class EffectTextGenerator
     {
         var parts = new List<string>();
 
+        // Rapport is a card-level field, shown up front as "Rapport X" —
+        // predict their next-turn play cost, gain X Goodwill on a hit.
+        if (card["rapport"] is JsonObject rp)
+        {
+            string x = rp["reward"] is JsonObject rq
+                ? (rq["kind"]?.GetValue<string>() == "CONST"
+                    ? (rq["value"]?.GetValue<int>() ?? 0).ToString()
+                    : QuantityText(rq, nameOf))
+                : "0";
+            int lo = rp["min"]?.GetValue<int>() ?? 0;
+            int hi = rp["max"]?.GetValue<int>() ?? 10;
+            parts.Add($"Rapport {x} — name a cost {lo}–{hi}; if they play a card of that cost next turn, " +
+                      $"gain {x} Goodwill.");
+        }
+
         // Trap trigger wraps the card's MAIN effects as its payload.
         if (card["trapTrigger"] is JsonObject trap)
         {

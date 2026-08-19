@@ -392,66 +392,9 @@ public partial class EffectBuilderView : VBoxContainer
         return box;
     }
 
-    /// <summary>
-    /// A quantity picker: kind dropdown plus whatever that kind carries
-    /// (constant value, side, counter name, or a nested cost quantity).
-    /// Rebuilds itself in place when the kind changes.
-    /// </summary>
-    private Control BuildQuantityWidget(QuantitySpec spec, Action onChanged)
-    {
-        var box = new HFlowContainer();
-
-        void Rebuild()
-        {
-            foreach (var c in box.GetChildren()) { box.RemoveChild(c); c.QueueFree(); }
-            if (spec.IsComplex)
-            {
-                box.AddChild(Dim("(complex — raw JSON)"));
-                return;
-            }
-
-            var kindPick = new OptionButton();
-            foreach (var k in EffectSchema.QuantityKinds) kindPick.AddItem(k);
-            kindPick.Selected = Math.Max(0, Array.IndexOf(EffectSchema.QuantityKinds, spec.Kind));
-            kindPick.ItemSelected += sel =>
-            {
-                spec.Kind = EffectSchema.QuantityKinds[(int)sel];
-                if (spec.Kind == "DECK_CARDS_MATCHING_COST")
-                    spec.Cost ??= new QuantitySpec { Kind = "CHOSEN_NUMBER" };
-                onChanged();
-                Rebuild();
-            };
-            box.AddChild(kindPick);
-
-            if (spec.Kind == "CONST")
-            {
-                var sb = new SpinBox { MinValue = -30, MaxValue = 30, Value = spec.Value };
-                sb.ValueChanged += v => { spec.Value = (int)v; onChanged(); };
-                box.AddChild(sb);
-            }
-            if (EffectSchema.SidedQuantityKinds.Contains(spec.Kind) || spec.Kind == "DECK_CARDS_MATCHING_COST")
-            {
-                var side = new OptionButton();
-                foreach (var r in RelItems) side.AddItem(r);
-                side.Selected = spec.Side == "opponent" ? 1 : 0;
-                side.ItemSelected += sel => { spec.Side = RelItems[(int)sel]; onChanged(); };
-                box.AddChild(side);
-            }
-            if (spec.Kind == "COUNTER")
-            {
-                box.AddChild(LabeledLine("counter", spec.CounterName, s => { spec.CounterName = s; onChanged(); }));
-                box.AddChild(LabeledLine("on", spec.PermanentDefId, s => { spec.PermanentDefId = s; onChanged(); }));
-            }
-            if (spec.Kind == "DECK_CARDS_MATCHING_COST")
-            {
-                box.AddChild(Dim("of cost"));
-                box.AddChild(BuildQuantityWidget(spec.Cost ??= new QuantitySpec { Kind = "CHOSEN_NUMBER" }, onChanged));
-            }
-        }
-
-        Rebuild();
-        return box;
-    }
+    /// <summary>Shared quantity picker (see QuantityWidget).</summary>
+    private Control BuildQuantityWidget(QuantitySpec spec, Action onChanged) =>
+        QuantityWidget.Build(spec, onChanged);
 
     private Control BuildParamWidget(EffectRow row, ParamSpec p)
     {

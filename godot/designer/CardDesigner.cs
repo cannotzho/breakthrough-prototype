@@ -68,6 +68,11 @@ public partial class CardDesigner : Control
     private OptionButton _colorEdit = null!;
     private OptionButton _supertypeEdit = null!, _subtypeEdit = null!;
     private LineEdit _keywordsEdit = null!;
+    private CheckBox _rapportOn = null!;
+    private VBoxContainer _rapportRow = null!;
+    private HBoxContainer _rapportRewardBox = null!;
+    private SpinBox _rapportMin = null!, _rapportMax = null!;
+    private QuantitySpec _rapportReward = new() { Kind = "CONST", Value = 2 };
     private TextEdit _effectTextEdit = null!;
     private TextEdit _longDescEdit = null!;
     private EffectBuilderView _builderView = null!;
@@ -215,6 +220,32 @@ public partial class CardDesigner : Control
         _keywordsEdit = new LineEdit();
         right.AddChild(_keywordsEdit);
 
+        // Rapport (v1.4.2) is a CARD-LEVEL field, not an effect and not a
+        // trap trigger: on play the player predicts a Priority cost, and if
+        // the opponent plays a card of that cost next turn the reward is paid
+        // in Goodwill. The "Rapport" keyword is kept in sync automatically so
+        // the card always passes validation.
+        right.AddChild(new HSeparator());
+        _rapportOn = new CheckBox { Text = "Rapport card (predict their next-turn play)" };
+        _rapportOn.Toggled += _ => { RefreshRapportRow(); ApplyPreview(); };
+        right.AddChild(_rapportOn);
+
+        _rapportRow = new VBoxContainer();
+        right.AddChild(_rapportRow);
+        var range = new HBoxContainer();
+        range.AddChild(new Label { Text = "guess range" });
+        _rapportMin = new SpinBox { MinValue = 0, MaxValue = 30, Value = 0 };
+        _rapportMin.ValueChanged += _ => ApplyPreview();
+        range.AddChild(_rapportMin);
+        range.AddChild(new Label { Text = "to" });
+        _rapportMax = new SpinBox { MinValue = 0, MaxValue = 30, Value = 10 };
+        _rapportMax.ValueChanged += _ => ApplyPreview();
+        range.AddChild(_rapportMax);
+        _rapportRow.AddChild(range);
+        _rapportRow.AddChild(new Label { Text = "Rapport X — Goodwill paid on a correct guess" });
+        _rapportRewardBox = new HBoxContainer();
+        _rapportRow.AddChild(_rapportRewardBox);
+
         right.AddChild(new Label { Text = "Effect text (auto-generated from effects; editable only for cards with no mechanical effects)" });
         _effectTextEdit = new TextEdit { CustomMinimumSize = new Vector2(0, 80), WrapMode = TextEdit.LineWrappingMode.Boundary };
         right.AddChild(_effectTextEdit);
@@ -343,6 +374,16 @@ public partial class CardDesigner : Control
         _keywordsEdit.Text = card["keywords"] is JsonArray kws
             ? string.Join(", ", kws.Select(k => k!.GetValue<string>()))
             : "";
+        var rapport = card["rapport"] as JsonObject;
+        _rapportOn.SetPressedNoSignal(rapport != null);
+        _rapportMin.Value = rapport?["min"]?.GetValue<int>() ?? 0;
+        _rapportMax.Value = rapport?["max"]?.GetValue<int>() ?? 10;
+        _rapportReward = QuantitySpec.From(rapport?["reward"])
+            is { IsComplex: false } q && rapport?["reward"] != null
+            ? q
+            : new QuantitySpec { Kind = "CONST", Value = 2 };
+        RefreshRapportRow();
+
         _effectTextEdit.Text = card["effectText"]?.GetValue<string>() ?? "";
         _longDescEdit.Text = card["longDescription"]?.GetValue<string>() ?? "";
         LoadEffectBuilder(card);
@@ -368,6 +409,15 @@ public partial class CardDesigner : Control
     }
 
     // ── effect builder / raw hatch ──────────────────────────────────────────
+
+    /// <summary>Rebuild the reward picker and show/hide the Rapport fields.</summary>
+    private void RefreshRapportRow()
+    {
+        _rapportRow.Visible = _rapportOn.ButtonPressed;
+        foreach (var c in _rapportRewardBox.GetChildren()) { _rapportRewardBox.RemoveChild(c); c.QueueFree(); }
+        if (!_rapportOn.ButtonPressed) return;
+        _rapportRewardBox.AddChild(QuantityWidget.Build(_rapportReward, () => ApplyPreview()));
+    }
 
     private string[] TokenIds() => _tokens?.Select(kv => kv.Key).OrderBy(k => k, System.StringComparer.Ordinal).ToArray() ?? [];
 
@@ -455,11 +505,27 @@ public partial class CardDesigner : Control
         // is stored as an explicit null, matching the existing content shape.
         string subtype = _subtypeEdit.GetItemText(_subtypeEdit.Selected);
         node["subtype"] = subtype == "(none)" ? null : JsonValue.Create(subtype);
+        var kws = _keywordsEdit.Text
+            .Split(',', System.StringSplitOptions.RemoveEmptyEntries | System.StringSplitOptions.TrimEntries)
+            .ToList();
+        // Keep the Rapport keyword in step with the Rapport block, so the card
+        // can't fail validation for having one without the other.
+        kws.RemoveAll(k => string.Equals(k, "Rapport", System.StringComparison.OrdinalIgnoreCase));
+        if (_rapportOn.ButtonPressed) kws.Add("Rapport");
         var keywords = new JsonArray();
-        foreach (var kw in _keywordsEdit.Text.Split(',', System.StringSplitOptions.RemoveEmptyEntries
-                                                        | System.StringSplitOptions.TrimEntries))
-            keywords.Add(kw);
+        foreach (var kw in kws) keywords.Add(kw);
         node["keywords"] = keywords;
+
+        if (_rapportOn.ButtonPressed)
+        {
+            node["rapport"] = new JsonObject
+            {
+                ["min"] = (int)_rapportMin.Value,
+                ["max"] = (int)_rapportMax.Value,
+                ["reward"] = _rapportReward.ToNode(),
+            };
+        }
+        else node.Remove("rapport");
 
         if (_rawMode)
         {
