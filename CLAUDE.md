@@ -1,119 +1,150 @@
-# CLAUDE.md — Breakthrough (v1.4 rebuild)
+# CLAUDE.md — Breakthrough
 
-This is the from-scratch rebuild of **Breakthrough**, a detective card game.
-The rules authority is **`Breakthrough_Design_v1.4.md`** plus the Ken-approved
-v1.4.1 changes drafted in **`DESIGN_CHANGES_v1.4.1.md`**; scope and porting
-rules are in **`Rebuild_Brief.md`**. Where anything conflicts, v1.4(+1) wins.
-Ken Zho is the design authority — design changes go through him and receive a
-v1.4+ changelog entry. `PORTING_NOTES.md` tracks open ask-Ken items.
+**Breakthrough** is a detective card game. Ken Zho is the design authority —
+design changes go through him. Rules baseline: `Breakthrough_Design_v1.4.md`
+plus `DESIGN_CHANGES_v1.4.1.md`; `Rebuild_Brief.md` holds the original scope.
+`ENGINE_EFFECTS.md` is the designer-facing reference for what the engine can
+currently do. `PORTING_NOTES.md` tracks open ask-Ken items.
 
-`prototype-v1/` is the retired prototype. Only its data files
-(`src/data/devCards.ts`, `encounterDefs.ts`, `combinations.ts`) and Supabase
-files (`supabase/schema.sql`, `src/lib/supabaseClient.ts`) may be read, as
-content reference. **Never read its engine, screens, components, stores, or
-old design docs** (Brief §2).
+## READ THIS FIRST — what is canonical
 
-## Stack
+The project moved from a TypeScript/React prototype to **Godot 4 (.NET) with a
+C# engine**, and that move is complete:
 
-Vite + React 19 + TypeScript. Chosen because: the engine is framework-agnostic
-pure TS by directive (v1.4 §15.1), so the framework only owns presentation;
-React + Motion (`motion/react`) is the strongest option for sequential,
-never-silent DOM animation over form-heavy dev tooling (canvas engines would
-fight the CRUD screens); Zustand for the thin UI bridge; Supabase JS +
-Realtime for persistence and dual playtest; Vitest for the engine suite.
-Determinism comes from a seeded PRNG stored *inside* combat state — identical
-(seed, action sequence) ⇒ byte-identical states, which is the whole
-dual-playtest sync model.
+| Concern | Canonical today | Status of the old thing |
+| --- | --- | --- |
+| Combat engine | `csharp-engine/Breakthrough.Engine/` | `src/engine/` (TS) is legacy |
+| Game client | `godot/` (Mindspace arena) | `src/ui/` React app is legacy |
+| Card/encounter content | `content/content.json` (checked in) | authored TS files are deleted |
+| Content editing | in-game **Card Designer** (`godot/designer/`) | `src/devtools/` is legacy |
+
+- **The C# engine is the source of truth for correct behaviour** (Ken,
+  2026-07-23). It has intentionally diverged from the TS engine. Divergences
+  are expected — do **not** "fix" C# back toward TS.
+- `csharp-engine/Breakthrough.Engine.Tests/TraceParityTests.cs` replays a
+  recorded *TS* trace. It was the port-fidelity check and is now legacy: when
+  an intentional behaviour change breaks it, regenerate or retire the trace
+  rather than reverting the engine. Verify the change was intended first.
+- `src/` (Vite/React) still builds and its 102-test Vitest suite still passes;
+  it reads the same `content/content.json` through a thin loader
+  (`src/content/index.ts`). Keep it compiling, but new work goes to Godot/C#.
+- `prototype-v1/` is a retired prototype. Do not read its engine, screens,
+  components, stores, or old design docs (Brief §2).
 
 ## Commands
 
-- `npm run dev` — Vite dev server
-- `npm test` — engine test suite (102 tests: §6.7 invariants, §4 boundary
-  ordering, debt-transfer arithmetic, lock-and-keys incl. guard restoration,
-  card-backed Guard Shields (v1.4.1), trap cancellation, all 12 Brief §7
-  known traps, content sanity + winnability)
-- `npm run lint:no-card-ids` — greps the engine for card-ID literals (§15.2)
-- `npm run build` — typecheck + production build
+```
+dotnet test csharp-engine                     # engine suite (128 tests) — the one that matters
+dotnet build godot/Breakthrough.Godot.sln     # Godot client + designer (no Godot install needed)
+npm test                                      # legacy TS engine suite (102)
+npm run build                                 # legacy React app typecheck + build
+```
+
+Godot itself (4.7+, **.NET edition**) is only needed to *run* the game:
+open `godot/project.godot`, F5. See `godot/README.md` for controls and the
+artist asset contract.
 
 ## Architecture
 
 ```
-src/engine/     PURE. No React, no Supabase, no module-level state, no card IDs
-                (one permitted content id: 'ponder', the designed fallback).
-  types.ts        full v1.4 vocabulary (events, effects, restrictions, config)
-  quantities.ts   evalQuantity/evalCondition — all scales & conditions
-  rng.ts          mulberry32; RNG state lives in CombatState
-  core.ts         effect stack (ONE suspension mechanism §15.4), event dispatch
-                  (ONE integration point §15.5), shield procedures, play
-                  sequencing §6.3/§6.6, thresholds §3.10
-  boundaries.ts   ONE handoff() §15.3 — all §4 boundary steps live here only;
-                  check() §6.1 (win before loss)
-  reducer.ts      public reduce(state, action) — clones input, rejects illegal
-                  actions without state change
-  setup.ts        buildInitialState (validates, seeds, placeholders, set-asides)
-  validation.ts   authoring-time checks (canonical events only, keyless locks…)
-src/content/    Ported card/encounter data (Brief §6 re-expression). Data only.
-src/net/        supabaseClient, persistence (content CRUD + §12 progress),
-                realtime (dual playtest host-authority protocol)
-src/stores/     gameStore — driver concerns only (history, session, manual mode)
-src/ui/         title / combat / playtest screens, styles
-src/devtools/   card editor, encounter builder, nugget manager, deck builder,
-                in-combat DevPanel (inspector, dev actions, manual enemy mode)
-tests/engine/   the suite; fixtures are synthetic (content-agnostic engine)
+csharp-engine/
+  Breakthrough.Engine/        PURE. No Godot, no UI, no module state, no card
+                              IDs (one permitted: 'ponder', the fallback).
+    Types.ts→Types.cs           full vocabulary; CombatState; CombatAction union
+    Quantities.cs               EvalQuantity / EvalCondition
+    Rng.cs                      mulberry32; RNG state lives in CombatState
+    Core.cs                     effect stack (ONE suspension mechanism),
+                                event dispatch (ONE integration point),
+                                shields, play sequencing, thresholds
+    Boundaries.cs               ONE Handoff(); all §4 boundary steps; Check()
+    Reducer.cs                  Reduce(state, action) — clones, rejects illegal
+    Setup.cs / Validation.cs    initial state / authoring-time checks
+    Json/EngineJson.cs          canonical (de)serialisation — the wire-format authority
+  Breakthrough.Engine.Tests/  xUnit suite + content.json copy
+godot/
+  CombatSession.cs            THE UI/engine seam (pure C#): typed intents in,
+                              CombatView out. Scenes NEVER touch CombatState.
+  CombatView.cs               the only state shape scenes see; hidden info
+                              (NPC hand, guard backing, face-down traps) is
+                              filtered HERE; NewLog carries the per-view log
+                              delta that drives animation
+  CombatBridge.cs             Node adapter: StateChanged signal, NPC pacing
+  arena/                      MindspaceArena (3D combat), Card3D, ArenaHud,
+                              AnimationDirector, TableProps, ArtLibrary,
+                              AudioLibrary, CardArt
+  designer/                   Card Designer: effect builder, QuantitySpec,
+                              EffectSchema, EffectTextGenerator
+  art/                        shaders, card art + manifest.json, audio slots
+content/content.json          CANONICAL content store (cards, tokens, nuggets,
+                              encounters, recipes, decks)
+src/                          legacy React app + TS engine (still builds)
 ```
 
-### Engine invariants the code enforces (do not regress)
+### Engine invariants (do not regress)
 
 - Two independent Priority meters; overspend unbounded; debt transfers at turn
   end, clamped at the *receiver's* turn start (§3.1). No auto turn handoff.
-- Turn-start formula only — there is no "restore priority" anywhere (§3.1,
-  Brief §7.3).
+- Turn-start formula only — there is no "restore priority" anywhere. Priority
+  gained during the opponent's turn is therefore lost at your turn start; that
+  is correct, not a bug.
 - All timed mechanics live in exactly one §4 boundary step; expiry ticks run
-  before boundary-triggered effects apply (Brief §7.6).
+  before boundary-triggered effects apply.
 - Generic break effects hit Guard Shields only; NPC Core Shields break solely
   via key nuggets while zero Guards stand; Guards are restorable (§3.3).
-- Effect sequences suspend and resume, never restart; play completion (move
-  card → CARD_RESOLVED → thresholds) always runs, including after a Reveal
-  (§6.7.6, Brief §7.2).
-- Cancelled staged cards discard exactly once and never begin resolution
-  (§3.6, Brief §7.4).
-- BotM Select fires only from Player Turn End (§6.5, Brief §7.8).
-- The reducer is pure; encounter config is immutable input (§6.7.12).
+- Effect sequences suspend and resume, never restart; play completion always
+  runs, including after a Reveal (§6.7.6).
+- Cancelled staged cards discard exactly once and never begin resolution (§3.6).
+- BotM Select fires only from Player Turn End (§6.5).
+- The reducer is pure; encounter config is immutable input. Determinism:
+  identical (seed, action sequence) ⇒ byte-identical state.
+- Adding a new resume action? The reducer has a **pending-block gate** that
+  rejects any action while a block is pending — whitelist it there or it will
+  silently fail as an illegal action.
 
-### Dev tooling notes (Brief §5)
+### v1.4.2 mechanics (C#-only, added after the port)
 
-- **Manual enemy mode** (Dev Panel in combat): a human stages the NPC's play
-  from its hand via `NPC_PLAY_CARD` — identical state transitions to the
-  automatic leftmost policy (tested byte-identical in `purity.test.ts`).
-- **Dual playtest** (`#/playtest`): host shares a 5-letter code; guest drives
-  the NPC side. Host is the authority: it validates guest requests through the
-  reducer and broadcasts the applied action sequence; both clients replay the
-  same actions over the same seeded initial state. NPC turn end remains
-  automatic (§4.4). Dev-panel patches are disabled during sessions (they'd
-  break determinism).
-- **Encounter builder** launches a playtest directly; all editors run the
-  engine's authoring validation before save.
+- **Goodwill** — a third shared counter beside Patience and Lies. Patience is
+  now always capped at its starting value; the overflow becomes Goodwill when
+  `encounter.patienceOverflowToGoodwill` is on, else it is discarded.
+- **Goodwill costs** — `goodwillCost` is a hard cost (blocks the play, unlike
+  Priority which may be overspent); `additionalGoodwillCost` +
+  `additionalEffects` is an optional upgrade that never blocks the base play.
+- **Rapport** — a card-level `rapport` field (NOT an effect, NOT a trap
+  trigger): on play the player predicts a Priority cost; if the opponent plays
+  a card of that cost during their next turn it pays `reward` (a Quantity, so
+  it can scale) in Goodwill. First match only; expires at NPC Turn End.
+- **Player-chosen token destruction** — `DESTROY_TOKENS` raises a
+  `ChooseTokensBlock` when the player has more candidates than the count. The
+  NPC always auto-resolves earliest-first so its turn stays automatic.
+- **First-time-this-turn triggers** — no new syntax: the
+  `EVENT_OCCURRENCE_THIS_TURN` quantity counts the current event type's
+  firings this turn, so "first time" is `eq 1` in an ordinary condition.
 
-### Persistence (Brief §3)
+### Working rules that have paid off
 
-Fresh schema in `supabase/schema.sql` (old v1.2 tables dropped — Ken approved
-discarding old rows). Content tables (`cards`, `encounters`, `info_nuggets`,
-`decks`) back the dev tools; `progress_*` tables persist the Collection,
-global nugget discovery, per-NPC trait discovery, and per-encounter retry
-state (persistent core-shield breaks, `playedNonRelevantCards`). The app works
-offline from bundled content in `src/content/` if Supabase is unreachable.
-"Seed Supabase" in Dev Tools uploads the bundled content.
-
-### Known environment quirk (this workspace)
-
-In-place file edits through the mounted-folder bridge have produced truncated
-syncs; when modifying source here, delete + rewrite files rather than editing
-in place, and re-run `npm test` after any batch of writes.
+- **Content is Ken's.** Never hand-edit `content/content.json`, card art, or
+  `art/cards/manifest.json` — he edits those in the Card Designer, and his
+  in-progress edits are routinely uncommitted in the working tree. Commit only
+  your own code.
+- **Verify before claiming.** The engine has a headless-testable seam: pure
+  C# files (`CombatSession`, `CombatView`, designer model/specs) can be
+  compiled into a scratch console project and driven without Godot. Several
+  "engine bugs" turned out to be content or presentation issues — trace them
+  before changing the engine.
+- Godot is **not installed on this machine**; everything is verified by
+  `dotnet build` + `dotnet test` + headless drivers. Visual/layout constants
+  are Ken's to tune in-editor.
+- PowerShell breaks on `>=`/`>` in heredoc commit messages — use
+  `git commit -F <file>`.
+- Push only when Ken asks; he usually smoke-tests local commits first.
 
 ## Status
 
-Engine, tests, UI, dev tools, dual playtest, persistence, and content port are
-in place. Open design questions are collected in `PORTING_NOTES.md` — most
-importantly the DRAFT key-nugget assignments in `src/content/encounters.ts`
-and the cards that need vocabulary decisions (equal_exchange,
-monolithic_ideals, genuine_enjoyment, lunatic_love rider, copy-inversion).
+Engine ported and extended (128 tests), Godot client playable end to end
+(3D arena, animation timeline, audio), Card Designer authoring the canonical
+content with structured effect composition and auto-generated rules text.
+
+Open: the six Green Rapport cards still carry the pre-v1.4.2 shape and need
+their reward set + saved in the designer (validation warns). Effect-text
+vocabulary refinement is tracked in
+[issue #179](https://github.com/cannotzho/breakthrough-prototype/issues/179).

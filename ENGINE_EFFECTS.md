@@ -1,6 +1,8 @@
 # Engine Effect Reference
 
 Everything the combat engine can currently do, as a designer-facing lookup.
+Includes the v1.4.2 additions (Goodwill, Rapport, chosen token destruction,
+first-time-this-turn triggers).
 
 **Authority:** the C# engine at `csharp-engine/Breakthrough.Engine/` is the
 source of truth (Godot/C# is canonical as of 2026-07-23). The exact wire
@@ -39,10 +41,11 @@ Every effect also accepts the two universal modifiers below.
 
 | Type | Parameters | Effect | Used | Designer |
 | --- | --- | --- | --- | --- |
-| `MODIFY_PATIENCE` | `value` (+restore / −pay), `altValue?`, `altCondition?` | Change shared Patience. **No cap** by design (v1.4 §3.2); ≤ 0 is a player loss. | 54 | ✅ (alt-value → raw) |
+| `MODIFY_PATIENCE` | `value` (+restore / −pay), `altValue?`, `altCondition?` | Change shared Patience. **Capped at the starting value** (v1.4.2); overflow → Goodwill or discarded. ≤ 0 is a player loss. | 54 | ✅ (alt-value → raw) |
 | `MODIFY_PRIORITY` | `value`, `target?` (`self`\|`opponent`) | Change a side's Priority. Overspend is unbounded; a negative end-of-turn total transfers as debt. | 16 | ✅ |
 | `DRAW_CARDS` | `value` | Draw from the top of your deck (recycles discard when empty). | 12 | ✅ |
 | `RESHUFFLE_DECK` | — | Shuffle your deck. | 1 | ✅ |
+| `MODIFY_GOODWILL` | `value` | Change Goodwill (v1.4.2). Never negative. | 0 | ✅ |
 
 ### Shields
 
@@ -127,6 +130,8 @@ Anywhere a number is dynamic. `side` is `self` or `opponent` where noted.
 | --- | --- |
 | `CONST` | a fixed `value` |
 | `PATIENCE` / `MISSING_PATIENCE` | current Patience / how far below the start it is |
+| `GOODWILL` | current Goodwill (v1.4.2) |
+| `EVENT_OCCURRENCE_THIS_TURN` | times the current event's type has fired this turn, including this one — `eq 1` means "first time this turn" (v1.4.2) |
 | `PRIORITY` *(sided)* | a side's Priority |
 | `ROUND` | round number |
 | `LIE_COUNTER` | lies told |
@@ -147,6 +152,21 @@ Anywhere a number is dynamic. `side` is `self` or `opponent` where noted.
 | `EVENT_IS_OWN_SHIELD` / `EVENT_IS_EXTRA_DRAW` | 1 or 0 flags about the event |
 
 ---
+
+## Card-level fields that are NOT effects (v1.4.2)
+
+These live on the card itself, alongside `name` / `cost` / `keywords` — they
+are neither entries in `effects` nor trap triggers. All are editable in the
+Card Designer's card panel.
+
+| Field | Meaning |
+| --- | --- |
+| `goodwillCost` | Goodwill required to play at all. A **hard** cost: unlike Priority, Goodwill is never overspent, so the card is unplayable without it. |
+| `additionalGoodwillCost` + `additionalEffects` | An **optional** extra payment. Offered only when affordable, never blocks the base play; paying it appends `additionalEffects`. |
+| `rapport` = `{ min, max, reward }` | **Rapport X.** On play the player names a cost in `[min, max]`; if the opponent plays a card of that cost during their **next turn**, they gain `reward` Goodwill. `reward` is a Quantity, so it can be a constant or scale (e.g. `CHOSEN_NUMBER`). Pays on the **first match only** and expires at NPC Turn End. Requires the `Rapport` keyword (the designer keeps them in sync). A missing `reward` pays 0 and raises a validation warning. |
+
+Encounter-level toggles: `patienceOverflowToGoodwill` (overflow Patience
+becomes Goodwill instead of being discarded) and `startingGoodwill`.
 
 ## Restriction types (11)
 
