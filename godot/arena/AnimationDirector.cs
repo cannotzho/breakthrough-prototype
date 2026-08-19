@@ -37,6 +37,7 @@ public partial class AnimationDirector : Node3D
         /// <summary>definitionId → card face data (for the NPC play flyby).</summary>
         public required System.Func<string, CombatSession.CardInfo?> ResolveCard;
         public required ArenaAudio Audio;
+        public required GoodwillCairn Goodwill;
     }
 
     private ArenaRefs _r = null!;
@@ -200,6 +201,28 @@ public partial class AnimationDirector : Node3D
                         _r.Rig.FocusOn(_r.PlayerShieldAnchor, 0.7f);
                     }, 1.8f);
                 }
+                break;
+            }
+            case "rapport-hit":
+            {
+                // The payout lands the instant their card resolves, so show it
+                // right there: focus the cairn, call it out, pay the stones.
+                int reward = IntOf(e, "reward");
+                Enqueue(() =>
+                {
+                    _r.Audio.Play("goodwill");
+                    _r.Goodwill.Pulse();
+                    _r.Rig.FocusOn(_r.Goodwill.FocusPoint, 0.7f);
+                    DelayedFloat(0.4f, $"Rapport! +{reward} Goodwill",
+                        _r.Goodwill.FocusPoint + new Vector3(0, 0.7f, 0), new Color("7ad4c8"), big: true);
+                }, 1.9f);
+                break;
+            }
+            case "rapport-predicted":
+            {
+                int n = IntOf(e, "number");
+                Enqueue(() => FloatText($"Rapport: predicting {n}",
+                    _r.TableCenter + new Vector3(0, 0.7f, 0), new Color("7ad4c8")), 0.7f);
                 break;
             }
             case "lie":

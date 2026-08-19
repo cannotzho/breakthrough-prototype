@@ -378,10 +378,12 @@ public partial class CardDesigner : Control
         _rapportOn.SetPressedNoSignal(rapport != null);
         _rapportMin.Value = rapport?["min"]?.GetValue<int>() ?? 0;
         _rapportMax.Value = rapport?["max"]?.GetValue<int>() ?? 10;
-        _rapportReward = QuantitySpec.From(rapport?["reward"])
-            is { IsComplex: false } q && rapport?["reward"] != null
-            ? q
-            : new QuantitySpec { Kind = "CONST", Value = 2 };
+        // Default to 0 when nothing is saved: showing a plausible-looking
+        // number for an UNCONFIGURED card made it look already set up, which
+        // is exactly how the Green cards ended up paying nothing.
+        _rapportReward = rapport?["reward"] != null
+            ? QuantitySpec.From(rapport["reward"])
+            : new QuantitySpec { Kind = "CONST", Value = 0 };
         RefreshRapportRow();
 
         _effectTextEdit.Text = card["effectText"]?.GetValue<string>() ?? "";

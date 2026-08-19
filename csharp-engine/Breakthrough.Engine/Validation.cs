@@ -59,6 +59,13 @@ public static class Validation
         {
             issues.Add(new ValidationIssue(Severities.Error, w, "Rapport keyword requires rapport prediction config (v1.4 §8.3)."));
         }
+        if (card.Rapport is { Reward: null })
+        {
+            // A Rapport card with no reward silently pays nothing on a correct
+            // prediction — the commonest way to author one wrong (v1.4.2).
+            issues.Add(new ValidationIssue(Severities.Warning, w,
+                "Rapport has no reward set — a correct prediction will pay 0 Goodwill."));
+        }
         if (card.Keywords.Contains(Keywords.HeavyHand) && card.HeavyHandEffects == null)
         {
             issues.Add(new ValidationIssue(Severities.Error, w, "Heavy Hand keyword requires heavyHandEffects (v1.4 §8.3)."));

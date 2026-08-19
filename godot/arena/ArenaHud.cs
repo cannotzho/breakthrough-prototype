@@ -487,12 +487,41 @@ public partial class ArenaHud : CanvasLayer
         }
     }
 
+    /// <summary>
+    /// Deck reveal (Ken round 9): names alone told the player nothing. Rows
+    /// now carry cost + rules text as a tooltip, and hovering one stages the
+    /// full card near the camera exactly like hovering a card in hand.
+    /// </summary>
     private void ShowDeckReveal(DeckRevealPromptView d)
     {
-        var box = OpenPromptBox("Deck revealed (top first)");
-        foreach (var name in d.CardNames) box.AddChild(new Label { Text = "• " + name });
-        PromptButton(box, "Continue", () => _bridge.AcknowledgePrompt());
+        var box = OpenPromptBox("Their deck, top first — hover a card to inspect it");
+        for (int i = 0; i < d.CardNames.Count; i++)
+        {
+            string defId = i < d.CardDefIds.Count ? d.CardDefIds[i] : "";
+            var info = _bridge.GetCardInfo(defId);
+            var row = new Button
+            {
+                Text = $"{i + 1}. {d.CardNames[i]}" + (info != null ? $"   [{info.Cost}]" : ""),
+                Flat = true,
+                Alignment = HorizontalAlignment.Left,
+                TooltipText = info == null ? "" : $"[{info.Cost}] {info.EffectText}",
+            };
+            row.MouseEntered += () => StageRevealedCard?.Invoke(defId);
+            row.Pressed += () =>
+            {
+                if (info != null) ShowCardDetail(d.CardNames[i], $"in their deck · cost {info.Cost}", info.EffectText);
+            };
+            box.AddChild(row);
+        }
+        PromptButton(box, "Continue", () =>
+        {
+            StageRevealedCard?.Invoke("");   // clear the staged copy
+            _bridge.AcknowledgePrompt();
+        });
     }
+
+    /// <summary>Arena hook: stage this definition near the camera ("" clears).</summary>
+    public System.Action<string>? StageRevealedCard;
 
     private void ShowBotm(BotmPromptView b)
     {

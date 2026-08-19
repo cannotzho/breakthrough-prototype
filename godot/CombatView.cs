@@ -75,7 +75,15 @@ public sealed record PermanentView(
     string EffectText,
     IReadOnlyDictionary<string, int> Counters,
     int? TurnsRemaining,
-    IReadOnlyList<AbilityView> Abilities);
+    IReadOnlyList<AbilityView> Abilities)
+{
+    /// <summary>
+    /// True for permanents whose identity is hidden from the player — an
+    /// opponent Trap is face-down until it fires. Name/effect text are blanked
+    /// at the seam so the scene cannot leak what it never receives.
+    /// </summary>
+    public bool FaceDown { get; init; }
+}
 
 /// <summary>
 /// Data is the engine's structured payload (side, delta, shieldType,
@@ -98,7 +106,9 @@ public sealed record RevealPromptView(string Lore, bool IsHint, string? HintText
 
 public sealed record ChooseNumberPromptView(int Min, int Max) : PromptView;
 
-public sealed record DeckRevealPromptView(IReadOnlyList<string> CardNames) : PromptView;
+/// <summary>Def ids run parallel to the names so the UI can show full card faces.</summary>
+public sealed record DeckRevealPromptView(
+    IReadOnlyList<string> CardNames, IReadOnlyList<string> CardDefIds) : PromptView;
 
 /// <summary>Back-of-Mind select (fires only from Player Turn End, §6.5).</summary>
 public sealed record BotmPromptView(int Limit, IReadOnlyList<HandCardView> Hand) : PromptView;
@@ -280,6 +290,18 @@ public static class CombatViewBuilder
     private static PermanentView BuildPermanent(CombatState s, Permanent p)
     {
         var def = DefOf(s, p.DefinitionId);
+
+        // An opponent Trap stays face-down until it fires: the player sees a
+        // card is there, but not which one.
+        bool hidden = p.Kind == PermanentKinds.Trap && p.Owner == Side.Npc;
+        if (hidden)
+        {
+            return new PermanentView(
+                p.PermanentId, p.Kind, "", "Face-down Trap", p.Owner.ToKey(), "",
+                new Dictionary<string, int>(), p.TurnsRemaining, [])
+            { FaceDown = true };
+        }
+
         var abilities = (def?.ActivatedAbilities ?? [])
             .Select(ab => new AbilityView(ab.Id, ab.Name, CostText(ab.Cost), ab.Cost.DiscardCards ?? 0))
             .ToList();
@@ -337,7 +359,9 @@ public static class CombatViewBuilder
             case ChooseNumberBlock c:
                 return new ChooseNumberPromptView(c.Min, c.Max);
             case DeckRevealBlock d:
-                return new DeckRevealPromptView(d.CardDefIds.Select(id => NameOf(s, id)).ToList());
+                return new DeckRevealPromptView(
+                    d.CardDefIds.Select(id => NameOf(s, id)).ToList(),
+                    d.CardDefIds.ToList());
             case ChooseTokensBlock ct:
                 return new ChooseTokensPromptView(
                     ct.Count,

@@ -90,6 +90,15 @@ public partial class MindspaceArena : Node3D
 
         _hud = new ArenaHud();
         _hud.Init(_bridge, ToggleHandInspect);
+        // Hovering a revealed deck card stages it near the camera, reusing the
+        // same presentation as hovering a card in hand.
+        _hud.StageRevealedCard = defId =>
+        {
+            if (defId.Length == 0) { ClearStagedCard(); return; }
+            var info = _bridge.GetCardInfo(defId);
+            if (info == null) return;
+            StageCard($"reveal:{defId}", info.Name, info.Cost.ToString(), info.EffectText, info.Color, defId);
+        };
         AddChild(_hud);
 
         _cardMenu = new PopupMenu();
@@ -213,6 +222,7 @@ public partial class MindspaceArena : Node3D
             TableCenter = TableCenter,
             NpcDiscardExit = NpcDiscardExit,
             Audio = _audio,
+            Goodwill = _goodwill,
             PlayerDeckAnchor = _playerDeckPile.Position + new Vector3(0, 0.5f, 0),
             NpcDeckAnchor = _npcDeckPile.Position + new Vector3(0, 0.5f, 0),
             ResolvePermanentPos = permId =>
@@ -518,8 +528,10 @@ public partial class MindspaceArena : Node3D
                 : string.Join(" ", p.Counters.Select(kv => $"{kv.Key}:{kv.Value}"));
             string sub = p.Kind + (p.TurnsRemaining is int t ? $" · {t}t" : "") +
                 (p.Abilities.Count > 0 ? " · click for abilities" : "");
-            card.SetColor(_bridge.GetCardInfo(p.DefinitionId)?.Color ?? "Colorless");
-            card.SetFace(p.Name, counters, sub, p.DefinitionId);
+            card.SetColor(p.FaceDown ? "Colorless" : _bridge.GetCardInfo(p.DefinitionId)?.Color ?? "Colorless");
+            card.SetFace(p.Name, counters, sub, p.FaceDown ? null : p.DefinitionId);
+            // An opponent Trap shows only that something is set, not what.
+            card.SetFaceDown(p.FaceDown);
             // Counter total as a corner badge, readable from table view.
             int counterTotal = p.Counters.Values.Sum();
             card.SetCounterBadge(counterTotal > 0 ? counterTotal.ToString() : "");
@@ -819,6 +831,13 @@ public partial class MindspaceArena : Node3D
             case "field":
                 var p = v.Field.FirstOrDefault(f => f.PermanentId == card.Key);
                 if (p == null) break;
+                if (p.FaceDown)
+                {
+                    ClearStagedCard();
+                    _hud.ShowCardDetail("Face-down Trap", "theirs",
+                        "A Trap they have set. You won't see what it is until it fires.");
+                    return;
+                }
                 string counters = p.Counters.Count == 0
                     ? ""
                     : " · " + string.Join(", ", p.Counters.Select(kv => $"{kv.Key} {kv.Value}"));
